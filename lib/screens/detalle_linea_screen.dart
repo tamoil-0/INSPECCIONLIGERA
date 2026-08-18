@@ -1,12 +1,12 @@
  import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
+import '../repositorios/borradores_repositorio.dart';
+import '../repositorios/fotos_repositorio.dart';
 import '../services/poste_datos_service.dart';
 import '../services/imagenesPoste_service.dart';
- import 'package:permission_handler/permission_handler.dart';
- import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 class DetalleLineaScreen extends StatefulWidget {
   final int proyectoId;
   final String linea;
@@ -21,8 +21,8 @@ class _DetalleLineaScreenState extends State<DetalleLineaScreen> {
   final DatabaseHelper _db = DatabaseHelper();
   final PosteDatosService _posteService = PosteDatosService();
   final ImagenesPosteService _imagenService = ImagenesPosteService();
-
-  String? _posteActualSincronizando;
+  final FotosRepositorio _fotos = FotosRepositorio();
+  final BorradoresRepositorio _borradores = BorradoresRepositorio();
 
   late SharedPreferences _prefs;
   List<Map<String, dynamic>> _todosLosPostes = [];
@@ -140,10 +140,7 @@ class _DetalleLineaScreenState extends State<DetalleLineaScreen> {
     if (consultarServidor) {
       await Future.wait(posteLote.map((poste) async {
         try {
-          setState(() => _posteActualSincronizando = poste['codigo'] ?? 'ID ${poste['poste_id']}');
-
-
-        final estado = await _posteService.obtenerEstadoSincronizacion(
+          final estado = await _posteService.obtenerEstadoSincronizacion(
               posteId: poste['poste_id'], token: token);
           poste['formulario_servidor'] = estado['formulario_subido'];
           poste['imagenes_servidor'] = estado['imagenes_subidas'];
@@ -433,89 +430,290 @@ class _DetalleLineaScreenState extends State<DetalleLineaScreen> {
 
 
   Future<void> _sincronizarPaginaActual() async {
+    if (_sincronizando) return;
+
+    final String? token = _prefs.getString('token');
+    if (token == null || token.isEmpty) {
+      // ANTES: este `return` dejaba _sincronizando en true y la pantalla
+      // quedaba bloqueada tras el overlay modal para siempre.
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Tu sesión venció. Inicia sesión otra vez; los datos pendientes '
+            'siguen guardados en el teléfono.',
+          ),
+          backgroundColor: Color(0xFFC62828),
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _sincronizando = true;
       _progreso = 0.0;
     });
 
-    final String? token = _prefs.getString('token');
-    if (token == null) return;
+    var resumen = const ResumenSincronizacion();
 
-    final aEnviar = _postesVisibles.where((p) {
-      final fLocal = (p['formulario_local'] ?? 0) == 1;
-      final fServ = (p['formulario_servidor'] ?? false) == true;
-      final iLocal = (p['imagenes_local'] ?? 0) > 0;
-      final iServ = (p['imagenes_servidor'] ?? false) == true;
-      return (fLocal && !fServ) || (iLocal && !iServ);
-    }).toList();
+    try {
+      final aEnviar = _postesVisibles.where((p) {
+        final fLocal = (p['formulario_local'] ?? 0) == 1;
+        final fServ = (p['formulario_servidor'] ?? false) == true;
+        final iLocal = (p['imagenes_local'] ?? 0) > 0;
+        final iServ = (p['imagenes_servidor'] ?? false) == true;
+        return (fLocal && !fServ) || (iLocal && !iServ);
+      }).toList();
 
-    const int batchSize = 3; // ejecuta 3 en paralelo
-    for (int i = 0; i < aEnviar.length; i += batchSize) {
-      final lote = aEnviar.sublist(i, (i + batchSize).clamp(0, aEnviar.length));
-      await Future.wait(lote.map((poste) => _sincronizarPoste(poste, token)));
-      final nuevoProgreso = (i + batchSize) / aEnviar.length;
-      if (mounted && nuevoProgreso > _progreso + 0.05) {
-        setState(() => _progreso = nuevoProgreso.clamp(0.0, 1.0));
+      if (aEnviar.isEmpty) {
+        if (mounted) setState(() => _sincronizando = false);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No hay nada pendiente en esta página.'),
+          ),
+        );
+        return;
       }
 
+      const int batchSize = 3; // ejecuta 3 en paralelo
+      for (int i = 0; i < aEnviar.length; i += batchSize) {
+        final lote = aEnviar.sublist(
+          i,
+          (i + batchSize).clamp(0, aEnviar.length),
+        );
+        final resultados = await Future.wait(
+          lote.map((poste) => _sincronizarPoste(poste, token)),
+        );
+        for (final r in resultados) {
+          resumen = resumen.fusionar(r);
+        }
+
+        final nuevoProgreso = (i + batchSize) / aEnviar.length;
+        if (mounted && nuevoProgreso > _progreso + 0.05) {
+          setState(() => _progreso = nuevoProgreso.clamp(0.0, 1.0));
+        }
+      }
+    } finally {
+      // Se libera el bloqueo pase lo que pase.
+      if (mounted) setState(() => _sincronizando = false);
     }
 
     if (mounted) {
-      setState(() => _sincronizando = false);
-    }
-    if (aEnviar.isNotEmpty && mounted) {
-      await _cargarPagina(_paginaActual, consultarServidor: _estadoServidorVisible);
-    }
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("✅ Sincronización completada con éxito."),
-          backgroundColor: Colors.green,
-        ),
+      await _cargarPagina(
+        _paginaActual,
+        consultarServidor: _estadoServidorVisible,
       );
     }
 
+    if (!mounted) return;
+    // Mensaje honesto: refleja lo que el servidor confirmó, no el hecho de
+    // haber terminado el bucle.
+    final bien = resumen.todoConfirmado;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 6),
+        backgroundColor: bien ? const Color(0xFF2E7D32) : const Color(0xFFEF6C00),
+        content: Text(resumen.mensaje()),
+      ),
+    );
   }
 
-  Future<void> _sincronizarPoste(Map<String, dynamic> poste, String token) async {
-    final posteId = poste['poste_id'];
-    final formulario = await _db.getFormularioPorPoste(posteId);
-    final datosJson = formulario?['datos_json'];
+  /// Sincroniza un poste y devuelve qué se confirmó de verdad.
+  ///
+  /// ANTES: se llamaba a `actualizarDatosPoste` y `subirImagenBatch` ignorando
+  /// su valor de retorno, y a continuación se marcaba TODO como sincronizado.
+  /// Como `obtenerImagenesDePoste` solo devuelve lo no sincronizado, una foto
+  /// que falló quedaba invisible para siempre: nunca se reintentaba y la tabla
+  /// mostraba ✅ mientras el servidor no tenía nada.
+  Future<ResumenSincronizacion> _sincronizarPoste(
+    Map<String, dynamic> poste,
+    String token,
+  ) async {
+    final posteId = poste['poste_id'] as int;
+    var resumen = const ResumenSincronizacion();
 
-    if (datosJson != null && datosJson.toString().trim().isNotEmpty) {
-      final datos = Map<String, dynamic>.from(await _db.decodeJson(datosJson));
-      await _posteService.actualizarDatosPoste(posteId: posteId, token: token, datos: datos);
-      await _db.guardarFormularioCompleto(posteId: posteId, datos: datos);
-    }
+    // ---- Formulario + tablero RST ----
+    final borrador = await _borradores.obtener(posteId);
+    if (borrador != null && !borrador.estaSincronizado && borrador.datos.isNotEmpty) {
+      await _borradores.marcarSubiendo(posteId);
+      try {
+        final okDatos = await _posteService.actualizarDatosPoste(
+          posteId: posteId,
+          token: token,
+          datos: borrador.datos,
+        );
 
-    final rst = await _db.getRSTPorPoste(posteId);
-    if (rst.isNotEmpty) {
-      await _posteService.agregarSeccionRST(posteId: posteId, token: token, datos: {"registros": rst});
-    }
+        if (!okDatos) {
+          await _borradores.marcarFallido(
+            posteId,
+            'El servidor no confirmó la actualización de datos.',
+          );
+          resumen = resumen.conFormularioFallido();
+        } else {
+          var okRst = true;
+          if (borrador.rst.isNotEmpty) {
+            okRst = await _posteService.agregarSeccionRST(
+              posteId: posteId,
+              token: token,
+              datos: {'registros': borrador.rst},
+            );
+          }
 
-    final imagenes = await _db.obtenerImagenesDePoste(posteId);
-    Map<String, File> archivos = {};
-    Map<String, Map<String, dynamic>> metadatos = {};
-
-    for (final img in imagenes) {
-      final file = File(img['ruta_archivo']);
-      if (await file.exists()) {
-        archivos[img['nombre_foto']] = file;
-        metadatos[img['nombre_foto']] = {
-          'utm_este': img['utm_este'],
-          'utm_norte': img['utm_norte'],
-          'zona': img['zona'],
-          'fecha': img['fecha_inspeccion'],
-        };
+          if (okRst) {
+            await _borradores.marcarSincronizado(posteId);
+            // Espejo local confirmado.
+            await _db.guardarFormularioCompleto(
+              posteId: posteId,
+              datos: borrador.datos,
+            );
+            resumen = resumen.conFormularioConfirmado();
+          } else {
+            await _borradores.marcarFallido(
+              posteId,
+              'Los datos se enviaron pero el tablero RST no fue confirmado.',
+            );
+            resumen = resumen.conFormularioFallido();
+          }
+        }
+      } catch (e) {
+        await _borradores.marcarFallido(posteId, 'Error de envío: $e');
+        resumen = resumen.conFormularioFallido();
       }
     }
 
-    if (archivos.isNotEmpty) {
-      await _imagenService.subirImagenBatch(posteId, archivos, metadatos);
-      for (final img in imagenes) {
-        await _db.marcarImagenComoSincronizada(img['id']);
+    // ---- Fotografías ----
+    final pendientes = await _fotos.pendientesDePoste(posteId);
+    final disponibles = <FotoLocal>[];
+    for (final f in pendientes) {
+      if (await f.archivo.exists()) {
+        disponibles.add(f);
+      } else {
+        await _fotos.marcarFallida(
+          f.id,
+          'El archivo de la fotografía ya no está en el teléfono.',
+        );
+        resumen = resumen.conFotoFallida();
       }
     }
+
+    if (disponibles.isEmpty) return resumen;
+
+    final archivos = <String, File>{};
+    final metadatos = <String, Map<String, dynamic>>{};
+    for (final f in disponibles) {
+      archivos[f.nombreFoto] = f.archivo;
+      metadatos[f.nombreFoto] = f.metadatosParaSubida;
+    }
+
+    await _fotos.marcarSubiendo(disponibles.map((f) => f.id));
+
+    try {
+      final resultado = await _imagenService.subirImagenBatch(
+        posteId,
+        archivos,
+        metadatos,
+      );
+
+      for (final f in disponibles) {
+        if (resultado.confirmadas.contains(f.nombreFoto)) {
+          await _fotos.marcarSincronizada(f.id);
+          resumen = resumen.conFotoConfirmada();
+        } else {
+          await _fotos.marcarFallida(
+            f.id,
+            resultado.error ?? 'El servidor no confirmó la recepción.',
+          );
+          resumen = resumen.conFotoFallida(resultado.error);
+        }
+      }
+    } catch (e) {
+      for (final f in disponibles) {
+        await _fotos.marcarFallida(f.id, 'Error de envío: $e');
+        resumen = resumen.conFotoFallida('$e');
+      }
+    }
+
+    return resumen;
+  }
+}
+
+/// Cuentas reales de una sincronización, para poder informar sin exagerar.
+class ResumenSincronizacion {
+  final int formulariosConfirmados;
+  final int formulariosFallidos;
+  final int fotosConfirmadas;
+  final int fotosFallidas;
+  final String? ultimoError;
+
+  const ResumenSincronizacion({
+    this.formulariosConfirmados = 0,
+    this.formulariosFallidos = 0,
+    this.fotosConfirmadas = 0,
+    this.fotosFallidas = 0,
+    this.ultimoError,
+  });
+
+  bool get huboIntentos =>
+      formulariosConfirmados +
+          formulariosFallidos +
+          fotosConfirmadas +
+          fotosFallidas >
+      0;
+
+  bool get todoConfirmado =>
+      huboIntentos && formulariosFallidos == 0 && fotosFallidas == 0;
+
+  ResumenSincronizacion conFormularioConfirmado() => _copiar(
+    formulariosConfirmados: formulariosConfirmados + 1,
+  );
+  ResumenSincronizacion conFormularioFallido() =>
+      _copiar(formulariosFallidos: formulariosFallidos + 1);
+  ResumenSincronizacion conFotoConfirmada() =>
+      _copiar(fotosConfirmadas: fotosConfirmadas + 1);
+  ResumenSincronizacion conFotoFallida([String? error]) => _copiar(
+    fotosFallidas: fotosFallidas + 1,
+    ultimoError: error ?? ultimoError,
+  );
+
+  ResumenSincronizacion fusionar(ResumenSincronizacion otro) =>
+      ResumenSincronizacion(
+        formulariosConfirmados:
+            formulariosConfirmados + otro.formulariosConfirmados,
+        formulariosFallidos: formulariosFallidos + otro.formulariosFallidos,
+        fotosConfirmadas: fotosConfirmadas + otro.fotosConfirmadas,
+        fotosFallidas: fotosFallidas + otro.fotosFallidas,
+        ultimoError: otro.ultimoError ?? ultimoError,
+      );
+
+  String mensaje() {
+    if (!huboIntentos) return 'No había nada pendiente por enviar.';
+    if (todoConfirmado) {
+      final partes = <String>[];
+      if (formulariosConfirmados > 0) {
+        partes.add('$formulariosConfirmados formulario(s)');
+      }
+      if (fotosConfirmadas > 0) partes.add('$fotosConfirmadas fotografía(s)');
+      return 'Servidor confirmó ${partes.join(' y ')}.';
+    }
+    final pendiente = formulariosFallidos + fotosFallidas;
+    return 'Confirmado: $formulariosConfirmados formulario(s) y '
+        '$fotosConfirmadas fotografía(s). '
+        'Quedan $pendiente elemento(s) pendientes, guardados en el teléfono.';
   }
 
+  ResumenSincronizacion _copiar({
+    int? formulariosConfirmados,
+    int? formulariosFallidos,
+    int? fotosConfirmadas,
+    int? fotosFallidas,
+    String? ultimoError,
+  }) => ResumenSincronizacion(
+    formulariosConfirmados:
+        formulariosConfirmados ?? this.formulariosConfirmados,
+    formulariosFallidos: formulariosFallidos ?? this.formulariosFallidos,
+    fotosConfirmadas: fotosConfirmadas ?? this.fotosConfirmadas,
+    fotosFallidas: fotosFallidas ?? this.fotosFallidas,
+    ultimoError: ultimoError ?? this.ultimoError,
+  );
 }
