@@ -3,6 +3,8 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:convert';
 
+import 'migraciones.dart';
+
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   static Database? _database;
@@ -23,12 +25,32 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: Migraciones.version,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+      // NOTA: no se activa `PRAGMA foreign_keys = ON` en P0 a propósito.
+      // Las tablas declaran FK hacia `postes`, pero la app nunca las ha
+      // aplicado; activarlas ahora convertiría inserciones que hoy funcionan
+      // en silencio en fallos nuevos en campo. Se evaluará con pruebas en la
+      // fase de arquitectura.
     );
   }
 
+  /// Instalación nueva: crea el esquema base y luego aplica todas las
+  /// migraciones, para que un teléfono nuevo y uno actualizado converjan al
+  /// mismo esquema exacto.
   Future<void> _onCreate(Database db, int version) async {
+    await _crearEsquemaBase(db);
+    await Migraciones.aplicar(db, 1, version);
+  }
+
+  /// Actualización de una instalación existente. Nunca borra datos: ver
+  /// `lib/database/migraciones.dart` y `MIGRATIONS.md`.
+  Future<void> _onUpgrade(Database db, int desde, int hasta) async {
+    await Migraciones.aplicar(db, desde, hasta);
+  }
+
+  Future<void> _crearEsquemaBase(Database db) async {
     await db.execute('''
       CREATE TABLE proyectos (
         id INTEGER PRIMARY KEY,
