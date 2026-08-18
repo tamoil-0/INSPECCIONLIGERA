@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:convert';
@@ -13,6 +14,19 @@ class DatabaseHelper {
 
   DatabaseHelper._internal();
 
+  /// Nombre del archivo de base. Se puede cambiar en pruebas para trabajar
+  /// contra una base temporal y no tocar la del dispositivo.
+  @visibleForTesting
+  static String nombreArchivo = 'app_local.db';
+
+  /// Cierra y olvida la instancia en memoria. Solo para pruebas: permite abrir
+  /// una base limpia entre casos.
+  @visibleForTesting
+  static Future<void> reiniciarParaPruebas() async {
+    await _database?.close();
+    _database = null;
+  }
+
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDatabase();
@@ -21,7 +35,7 @@ class DatabaseHelper {
 
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'app_local.db');
+    final path = join(dbPath, nombreArchivo);
 
     return await openDatabase(
       path,
