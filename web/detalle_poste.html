@@ -41,14 +41,17 @@
     </section>
 
     <section class="surface">
-      <div class="surface-header"><div><h2>Padrón de estructuras</h2><p>Busque por código, número de estructura o tramo.</p></div><span id="conteoPostes" class="status-badge status-neutral">Cargando</span></div>
+      <div class="surface-header">
+        <div><h2>Padrón de estructuras</h2><p>Busque por código, número de estructura, tramo o coordenada UTM.</p></div>
+        <div class="acciones-inline"><span id="conteoUtm" class="status-badge status-success">Calculando UTM</span><span id="conteoPostes" class="status-badge status-neutral">Cargando</span></div>
+      </div>
       <div class="toolbar toolbar-compact">
         <div class="campo"><label for="buscarPoste">Buscar estructura</label><input id="buscarPoste" type="search" placeholder="Ej. L-6311-01, 01 o Juliaca"></div>
         <div class="campo"><label for="filtroAvance">Estado de avance</label><select id="filtroAvance"><option value="">Todos</option><option value="completo">Completos</option><option value="proceso">En proceso</option><option value="pendiente">Pendientes</option></select></div>
       </div>
       <div class="tabla-scroll tabla-responsive">
         <table>
-          <thead><tr><th>Estructura</th><th>Tramo</th><th>UTM base</th><th>Formulario</th><th>28 imágenes</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Estructura</th><th>Tramo</th><th>UTM Este (X)</th><th>UTM Norte (Y)</th><th>Zona</th><th>Formulario</th><th>28 imágenes</th><th>Estado</th><th>Acciones</th></tr></thead>
           <tbody id="tablaPostes"></tbody>
         </table>
       </div>
@@ -81,10 +84,12 @@
     function actualizarMetricas() {
       const complete = postes.filter((post) => estadoPoste(post) === "completo").length;
       const process = postes.filter((post) => estadoPoste(post) === "proceso").length;
+      const withUtm = postes.filter((post) => post.utm_x !== null && post.utm_x !== "" && post.utm_y !== null && post.utm_y !== "").length;
       document.getElementById("metricaTotal").textContent = postes.length;
       document.getElementById("metricaCompletas").textContent = complete;
       document.getElementById("metricaProceso").textContent = process;
       document.getElementById("metricaPendientes").textContent = postes.length - complete - process;
+      document.getElementById("conteoUtm").textContent = `${withUtm} con ambos UTM`;
     }
 
     function renderPostes() {
@@ -92,19 +97,22 @@
       const query = document.getElementById("buscarPoste").value.trim().toLocaleLowerCase("es");
       const filter = document.getElementById("filtroAvance").value;
       const filtered = postes.filter((post) => {
-        const haystack = `${post.codigo} ${post.estructura} ${post.ubicaciones || ""}`.toLocaleLowerCase("es");
+        const haystack = `${post.codigo} ${post.estructura} ${post.ubicaciones || ""} ${post.utm_x || ""} ${post.utm_y || ""}`.toLocaleLowerCase("es");
         return (!query || haystack.includes(query)) && (!filter || estadoPoste(post) === filter);
       });
       document.getElementById("conteoPostes").textContent = `${filtered.length} de ${postes.length}`;
       tbody.replaceChildren();
-      if (!filtered.length) return filaVacia(tbody, 7, "No hay estructuras que coincidan con los filtros.");
+      if (!filtered.length) return filaVacia(tbody, 9, "No hay estructuras que coincidan con los filtros.");
       filtered.forEach((post) => {
         const state = estadoPoste(post);
         const row = document.createElement("tr");
         row.append(celdaCompuesta(post.codigo, `Estructura ${post.estructura}`, "Estructura"));
         row.append(celda(post.ubicaciones || "—", "Tramo"));
-        const utm = post.utm_x && post.utm_y ? `${post.utm_x} / ${post.utm_y} ${post.zona || ""}` : "Sin UTM base";
-        row.append(celda(utm, "UTM base"));
+        row.append(
+          celda(formatearCoordenada(post.utm_x), "UTM Este (X)"),
+          celda(formatearCoordenada(post.utm_y), "UTM Norte (Y)"),
+          celda(post.zona || "Sin dato", "Zona")
+        );
         const formCell = celda("", "Formulario");
         formCell.appendChild(insigniaBooleano(Number(post.formulario_subido) === 1, "Recibido", "Pendiente"));
         const imageCell = celda("", "28 imágenes");
@@ -139,7 +147,7 @@
 
     async function cargarPostes() {
       const tbody = document.getElementById("tablaPostes");
-      filaCargando(tbody, 7, "Cargando padrón de estructuras…");
+      filaCargando(tbody, 9, "Cargando padrón de estructuras…");
       try {
         const endpoint = `postes/buscar_por_linea.php?linea=${encodeURIComponent(linea)}&proyecto_id=${proyectoId}`;
         const data = await leerRespuesta(await fetchConToken(endpoint));
@@ -147,7 +155,7 @@
         actualizarMetricas();
         renderPostes();
       } catch (error) {
-        filaVacia(tbody, 7, "No se pudieron cargar las estructuras.");
+        filaVacia(tbody, 9, "No se pudieron cargar las estructuras.");
         mostrarMensaje(document.getElementById("mensaje"), error.message);
       }
     }

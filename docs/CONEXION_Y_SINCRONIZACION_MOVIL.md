@@ -88,13 +88,13 @@ El padrón inicial contiene este control de cantidades:
 | Línea | Estructuras | Con UTM base |
 |---|---:|---:|
 | `L-6021` | 341 | 0 |
-| `L-6024` | 118 | 0 |
-| `L-6025` | 138 | 0 |
-| `L-6026` | 107 | 0 |
+| `L-6024` | 118 | 118 |
+| `L-6025` | 138 | 138 |
+| `L-6026` | 107 | 107 |
 | `L-6027-1` | 289 | 0 |
 | `L-6027-2` | 206 | 206 |
 | `L-6311` | 36 | 36 |
-| **Total** | **1,235** | **242** |
+| **Total** | **1,235** | **605** |
 
 La app debe obtener el proyecto y sus IDs mediante el API. No debe asumir permanentemente que el proyecto es `2`, aunque ese sea el ID de la carga inicial actual.
 

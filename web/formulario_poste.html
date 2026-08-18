@@ -91,6 +91,7 @@
       if (value === null || value === undefined || value === "") return "—";
       if (CAMPOS_BOOLEANOS.has(key)) return Number(value) === 1 ? "Sí" : "No";
       if (CAMPOS_FECHA.has(key)) return formatearFecha(value);
+      if (key === "utm_x" || key === "utm_y" || key === "utm_este" || key === "utm_norte") return formatearCoordenada(value);
       if (key === "distancia_acceso") return `${value} m`;
       if (key === "comentarios") return String(value);
       return String(value).replaceAll(",", ", ").replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
@@ -168,8 +169,8 @@
           row.append(
             celdaCompuesta(humanizarValor(item.nombre_foto), "Evidencia confirmada", "Tipo de evidencia"),
             celda(formatearFecha(item.fecha_captura), "Fecha de captura"),
-            celda(item.utm_este || "—", "UTM Este"),
-            celda(item.utm_norte || "—", "UTM Norte"),
+            celda(formatearCoordenada(item.utm_este), "UTM Este"),
+            celda(formatearCoordenada(item.utm_norte), "UTM Norte"),
             celda(item.zona || "—", "Zona")
           );
           imageBody.appendChild(row);

@@ -269,6 +269,17 @@ function formatearFecha(value, soloFecha = false) {
   return new Intl.DateTimeFormat("es-PE", options).format(date);
 }
 
+function formatearCoordenada(value) {
+  if (value === null || value === undefined || value === "") return "Sin dato";
+  const number = Number(value);
+  if (!Number.isFinite(number)) return String(value);
+  return number.toLocaleString("es-PE", {
+    useGrouping: false,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 5
+  });
+}
+
 function crearInsignia(texto, tono = "neutral") {
   const badge = document.createElement("span");
   badge.className = `status-badge status-${tono}`;
