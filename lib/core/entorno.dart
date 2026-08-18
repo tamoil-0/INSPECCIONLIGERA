@@ -16,7 +16,7 @@
 ///
 /// # Preproducción
 /// flutter build apk --release \
-///   --dart-define=API_BASE_URL=https://pruebas.virrgoecoing.com/api \
+///   --dart-define=API_BASE_URL=https://pruebas.grupoecoing.com/inspeccionligera/api \
 ///   --dart-define=ENTORNO=pruebas
 ///
 /// # Servidor local durante el desarrollo
@@ -31,7 +31,7 @@ class Entorno {
   /// URL base de la API. Sin barra final.
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://virrgoecoing.com/api',
+    defaultValue: 'https://grupoecoing.com/inspeccionligera/api',
   );
 
   /// URL validada y sin barras finales.
