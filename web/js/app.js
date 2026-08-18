@@ -26,7 +26,9 @@ const ETIQUETAS = {
   malla_antiescalamiento: "Malla antiescalamiento", oxidos_base: "Óxido en la base",
   cadena_aisladores: "Cadena de aisladores", tipo_aislador: "Tipo de aislador",
   conductor_bajada_pat: "Conductor de bajada PAT", conductor_guarda: "Conductor de guarda",
-  comentarios: "Comentarios", distancia_acceso: "Distancia de acceso", cantidad_pat: "Cantidad de PAT"
+  comentarios: "Comentarios", distancia_acceso: "Distancia de acceso", cantidad_pat: "Cantidad de PAT",
+  distancia_poste_anterior: "Distancia al poste anterior", distancia_vertical: "Distancia vertical",
+  distancia_horizontal: "Distancia horizontal"
 };
 
 const SESSION_KEYS = ["token", "usuario", "token_expira_en"];

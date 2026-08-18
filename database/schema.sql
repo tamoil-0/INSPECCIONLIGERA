@@ -107,6 +107,9 @@ CREATE TABLE `poste_datos` (
   `comentarios` TEXT DEFAULT NULL,
   `distancia_acceso` DOUBLE UNSIGNED DEFAULT NULL,
   `cantidad_pat` INT UNSIGNED NOT NULL DEFAULT 0,
+  `distancia_poste_anterior` DECIMAL(12,3) UNSIGNED DEFAULT NULL,
+  `distancia_vertical` DECIMAL(12,3) UNSIGNED DEFAULT NULL,
+  `distancia_horizontal` DECIMAL(12,3) UNSIGNED DEFAULT NULL,
   PRIMARY KEY (`poste_id`),
   CONSTRAINT `fk_poste_datos_poste` FOREIGN KEY (`poste_id`) REFERENCES `postes` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -150,4 +153,3 @@ CREATE TABLE `imagenes_poste` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
-

@@ -245,6 +245,9 @@ Evitar dos workers sobre el mismo poste. Procesar un solo flujo de sincronizaci�
   "fecha_inspeccion": "2026-08-18 11:15:00",
   "distancia_acceso": 12.5,
   "cantidad_pat": 1,
+  "distancia_poste_anterior": 125.75,
+  "distancia_vertical": 8.5,
+  "distancia_horizontal": 124.25,
   "obstaculos_faja": ["arboles", "cercos_vallas"],
   "estado_cuencas": "n_a",
   "marcado_arboles": "no",
@@ -277,6 +280,12 @@ Evitar dos workers sobre el mismo poste. Procesar un solo flujo de sincronizaci�
 ```
 
 Fecha recomendada: `YYYY-MM-DD HH:mm:ss`, correspondiente a la hora local de Lima. Los comentarios se limitan a 5,000 caracteres.
+
+Los campos `distancia_poste_anterior`, `distancia_vertical` y
+`distancia_horizontal` forman el bloque **Distancia DMS**. Son opcionales,
+aceptan números enteros o decimales no negativos y se interpretan en metros.
+Para borrar un valor guardado se envía la clave con `null`; si no se dispone de
+la medición también puede dejarse vacía en la interfaz.
 
 El envío es idempotente: repetirlo para el mismo `poste_id` actualiza la misma fila, no crea otro formulario.
 
@@ -311,6 +320,9 @@ El envío es idempotente: repetirlo para el mismo `poste_id` actualiza la misma 
 | `tipo_aislador` | `vidrio`, `porcelana`, `polimero` |
 | `conductor_bajada_pat` | `buen_estado`, `conductor_en_mal_estado`, `grapas_en_mal_estado`, `listones_en_mal_estado`, `n_a` |
 | `conductor_guarda` | `hebras_rotas`, `encanastillado`, `empalme_deformado`, `objetos_extranos`, `n_a` |
+| `distancia_poste_anterior` | Número no negativo en metros o `null`; opcional. |
+| `distancia_vertical` | Número no negativo en metros o `null`; opcional. |
+| `distancia_horizontal` | Número no negativo en metros o `null`; opcional. |
 
 No enviar etiquetas visibles como “Buen estado”. Enviar exactamente el código `buen_estado`.
 

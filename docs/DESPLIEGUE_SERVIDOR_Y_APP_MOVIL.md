@@ -78,6 +78,11 @@ El SQL inicial se importa desde el panel o consola y se elimina del servidor inm
 
 El SQL de servidor no contiene `CREATE DATABASE`, `DROP DATABASE` ni credenciales. Sí recrea las tablas ECOING de la base seleccionada; se utiliza para una instalación inicial vacía, no para actualizar una base productiva con inspecciones. Antes de cualquier reinstalación hacer respaldo de la base y de `storage/images`.
 
+Si se actualiza una instalación que ya estaba funcionando, no se debe volver a
+importar el SQL completo. Hacer respaldo y ejecutar una sola vez
+`database/migrations/20260818_add_distancias_dms.sql`; esta migración agrega los
+tres campos opcionales de Distancia DMS sin modificar inspecciones existentes.
+
 Consulta de control:
 
 ```sql

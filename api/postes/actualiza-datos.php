@@ -45,6 +45,21 @@ if (array_key_exists('cantidad_pat', $data)) {
     }
     $values['cantidad_pat'] = $quantity;
 }
+
+foreach (['distancia_poste_anterior', 'distancia_vertical', 'distancia_horizontal'] as $distanceField) {
+    if (!array_key_exists($distanceField, $data)) {
+        continue;
+    }
+    $distance = $data[$distanceField];
+    if ($distance === null || (is_string($distance) && trim($distance) === '')) {
+        $values[$distanceField] = null;
+        continue;
+    }
+    if (!is_numeric($distance) || !is_finite((float) $distance) || (float) $distance < 0) {
+        respond(['success' => false, 'error' => "{$distanceField} debe ser un número no negativo o quedar vacío."], 422);
+    }
+    $values[$distanceField] = (float) $distance;
+}
 if (array_key_exists('comentarios', $data)) {
     $values['comentarios'] = mb_substr(trim((string) $data['comentarios']), 0, 5000);
 }

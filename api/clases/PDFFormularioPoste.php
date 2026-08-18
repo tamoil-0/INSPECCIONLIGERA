@@ -840,20 +840,18 @@ foreach (['hebras_rotas', 'encanastillado', 'empalme_deformado', 'objetos_extran
     $pdf->Cell($anchoConductoresGuarda * 0.8, $alturaFila7, utf8_decode($label), 1, 0);
     $pdf->Cell($anchoConductoresGuarda * 0.2, $alturaFila7, utf8_decode($check), 1, 1);
 }
-// ==========================
-// 👉 Tabla: Cantidad PAT
-// ==========================
-$anchoCantidadPAT = 20; // Puedes ajustar si necesitas más espacio
+// =====================================================
+// Cantidad PAT y Distancias DMS (tres valores opcionales)
+// =====================================================
+$anchoCantidadPAT = 25;
 $posXPAT = $posXGuarda + $anchoConductoresGuarda + $espaciadoFila7;
 
-// Cabecera
 $pdf->SetXY($posXPAT, $yInicialFila7);
 $pdf->SetFillColor(47, 117, 181);
 $pdf->SetTextColor(255);
 $pdf->SetFont('Arial', 'B', 7);
 $pdf->MultiCell($anchoCantidadPAT, $alturaFila7 / 2, utf8_decode("Cantidad\nPAT"), 1, 'C', true);
 
-// Valor (debajo)
 $pdf->SetXY($posXPAT, $pdf->GetY());
 $pdf->SetFillColor(255);
 $pdf->SetTextColor(0);
@@ -862,11 +860,39 @@ $valorPAT = $datos['cantidad_pat'] ?? '';
 $valorPATMostrar = is_numeric($valorPAT) ? ((fmod($valorPAT, 1.0) == 0.0) ? intval($valorPAT) : $valorPAT) : '';
 $pdf->Cell($anchoCantidadPAT, $alturaFila7, utf8_decode((string)$valorPATMostrar), 1, 1, 'C', true);
 
+// Las tres medidas DMS quedan inmediatamente debajo de Cantidad PAT y ocupan
+// la misma altura total que la tabla de Conductores de Guarda.
+$yDistanciasDms = $yInicialFila7 + ($alturaFila7 + 2) + $alturaFila7;
+$pdf->SetXY($posXPAT, $yDistanciasDms);
+$pdf->SetFillColor(47, 117, 181);
+$pdf->SetTextColor(255);
+$pdf->SetFont('Arial', 'B', 6);
+$pdf->Cell($anchoCantidadPAT, $alturaFila7, utf8_decode('Distancia DMS (m)'), 1, 1, 'C', true);
 
+$formatearDistanciaDms = static function (mixed $valor): string {
+    if ($valor === null || $valor === '' || !is_numeric($valor)) {
+        return '';
+    }
+    return rtrim(rtrim(number_format((float) $valor, 3, '.', ''), '0'), '.');
+};
+$distanciasDms = [
+    'Poste anterior' => $datos['distancia_poste_anterior'] ?? null,
+    'Vertical' => $datos['distancia_vertical'] ?? null,
+    'Horizontal' => $datos['distancia_horizontal'] ?? null,
+];
+$anchoEtiquetaDms = 16.5;
+$anchoValorDms = $anchoCantidadPAT - $anchoEtiquetaDms;
+$pdf->SetTextColor(0);
+foreach ($distanciasDms as $etiquetaDms => $valorDms) {
+    $pdf->SetX($posXPAT);
+    $pdf->SetFont('Arial', '', 5.2);
+    $pdf->Cell($anchoEtiquetaDms, $alturaFila7, utf8_decode($etiquetaDms), 1, 0, 'L');
+    $pdf->SetFont('Arial', 'B', 5.5);
+    $pdf->Cell($anchoValorDms, $alturaFila7, $formatearDistanciaDms($valorDms), 1, 1, 'C');
+}
 
-
-// 👉 Separación después de la fila
-$pdf->Ln($alturaFila7 );
+// Separación uniforme después de la séptima fila.
+$pdf->SetY($yInicialFila7 + 32 + $alturaFila7);
 
 
   

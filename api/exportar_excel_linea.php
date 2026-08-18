@@ -36,7 +36,8 @@ try {
                 d.retenida, d.estado_base, d.limpiar_base, d.crucetas_mensuales,
                 d.perfiles_angulares, d.malla_antiescalamiento, d.oxidos_base,
                 d.cadena_aisladores, d.tipo_aislador, d.conductor_bajada_pat,
-                d.conductor_guarda, d.comentarios, d.distancia_acceso, d.cantidad_pat
+                d.conductor_guarda, d.comentarios, d.distancia_acceso, d.cantidad_pat,
+                d.distancia_poste_anterior, d.distancia_vertical, d.distancia_horizontal
          FROM postes p LEFT JOIN poste_datos d ON d.poste_id = p.id
          WHERE p.proyecto_id = ? AND p.linea = ? ORDER BY p.codigo'
     );

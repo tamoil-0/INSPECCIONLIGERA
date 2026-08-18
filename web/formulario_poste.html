@@ -92,7 +92,7 @@
       if (CAMPOS_BOOLEANOS.has(key)) return Number(value) === 1 ? "Sí" : "No";
       if (CAMPOS_FECHA.has(key)) return formatearFecha(value);
       if (key === "utm_x" || key === "utm_y" || key === "utm_este" || key === "utm_norte") return formatearCoordenada(value);
-      if (key === "distancia_acceso") return `${value} m`;
+      if (["distancia_acceso", "distancia_poste_anterior", "distancia_vertical", "distancia_horizontal"].includes(key)) return `${value} m`;
       if (key === "comentarios") return String(value);
       return String(value).replaceAll(",", ", ").replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
     }
