@@ -3,6 +3,17 @@ declare(strict_types=1);
 
 const PROJECT_ROOT = __DIR__ . '/../..';
 
+/**
+ * Configuración leída desde .env para la petición actual.
+ *
+ * No se usa putenv(): en Apache para Windows las peticiones concurrentes se
+ * ejecutan en hilos del mismo proceso y una variable temporal puede desaparecer
+ * cuando termina otro request. Eso hacía que JWT_SECRET fuese intermitente.
+ *
+ * @var array<string, string>
+ */
+$GLOBALS['app_environment'] = [];
+
 function loadEnvironment(string $file): void
 {
     if (!is_file($file)) {
@@ -17,23 +28,28 @@ function loadEnvironment(string $file): void
         }
 
         [$name, $value] = array_map('trim', explode('=', $line, 2));
-        if ($name === '' || getenv($name) !== false) {
+        if ($name === '') {
             continue;
         }
 
         if (strlen($value) >= 2 && (($value[0] === '"' && str_ends_with($value, '"')) || ($value[0] === "'" && str_ends_with($value, "'")))) {
             $value = substr($value, 1, -1);
         }
-        putenv($name . '=' . $value);
+        $GLOBALS['app_environment'][$name] = $value;
         $_ENV[$name] = $value;
     }
 }
 
 function envValue(string $name, mixed $default = null): mixed
 {
-    $value = getenv($name);
-    if ($value === false) {
-        return $default;
+    $fileEnvironment = $GLOBALS['app_environment'] ?? [];
+    if (array_key_exists($name, $fileEnvironment)) {
+        $value = $fileEnvironment[$name];
+    } else {
+        $value = getenv($name);
+        if ($value === false) {
+            return $default;
+        }
     }
 
     return match (strtolower($value)) {

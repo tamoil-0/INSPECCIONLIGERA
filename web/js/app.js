@@ -29,21 +29,41 @@ const ETIQUETAS = {
   comentarios: "Comentarios", distancia_acceso: "Distancia de acceso", cantidad_pat: "Cantidad de PAT"
 };
 
-function guardarToken(token, usuario) {
+const SESSION_KEYS = ["token", "usuario", "token_expira_en"];
+
+function guardarToken(token, usuario, ttlSeconds = 0) {
   sessionStorage.setItem("token", token);
   sessionStorage.setItem("usuario", JSON.stringify(usuario));
+  const ttl = Number(ttlSeconds);
+  if (Number.isFinite(ttl) && ttl > 0) {
+    sessionStorage.setItem("token_expira_en", String(Date.now() + (ttl * 1000)));
+  } else {
+    sessionStorage.removeItem("token_expira_en");
+  }
 }
 
-function obtenerToken() { return sessionStorage.getItem("token"); }
+function obtenerToken() {
+  const token = sessionStorage.getItem("token");
+  const expiresAt = Number(sessionStorage.getItem("token_expira_en") || 0);
+  if (token && expiresAt > 0 && Date.now() >= expiresAt) {
+    limpiarSesion();
+    return null;
+  }
+  return token;
+}
 
 function obtenerUsuario() {
   try { return JSON.parse(sessionStorage.getItem("usuario") || "null"); }
   catch { return null; }
 }
 
-function cerrarSesion() {
-  sessionStorage.clear();
-  window.location.replace("index.html");
+function limpiarSesion() {
+  SESSION_KEYS.forEach((key) => sessionStorage.removeItem(key));
+}
+
+function cerrarSesion(redirigir = true) {
+  limpiarSesion();
+  if (redirigir) window.location.replace("index.html");
 }
 
 function verificarSesion() {
@@ -79,7 +99,15 @@ async function fetchConToken(endpoint, opciones = {}) {
   const headers = new Headers(fetchOptions.headers || {});
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Accept", headers.get("Accept") || "application/json");
-  const response = await fetchConLimite(apiUrl(endpoint), { ...fetchOptions, headers }, timeoutMs);
+  const request = () => fetchConLimite(apiUrl(endpoint), { ...fetchOptions, headers }, timeoutMs);
+  let response = await request();
+
+  // Un 401 aislado no debe expulsar al usuario. Se confirma una vez con el
+  // mismo token antes de invalidar la sesión; los endpoints protegidos no
+  // ejecutan la operación cuando la autenticación falla.
+  if (response.status === 401 && obtenerToken() === token) {
+    response = await request();
+  }
   if (response.status === 401) {
     cerrarSesion();
     throw new Error("La sesión expiró. Ingrese nuevamente.");

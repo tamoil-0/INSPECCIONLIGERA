@@ -84,7 +84,7 @@
           })
         }, 15000);
         const data = await leerRespuesta(response);
-        guardarToken(data.token, data.usuario);
+        guardarToken(data.token, data.usuario, data.token_ttl);
         mostrarMensaje(message, "Acceso correcto. Abriendo el panel…", "ok");
         window.setTimeout(() => window.location.replace("proyectos.html"), 250);
       } catch (error) {
