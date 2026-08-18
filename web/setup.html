@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Configuración inicial | ECOING</title>
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body class="pagina-centrada">
+  <main class="tarjeta acceso">
+    <p class="marca">ECOING</p>
+    <h1>Administrador inicial</h1>
+    <p class="subtitulo">Disponible solo desde este equipo y mientras la base no tenga usuarios.</p>
+    <form id="setupForm">
+      <label for="nombre">Nombre completo</label>
+      <input id="nombre" autocomplete="name" required>
+      <label for="usuario">Usuario</label>
+      <input id="usuario" autocomplete="username" required>
+      <label for="correo">Correo</label>
+      <input id="correo" type="email" autocomplete="email" required>
+      <label for="contrasena">Contraseña (mínimo 10 caracteres)</label>
+      <input id="contrasena" type="password" minlength="10" autocomplete="new-password" required>
+      <button type="submit">Crear administrador</button>
+    </form>
+    <p id="mensaje" class="mensaje" aria-live="polite"></p>
+    <a class="enlace-secundario" href="index.html">Volver al inicio</a>
+  </main>
+  <script src="js/app.js"></script>
+  <script>
+    document.getElementById("setupForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const message = document.getElementById("mensaje");
+      const button = event.currentTarget.querySelector("button");
+      button.disabled = true;
+      try {
+        const response = await fetch(apiUrl("usuarios/register_admin.php"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nombre_completo: document.getElementById("nombre").value.trim(),
+            nombre_usuario: document.getElementById("usuario").value.trim(),
+            correo_electronico: document.getElementById("correo").value.trim(),
+            contrasena: document.getElementById("contrasena").value
+          })
+        });
+        const data = await leerRespuesta(response);
+        mostrarMensaje(message, data.message, "ok");
+        event.currentTarget.reset();
+      } catch (error) {
+        mostrarMensaje(message, error.message);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Postes | ECOING</title>
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+  <main class="contenedor">
+    <header>
+      <div><p class="marca">ECOING</p><h1>Postes de la línea</h1></div>
+      <button class="boton-secundario" onclick="cerrarSesion()">Cerrar sesión</button>
+    </header>
+    <nav class="migas"><a href="proyectos.html">Proyectos</a> / <a id="volverLineas" href="#">Líneas</a> / <span id="lineaTexto"></span></nav>
+    <div class="acciones">
+      <button id="exportarPdf">Descargar ZIP de reportes</button>
+      <button id="exportarExcel">Descargar Excel</button>
+    </div>
+    <p id="mensaje" class="mensaje" aria-live="polite"></p>
+    <div class="tabla-scroll">
+      <table>
+        <thead><tr><th>Código</th><th>Estructura</th><th>Inspeccionado</th><th>Formulario</th><th>28 imágenes</th><th>Acciones</th></tr></thead>
+        <tbody id="tablaPostes"></tbody>
+      </table>
+    </div>
+  </main>
+  <script src="js/app.js"></script>
+  <script>
+    verificarSesion();
+    const params = new URLSearchParams(location.search);
+    const proyectoId = Number(params.get("proyecto_id"));
+    const linea = (params.get("linea") || "").trim();
+    if (!Number.isInteger(proyectoId) || proyectoId <= 0 || !linea) location.replace("proyectos.html");
+    document.getElementById("lineaTexto").textContent = linea;
+    document.getElementById("volverLineas").href = `detalle_linea.html?id=${proyectoId}`;
+
+    async function cargarPostes() {
+      const tbody = document.getElementById("tablaPostes");
+      try {
+        const endpoint = `postes/buscar_por_linea.php?linea=${encodeURIComponent(linea)}&proyecto_id=${proyectoId}`;
+        const data = await leerRespuesta(await fetchConToken(endpoint));
+        tbody.replaceChildren();
+        if (!data.data.length) return filaVacia(tbody, 6, "No hay postes para esta línea.");
+        data.data.forEach((post) => {
+          const row = document.createElement("tr");
+          row.append(celda(post.codigo), celda(post.estructura));
+          [[Boolean(post.fecha_inspeccion), "Sí", "No"], [Number(post.formulario_subido) === 1, "Sí", "No"], [Number(post.imagenes_subidas) === 1, "Sí", "No"]].forEach(([ok, yes, no]) => {
+            const cell = celda(ok ? yes : no);
+            cell.className = ok ? "estado-si" : "estado-no";
+            row.appendChild(cell);
+          });
+          const actions = celda("");
+          const details = document.createElement("a");
+          details.href = `formulario_poste.html?poste_id=${post.id}&proyecto_id=${proyectoId}`;
+          details.textContent = "Ver datos";
+          const print = document.createElement("button");
+          print.type = "button";
+          print.textContent = "Abrir PDF";
+          print.style.marginLeft = "10px";
+          print.addEventListener("click", async () => {
+            try { await abrirPdfConToken(`ver_pdf_poste.php?poste_id=${post.id}&proyecto_id=${proyectoId}`); }
+            catch (error) { mostrarMensaje(document.getElementById("mensaje"), error.message); }
+          });
+          actions.append(details, print);
+          row.appendChild(actions);
+          tbody.appendChild(row);
+        });
+      } catch (error) {
+        filaVacia(tbody, 6, "No se pudieron cargar los postes.");
+        mostrarMensaje(document.getElementById("mensaje"), error.message);
+      }
+    }
+
+    async function ejecutarDescarga(button, endpoint, fallback) {
+      const message = document.getElementById("mensaje");
+      button.disabled = true;
+      mostrarMensaje(message, "Generando archivo…", "ok");
+      try {
+        await descargarConToken(endpoint, fallback);
+        mostrarMensaje(message, "Descarga completada.", "ok");
+      } catch (error) {
+        mostrarMensaje(message, error.message);
+      } finally {
+        button.disabled = false;
+      }
+    }
+    document.getElementById("exportarPdf").addEventListener("click", (event) => ejecutarDescarga(event.currentTarget, `exportar_linea_pdf.php?proyecto_id=${proyectoId}&linea=${encodeURIComponent(linea)}`, `linea_${linea}.zip`));
+    document.getElementById("exportarExcel").addEventListener("click", (event) => ejecutarDescarga(event.currentTarget, `exportar_excel_linea.php?proyecto_id=${proyectoId}&linea=${encodeURIComponent(linea)}`, `linea_${linea}.xlsx`));
+    cargarPostes();
+  </script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Acceso | ECOING</title>
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body class="pagina-centrada">
+  <main class="tarjeta acceso">
+    <p class="marca">ECOING</p>
+    <h1>Inspección ligera</h1>
+    <p class="subtitulo">Gestión de líneas de transmisión</p>
+
+    <form id="loginForm">
+      <label for="usuario">Usuario</label>
+      <input id="usuario" name="usuario" autocomplete="username" required>
+      <label for="contrasena">Contraseña</label>
+      <input id="contrasena" name="contrasena" type="password" autocomplete="current-password" required>
+      <button type="submit">Ingresar</button>
+    </form>
+    <p id="mensaje" class="mensaje" aria-live="polite"></p>
+    <a class="enlace-secundario" href="setup.html">Configurar el primer administrador</a>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script>
+    if (obtenerToken()) window.location.replace("proyectos.html");
+
+    document.getElementById("loginForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const message = document.getElementById("mensaje");
+      const button = event.currentTarget.querySelector("button");
+      button.disabled = true;
+      message.textContent = "";
+      try {
+        const response = await fetch(apiUrl("usuarios/login.php"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nombre_usuario: document.getElementById("usuario").value.trim(),
+            contrasena: document.getElementById("contrasena").value
+          })
+        });
+        const data = await leerRespuesta(response);
+        guardarToken(data.token, data.usuario);
+        window.location.replace("proyectos.html");
+      } catch (error) {
+        mostrarMensaje(message, error.message);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

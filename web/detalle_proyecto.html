@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Proyecto | ECOING</title><link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+  <main class="contenedor">
+    <header><div><p class="marca">ECOING</p><h1>Detalle del proyecto</h1></div><button class="boton-secundario" onclick="cerrarSesion()">Cerrar sesión</button></header>
+    <nav class="migas"><a href="proyectos.html">Proyectos</a> / Detalle</nav>
+    <dl id="detalle" class="detalle-grid"></dl>
+    <p><a id="lineas" href="#">Ver líneas y postes</a></p>
+    <p id="mensaje" class="mensaje"></p>
+  </main>
+  <script src="js/app.js"></script>
+  <script>
+    verificarSesion();
+    const id = Number(new URLSearchParams(location.search).get("id"));
+    if (!Number.isInteger(id) || id <= 0) location.replace("proyectos.html");
+    document.getElementById("lineas").href = `detalle_linea.html?id=${id}`;
+    (async () => {
+      try {
+        const data = await leerRespuesta(await fetchConToken(`proyectos/obtener.php?id=${id}`));
+        const detail = document.getElementById("detalle");
+        Object.entries(data.data).forEach(([label, value]) => {
+          const box = document.createElement("div");
+          const dt = document.createElement("dt");
+          const dd = document.createElement("dd");
+          dt.textContent = label.replaceAll("_", " ");
+          dd.textContent = value ?? "—";
+          box.append(dt, dd);
+          detail.appendChild(box);
+        });
+      } catch (error) { mostrarMensaje(document.getElementById("mensaje"), error.message); }
+    })();
+  </script>
+</body>
+</html>

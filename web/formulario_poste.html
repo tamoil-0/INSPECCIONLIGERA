@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inspección del poste | ECOING</title><link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+  <main class="contenedor">
+    <header><div><p class="marca">ECOING</p><h1>Inspección del poste</h1></div><button class="boton-secundario" onclick="cerrarSesion()">Cerrar sesión</button></header>
+    <nav class="migas"><a href="proyectos.html">Proyectos</a> / <a id="volver" href="#">Postes</a> / Datos</nav>
+    <div class="acciones"><button id="abrirPdf">Abrir reporte PDF</button></div>
+    <p id="mensaje" class="mensaje"></p>
+    <h2>Identificación</h2><dl id="poste" class="detalle-grid"></dl>
+    <h2>Formulario</h2><dl id="datos" class="detalle-grid"></dl>
+    <h2>Secciones RST</h2><div class="tabla-scroll"><table><thead><tr><th>Sección</th><th>Fase</th><th>Atributo</th></tr></thead><tbody id="rst"></tbody></table></div>
+    <h2>Imágenes registradas</h2><div class="tabla-scroll"><table><thead><tr><th>Tipo</th><th>Fecha</th><th>Zona</th></tr></thead><tbody id="imagenes"></tbody></table></div>
+  </main>
+  <script src="js/app.js"></script>
+  <script>
+    verificarSesion();
+    const query = new URLSearchParams(location.search);
+    const posteId = Number(query.get("poste_id"));
+    const proyectoId = Number(query.get("proyecto_id"));
+    if (!Number.isInteger(posteId) || !Number.isInteger(proyectoId)) location.replace("proyectos.html");
+
+    function renderDefinition(id, values) {
+      const target = document.getElementById(id);
+      target.replaceChildren();
+      Object.entries(values || {}).forEach(([key, value]) => {
+        const box = document.createElement("div");
+        const dt = document.createElement("dt");
+        const dd = document.createElement("dd");
+        dt.textContent = key.replaceAll("_", " ");
+        dd.textContent = value === null || value === "" ? "—" : String(value);
+        box.append(dt, dd);
+        target.appendChild(box);
+      });
+    }
+
+    async function cargar() {
+      try {
+        const data = await leerRespuesta(await fetchConToken(`postes/poste_datos.php?poste_id=${posteId}`));
+        renderDefinition("poste", data.poste);
+        renderDefinition("datos", data.datos);
+        document.getElementById("volver").href = `detalle_poste.html?proyecto_id=${proyectoId}&linea=${encodeURIComponent(data.poste.linea)}`;
+        const rstBody = document.getElementById("rst");
+        rstBody.replaceChildren();
+        if (!data.rst.length) filaVacia(rstBody, 3, "Sin registros RST.");
+        else data.rst.forEach((item) => { const row = document.createElement("tr"); row.append(celda(item.seccion), celda(item.fase), celda(item.atributo)); rstBody.appendChild(row); });
+        const imageBody = document.getElementById("imagenes");
+        imageBody.replaceChildren();
+        if (!data.imagenes.length) filaVacia(imageBody, 3, "Sin imágenes registradas.");
+        else data.imagenes.forEach((item) => { const row = document.createElement("tr"); row.append(celda(item.nombre_foto), celda(item.fecha_captura), celda(item.zona || "—")); imageBody.appendChild(row); });
+      } catch (error) { mostrarMensaje(document.getElementById("mensaje"), error.message); }
+    }
+    document.getElementById("abrirPdf").addEventListener("click", async () => {
+      try { await abrirPdfConToken(`ver_pdf_poste.php?poste_id=${posteId}&proyecto_id=${proyectoId}`); }
+      catch (error) { mostrarMensaje(document.getElementById("mensaje"), error.message); }
+    });
+    cargar();
+  </script>
+</body>
+</html>
+

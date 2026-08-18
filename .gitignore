@@ -1,0 +1,41 @@
+/.env
+/.idea/
+/.vscode/
+/.composer-cache/
+
+# Dependencias instalables
+/api/vendor/
+/api/librerias/*
+!/api/librerias/.htaccess
+*.zip
+
+# Archivos generados o sensibles
+/api/descargas/*
+!/api/descargas/.htaccess
+/api/estado_exportaciones/*
+!/api/estado_exportaciones/.htaccess
+/api/exportes/*
+!/api/exportes/.htaccess
+/storage/images/*
+!/storage/images/.gitkeep
+/storage/exports/*
+!/storage/exports/.gitkeep
+/storage/logs/*
+!/storage/logs/.gitkeep
+*.log
+error_log
+headers_log.txt
+errores_*.txt
+log_*.txt
+
+# Dumps con datos: el esquema limpio vive en database/schema.sql
+/*inventario*.sql
+/api/*.sql
+
+# Aplicaciones heredadas que no pertenecen al sistema ECOING
+/build/*
+!/build/.htaccess
+/controllers/*
+!/controllers/.htaccess
+/views/*
+!/views/.htaccess

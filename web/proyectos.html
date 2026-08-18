@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Proyectos | ECOING</title>
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+  <main class="contenedor">
+    <header>
+      <div><p class="marca">ECOING</p><h1>Proyectos</h1></div>
+      <button class="boton-secundario" type="button" onclick="cerrarSesion()">Cerrar sesión</button>
+    </header>
+    <section class="filtros" aria-label="Filtros">
+      <div><label for="busqueda">Buscar</label><input id="busqueda" placeholder="Nombre, contratista o ubicación"></div>
+      <div><label for="estadoFiltro">Estado</label><select id="estadoFiltro"><option value="">Todos</option><option value="activo">Activo</option><option value="completado">Completado</option><option value="cancelado">Cancelado</option></select></div>
+      <button id="buscar" type="button">Aplicar filtros</button>
+    </section>
+    <details id="nuevoProyecto" class="panel-formulario">
+      <summary>Crear un proyecto</summary>
+      <form id="proyectoForm" class="filtros">
+        <div><label for="nombreProyecto">Nombre</label><input id="nombreProyecto" required></div>
+        <div><label for="contratista">Contratista</label><input id="contratista" required></div>
+        <div><label for="ubicacion">Ubicación</label><input id="ubicacion" required></div>
+        <button type="submit">Guardar proyecto</button>
+      </form>
+    </details>
+    <p id="mensaje" class="mensaje" aria-live="polite"></p>
+    <div class="tabla-scroll">
+      <table>
+        <thead><tr><th>Nombre</th><th>Contratista</th><th>Ubicación</th><th>Estado</th><th>Creado</th><th>Acción</th></tr></thead>
+        <tbody id="tablaProyectos"></tbody>
+      </table>
+    </div>
+  </main>
+  <script src="js/app.js"></script>
+  <script>
+    verificarSesion();
+    const usuarioActual = obtenerUsuario();
+    if (!usuarioActual || !["administrador", "supervisor"].includes(usuarioActual.rol)) {
+      document.getElementById("nuevoProyecto").hidden = true;
+    }
+    async function cargarProyectos() {
+      const tbody = document.getElementById("tablaProyectos");
+      const message = document.getElementById("mensaje");
+      message.textContent = "";
+      const params = new URLSearchParams();
+      const search = document.getElementById("busqueda").value.trim();
+      const state = document.getElementById("estadoFiltro").value;
+      if (search) params.set("busqueda", search);
+      if (state) params.set("estado", state);
+      try {
+        const data = await leerRespuesta(await fetchConToken(`proyectos/listar.php?${params}`));
+        tbody.replaceChildren();
+        if (!data.data.length) return filaVacia(tbody, 6, "No se encontraron proyectos.");
+        data.data.forEach((project) => {
+          const row = document.createElement("tr");
+          row.append(celda(project.nombre_proyecto), celda(project.contratista), celda(project.ubicacion));
+          const stateCell = celda(project.estado);
+          stateCell.firstChild && (stateCell.className = "insignia");
+          row.append(stateCell, celda(project.fecha_creacion));
+          const action = celda("");
+          const link = document.createElement("a");
+          link.href = `detalle_linea.html?id=${encodeURIComponent(project.id)}`;
+          link.textContent = "Ver líneas";
+          action.appendChild(link);
+          row.appendChild(action);
+          tbody.appendChild(row);
+        });
+      } catch (error) {
+        filaVacia(tbody, 6, "No se pudo cargar la información.");
+        mostrarMensaje(message, error.message);
+      }
+    }
+    document.getElementById("buscar").addEventListener("click", cargarProyectos);
+    document.getElementById("busqueda").addEventListener("keydown", (event) => { if (event.key === "Enter") cargarProyectos(); });
+    document.getElementById("proyectoForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const button = event.currentTarget.querySelector("button");
+      button.disabled = true;
+      try {
+        const data = await leerRespuesta(await fetchConToken("proyectos/crear.php", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nombre_proyecto: document.getElementById("nombreProyecto").value.trim(),
+            contratista: document.getElementById("contratista").value.trim(),
+            ubicacion: document.getElementById("ubicacion").value.trim()
+          })
+        }));
+        mostrarMensaje(document.getElementById("mensaje"), data.message, "ok");
+        event.currentTarget.reset();
+        document.getElementById("nuevoProyecto").open = false;
+        await cargarProyectos();
+      } catch (error) {
+        mostrarMensaje(document.getElementById("mensaje"), error.message);
+      } finally {
+        button.disabled = false;
+      }
+    });
+    cargarProyectos();
+  </script>
+</body>
+</html>

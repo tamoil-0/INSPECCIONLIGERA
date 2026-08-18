@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Líneas | ECOING</title>
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+  <main class="contenedor">
+    <header>
+      <div><p class="marca">ECOING</p><h1>Líneas del proyecto</h1></div>
+      <button class="boton-secundario" onclick="cerrarSesion()">Cerrar sesión</button>
+    </header>
+    <nav class="migas"><a href="proyectos.html">Proyectos</a> / <span id="proyectoNombre">Proyecto</span></nav>
+    <p id="mensaje" class="mensaje" aria-live="polite"></p>
+    <div class="tabla-scroll">
+      <table>
+        <thead><tr><th>Línea</th><th>Total postes</th><th>Inspeccionados</th><th>Formularios</th><th>Imágenes completas</th><th>Acción</th></tr></thead>
+        <tbody id="tablaLineas"></tbody>
+      </table>
+    </div>
+  </main>
+  <script src="js/app.js"></script>
+  <script>
+    verificarSesion();
+    const proyectoId = Number(new URLSearchParams(location.search).get("id"));
+    if (!Number.isInteger(proyectoId) || proyectoId <= 0) location.replace("proyectos.html");
+
+    async function cargarLineas() {
+      const tbody = document.getElementById("tablaLineas");
+      try {
+        const [project, posts] = await Promise.all([
+          fetchConToken(`proyectos/obtener.php?id=${proyectoId}`).then(leerRespuesta),
+          fetchConToken(`postes/listar.php?proyecto_id=${proyectoId}`).then(leerRespuesta)
+        ]);
+        document.getElementById("proyectoNombre").textContent = project.data.nombre_proyecto;
+        const lines = new Map();
+        posts.data.forEach((post) => {
+          const item = lines.get(post.linea) || { total: 0, inspected: 0, forms: 0, images: 0 };
+          item.total++;
+          if (post.fecha_inspeccion) item.inspected++;
+          if (Number(post.formulario_subido) === 1) item.forms++;
+          if (Number(post.imagenes_subidas) === 1) item.images++;
+          lines.set(post.linea, item);
+        });
+        tbody.replaceChildren();
+        if (!lines.size) return filaVacia(tbody, 6, "El proyecto todavía no tiene postes.");
+        [...lines.entries()].sort(([a], [b]) => a.localeCompare(b, "es", { numeric: true })).forEach(([line, values]) => {
+          const row = document.createElement("tr");
+          row.append(celda(line), celda(values.total), celda(values.inspected), celda(values.forms), celda(values.images));
+          const action = celda("");
+          const link = document.createElement("a");
+          link.href = `detalle_poste.html?proyecto_id=${proyectoId}&linea=${encodeURIComponent(line)}`;
+          link.textContent = "Ver postes";
+          action.appendChild(link);
+          row.appendChild(action);
+          tbody.appendChild(row);
+        });
+      } catch (error) {
+        filaVacia(tbody, 6, "No se pudieron cargar las líneas.");
+        mostrarMensaje(document.getElementById("mensaje"), error.message);
+      }
+    }
+    cargarLineas();
+  </script>
+</body>
+</html>

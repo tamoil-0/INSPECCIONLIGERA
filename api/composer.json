@@ -1,0 +1,15 @@
+{
+    "name": "ecoing/inspeccion-ligera",
+    "description": "API local para inspección ligera de líneas de transmisión.",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "firebase/php-jwt": "^7.0",
+        "phpoffice/phpspreadsheet": "^5.9",
+        "setasign/fpdf": "^1.9"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}
