@@ -3,6 +3,7 @@
 Aplicación local para administrar proyectos, postes, formularios de inspección, imágenes y reportes de líneas de transmisión.
 
 La configuración completa del cliente de campo está en [docs/CONEXION_Y_SINCRONIZACION_MOVIL.md](docs/CONEXION_Y_SINCRONIZACION_MOVIL.md).
+La publicación en hosting/VPS y compilación final de la app están en [docs/DESPLIEGUE_SERVIDOR_Y_APP_MOVIL.md](docs/DESPLIEGUE_SERVIDOR_Y_APP_MOVIL.md).
 
 ## Estado local
 

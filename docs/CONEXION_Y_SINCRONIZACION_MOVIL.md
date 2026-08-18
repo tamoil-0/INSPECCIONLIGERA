@@ -539,3 +539,7 @@ AND servidor.imagenes_subidas == true
 ```
 
 Hasta entonces los archivos y datos locales deben conservarse. Esta regla evita falsos positivos, pérdida de fotos y postes que aparezcan completos cuando solo llegó una parte de la inspección.
+
+## 16. Publicación en servidor
+
+La lista exacta de carpetas que se suben, archivos que deben excluirse, configuración privada, permisos, importación del SQL y compilación del APK/AAB está en [DESPLIEGUE_SERVIDOR_Y_APP_MOVIL.md](DESPLIEGUE_SERVIDOR_Y_APP_MOVIL.md).

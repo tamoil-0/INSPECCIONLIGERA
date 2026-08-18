@@ -31,6 +31,7 @@ log_*.txt
 
 # Dumps con datos: el esquema limpio vive en database/schema.sql
 /database/ecoing_inspeccion_con_estructuras.sql
+/database/*_servidor.sql
 /*inventario*.sql
 /api/*.sql
 

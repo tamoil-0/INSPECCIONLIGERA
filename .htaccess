@@ -1,5 +1,5 @@
 Options -Indexes
 
-<FilesMatch "(^\.env|\.sql$|\.log$|\.zip$|composer\.(json|lock)$|^(headers_log|errores_|log_).*\.txt$)">
+<FilesMatch "(^\.env|^\.user\.ini$|\.sql$|\.log$|\.zip$|composer\.(json|lock)$|^(headers_log|errores_|log_).*\.txt$)">
     Require all denied
 </FilesMatch>
