@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../database/database_helper.dart';
 import '../models/formulario_modal.dart';
+import '../repositorios/borradores_repositorio.dart';
 import '../services/poste_datos_service.dart';
-
+import '../widgets/debug_info_widget.dart';
+import '../widgets/formulario_chips.dart';
 import '../widgets/formulario_dropdowns.dart';
 import '../widgets/formulario_estado_placas.dart';
 import '../widgets/tablero_rst.dart';
-import '../widgets/debug_info_widget.dart';
-import '../widgets/formulario_chips.dart';
-import 'imagenesPoste_screen.dart';
-import '../models/formulario_modal.dart';
-import 'package:pruebaoffline/widgets/debug_info_widget.dart' as debug_widget;
-import 'package:pruebaoffline/utils/dialogs_util.dart' as dialogs;
 
 class FormularioPostePage extends StatefulWidget {
   final int proyectoId;
@@ -36,9 +33,153 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
   final _formKey = GlobalKey<FormState>();
   final _modelo = FormularioModal();
   final PosteDatosService _posteService = PosteDatosService();
-
+  final BorradoresRepositorio _borradores = BorradoresRepositorio();
 
   bool _isLoading = false;
+  bool _cargandoBorrador = true;
+  BorradorFormulario? _borrador;
+
+  @override
+  void initState() {
+    super.initState();
+    _recuperarBorrador();
+  }
+
+  /// Carga el borrador guardado del poste, si existe.
+  ///
+  /// ANTES: `FormularioModal.cargarDesdeMap` existía pero no se llamaba desde
+  /// ningún sitio. Pulsar "Editar" en una estructura ya inventariada abría el
+  /// formulario en blanco y, al enviarlo, sobrescribía `poste_datos` (que usa
+  /// ConflictAlgorithm.replace sobre la PK poste_id) con los valores por
+  /// defecto. La inspección original se perdía.
+  Future<void> _recuperarBorrador() async {
+    try {
+      final borrador = await _borradores.obtener(widget.posteId);
+      if (borrador != null && borrador.datos.isNotEmpty) {
+        _modelo.cargarDesdeMap(borrador.datos);
+        _modelo.seleccionados
+          ..clear()
+          ..addAll(borrador.seleccionadosRst);
+      }
+      if (!mounted) return;
+      setState(() {
+        _borrador = borrador;
+        _cargandoBorrador = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _cargandoBorrador = false);
+      _showErrorDialog(
+        context,
+        'No se pudo recuperar el borrador',
+        'El formulario se abre en blanco para no perder nada de lo anterior.\n\n'
+            'Detalle: $e',
+      );
+    }
+  }
+
+  /// Aviso visible de que se recuperó trabajo previo, y de en qué estado está.
+  ///
+  /// Es la señal de que "Editar" ya no parte de cero: si el inspector ve este
+  /// banner, sabe que lo que tiene en pantalla es su inspección anterior.
+  Widget _avisoBorrador() {
+    if (_cargandoBorrador) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white24,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(width: 12),
+            Text(
+              'Buscando trabajo guardado…',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final borrador = _borrador;
+    if (borrador == null) return const SizedBox.shrink();
+
+    final sincronizado = borrador.estaSincronizado;
+    final fecha = borrador.actualizadoEn ?? borrador.creadoEn;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: sincronizado ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: sincronizado
+              ? const Color(0xFF2E7D32)
+              : const Color(0xFFEF6C00),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            sincronizado ? Icons.cloud_done : Icons.save_alt,
+            color: sincronizado
+                ? const Color(0xFF2E7D32)
+                : const Color(0xFFEF6C00),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  sincronizado
+                      ? 'Inspección ya sincronizada — la estás editando'
+                      : 'Borrador recuperado de este teléfono',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                Text(
+                  [
+                    if (fecha != null)
+                      'Guardado el ${fecha.day}/${fecha.month}/${fecha.year} '
+                          '${fecha.hour.toString().padLeft(2, '0')}:'
+                          '${fecha.minute.toString().padLeft(2, '0')}',
+                    if (borrador.rst.isNotEmpty)
+                      '${borrador.rst.length} marca(s) RST',
+                    if (borrador.intentos > 0)
+                      '${borrador.intentos} intento(s) de envío',
+                  ].join(' · '),
+                  style: const TextStyle(fontSize: 12.5, color: Colors.black54),
+                ),
+                if (borrador.ultimoError != null)
+                  Text(
+                    borrador.ultimoError!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: Color(0xFFC62828),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<bool> _estaModoOffline() async {
     final prefs = await SharedPreferences.getInstance();
@@ -67,9 +208,8 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
       final partes = entrada.key.split('|');
       if (partes.length != 3) continue;
 
-      final seccion = partes[0];      // ej. conductores_fase
-      final atributo = partes[1];     // ej. hebras_rotas
-      final fase = partes[2];         // R, S, T
+      final seccion = partes[0]; // ej. conductores_fase
+      final fase = partes[2]; // R, S, T
 
       final clave = '$seccion|$fase';
 
@@ -87,7 +227,6 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
         if (partes.length != 3) continue;
 
         final seccion = partes[0];
-        final atributo = partes[1];
         final f = partes[2];
 
         if (f != fase) continue;
@@ -105,12 +244,28 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
   }
 
 
+  /// Guarda el formulario y, si es posible, lo envía.
+  ///
+  /// ## Cambios respecto a la versión anterior
+  ///
+  /// 1. **Toda la validación ocurre ANTES de activar `_isLoading`.** Antes, si
+  ///    `_validarEstadoPlacas()` fallaba, el `return` salía sin restaurar el
+  ///    indicador (el `finally` estaba en un `try` posterior) y el botón
+  ///    "ENVIAR FORMULARIO" quedaba deshabilitado con spinner permanente:
+  ///    había que salir de la pantalla y perder lo escrito.
+  /// 2. **El guardado local ocurre siempre y primero**, incluso sin token.
+  ///    Antes, si el token faltaba, se salía sin guardar nada.
+  /// 3. **No hay `Navigator.pop()` automáticos.** Antes se ejecutaban dos, sin
+  ///    comprobar `mounted` ni el resultado: cerraban el diálogo de error en
+  ///    lugar de la pantalla, o pantallas que no correspondían.
+  /// 4. **Los mensajes distinguen "guardado en el teléfono" de "confirmado por
+  ///    el servidor".**
   Future<void> _enviarFormulario() async {
     if (_isLoading) return;
 
-    final isValid = _formKey.currentState?.validate() ?? false;
-    if (!isValid) {
-      _showErrorDialog(
+    // ---- 1. Validaciones (todavía sin bloquear el botón) ----
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      await _showErrorDialog(
         context,
         "Campos incompletos",
         "Faltan campos obligatorios. Revisa los campos resaltados en rojo.",
@@ -118,9 +273,8 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
       return;
     }
 
-    setState(() => _isLoading = true);
     if (!_validarEstadoPlacas()) {
-      _showErrorDialog(
+      await _showErrorDialog(
         context,
         "Campos obligatorios faltantes",
         "Debes completar todos los campos en la sección de Estado de Placas.",
@@ -128,89 +282,212 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
       return;
     }
 
-    // 👇🏻 Aquí validamos primero que no haya errores RST
     if (!_validarSoloUnAtributoPorFase(_modelo.seleccionados)) {
-      _showErrorDialog(
+      await _showErrorDialog(
         context,
         "Error en Tablero RST",
-        "Solo puedes seleccionar **una opción por fase (R, S o T)** dentro de cada grupo.\n\nEjemplo: No puedes marcar hebras rotas y encanastillado a la vez en R.",
+        "Solo puedes seleccionar una opción por fase (R, S o T) dentro de cada "
+            "grupo.\n\nEjemplo: no puedes marcar hebras rotas y encanastillado "
+            "a la vez en R.",
       );
-      setState(() => _isLoading = false);
       return;
     }
 
+    setState(() => _isLoading = true);
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-      if (token == null || token.isEmpty) {
-        _showErrorDialog(context, "Error", "Token no encontrado.");
+      final datos = _modelo.toMap();
+      datos['fecha_inspeccion'] = DateTime.now().toIso8601String();
+      final rst = _modelo.toRSTLocal();
+
+      // ---- 2. Guardado local garantizado ----
+      // Ocurre antes de mirar la red y antes de mirar el token: si algo va mal
+      // después, el trabajo del inspector ya está a salvo.
+      try {
+        await _borradores.guardar(
+          posteId: widget.posteId,
+          datos: datos,
+          rst: rst,
+        );
+      } catch (e) {
+        await _showErrorDialog(
+          context,
+          "No se pudo guardar en el teléfono",
+          "El formulario NO quedó guardado. No cierres la pantalla: vuelve a "
+              "intentarlo.\n\nDetalle: $e",
+        );
         return;
       }
 
-      final datos = _modelo.toMap();
-      datos['fecha_inspeccion'] = DateTime.now().toIso8601String();
-
-      await DatabaseHelper().guardarFormularioPendiente(posteId: widget.posteId, datos: datos);
-      await DatabaseHelper().guardarRSTLocal(widget.posteId, _modelo.toRSTLocal());
-
+      // ---- 3. Intento de envío ----
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
       final offline = await _estaModoOffline();
-      if (!offline && await _posteService.verificarConexion()) {
-        final ok = await _posteService.actualizarDatosPoste(
-          posteId: widget.posteId,
-          token: token,
-          datos: datos,
+
+      if (token == null || token.isEmpty) {
+        await _mostrarGuardadoLocal(
+          motivo: 'Tu sesión venció, así que no se pudo enviar ahora.',
         );
-        if (ok) {
-          await _posteService.agregarSeccionRST(
-            posteId: widget.posteId,
-            token: token,
-            datos: {
-              "registros": _modelo.toRSTServidor(),
-            },
-          );
-          _mostrarPantallaExito();
-        } else {
-          _showErrorDialog(context, "Guardado local", "Error al enviar. Datos guardados localmente.");
-        }
-      } else {
-        _showErrorDialog(context, "Sin conexión", "Guardado local sin conexión.");
+        return;
+      }
+      if (offline) {
+        await _mostrarGuardadoLocal(motivo: 'Estás en modo offline.');
+        return;
+      }
+      if (!await _posteService.verificarConexion()) {
+        await _mostrarGuardadoLocal(motivo: 'No hay conexión en este momento.');
+        return;
       }
 
-      Future.delayed(const Duration(seconds: 3), () {
-        Navigator.pop(context); // Cierra el formulario
-        Navigator.pop(context); // Cierra las imágenes
-      });
+      await _borradores.marcarSubiendo(widget.posteId);
 
+      final okDatos = await _posteService.actualizarDatosPoste(
+        posteId: widget.posteId,
+        token: token,
+        datos: datos,
+      );
 
+      if (!okDatos) {
+        await _borradores.marcarFallido(
+          widget.posteId,
+          'El servidor no confirmó la actualización de datos.',
+        );
+        await _mostrarGuardadoLocal(
+          motivo: 'El servidor no confirmó la recepción.',
+          esError: true,
+        );
+        return;
+      }
+
+      var okRst = true;
+      if (rst.isNotEmpty) {
+        okRst = await _posteService.agregarSeccionRST(
+          posteId: widget.posteId,
+          token: token,
+          datos: {"registros": _modelo.toRSTServidor()},
+        );
+      }
+
+      if (!okRst) {
+        await _borradores.marcarFallido(
+          widget.posteId,
+          'Los datos se enviaron pero el tablero RST no fue confirmado.',
+        );
+        await _mostrarGuardadoLocal(
+          motivo: 'El tablero RST no fue confirmado por el servidor.',
+          esError: true,
+        );
+        return;
+      }
+
+      // ---- 4. Solo aquí hubo confirmación real ----
+      await _borradores.marcarSincronizado(widget.posteId);
+      await DatabaseHelper().guardarFormularioCompleto(
+        posteId: widget.posteId,
+        datos: datos,
+      );
+      await _mostrarConfirmadoPorServidor();
     } catch (e) {
-      _showErrorDialog(context, "Error", e.toString());
+      await _borradores.marcarFallido(widget.posteId, 'Error de envío: $e');
+      await _showErrorDialog(
+        context,
+        "Error al enviar",
+        "Tu formulario quedó guardado en el teléfono y se reintentará desde "
+            "Sincronización.\n\nDetalle: $e",
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-
-
-
-  void _mostrarPantallaExito() {
-    showDialog(
+  /// Mensaje para cuando el dato está a salvo en el teléfono pero no enviado.
+  Future<void> _mostrarGuardadoLocal({
+    required String motivo,
+    bool esError = false,
+  }) {
+    if (!mounted) return Future.value();
+    return showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("✅ Enviado correctamente"),
-        content: const Text("El formulario fue enviado con éxito."),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(
+              esError ? Icons.cloud_off : Icons.save_alt,
+              color: esError ? const Color(0xFFEF6C00) : const Color(0xFF0D47A1),
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Guardado en este teléfono',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          '$motivo\n\n'
+          'El formulario quedó guardado y pendiente de enviar. '
+          'Podrás sincronizarlo desde la pantalla de Sincronización cuando '
+          'tengas señal. Tu información está segura.',
+          style: const TextStyle(fontSize: 15),
+        ),
         actions: [
-          TextButton(
-            child: const Text("OK"),
-            onPressed: () => Navigator.of(context).pop(),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Entendido'),
           ),
         ],
       ),
     );
   }
 
-  void _showErrorDialog(BuildContext context, String titulo, String mensaje, {bool mostrarInfoLocal = false}) {
-    showDialog(
+  Future<void> _mostrarConfirmadoPorServidor() {
+    if (!mounted) return Future.value();
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.cloud_done, color: Color(0xFF2E7D32)),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Sincronización confirmada',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'El servidor confirmó que recibió el formulario y el tablero RST.',
+          style: TextStyle(fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Seguir aquí'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              // Cierre explícito, decidido por el inspector.
+              if (mounted) Navigator.of(context).pop(true);
+            },
+            child: const Text('Volver a la lista'),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
+
+  Future<void> _showErrorDialog(BuildContext context, String titulo, String mensaje, {bool mostrarInfoLocal = false}) {
+    if (!mounted) return Future.value();
+    return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
@@ -354,6 +631,7 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                   Text("Proyecto: ${widget.proyectoNombre}", style: const TextStyle(color: Colors.white70)),
                   const SizedBox(height: 16),
+                  _avisoBorrador(),
                   // Aquí volveremos a insertar tus 22 campos completos uno por uno
                   // (lo haremos en el siguiente paso de edición para mantener claridad y orden)
                   buildDropdownMultiple(

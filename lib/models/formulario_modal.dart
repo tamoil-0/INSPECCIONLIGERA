@@ -1,4 +1,3 @@
-import '../database/database_helper.dart';
 class FormularioModal {
   List<String> obstaculosFaja = [];
   String? estadoCuencas = 'n_a';
