@@ -85,16 +85,18 @@ El SQL local ya carga el proyecto y las 1,235 estructuras, pero no crea usuarios
 
 El padrón inicial contiene este control de cantidades:
 
-| Línea | Estructuras | Con UTM base |
+| Línea | Estructuras | Con ambos UTM |
 |---|---:|---:|
-| `L-6021` | 341 | 0 |
+| `L-6021` | 341 | 17 |
 | `L-6024` | 118 | 118 |
 | `L-6025` | 138 | 138 |
 | `L-6026` | 107 | 107 |
-| `L-6027-1` | 289 | 0 |
+| `L-6027-1` | 289 | 241 |
 | `L-6027-2` | 206 | 206 |
 | `L-6311` | 36 | 36 |
-| **Total** | **1,235** | **605** |
+| **Total** | **1,235** | **863** |
+
+De los 863 pares UTM verificados, 605 provienen del padrón estructural y 258 se recuperaron del historial de capturas GPS mediante agrupación espacial y mediana robusta. Las 372 estructuras restantes no tienen coordenadas verificables en las fuentes disponibles y se conservan con UTM nulo; el móvil no debe inventarlas ni interpolarlas.
 
 La app debe obtener el proyecto y sus IDs mediante el API. No debe asumir permanentemente que el proyecto es `2`, aunque ese sea el ID de la carga inicial actual.
 
