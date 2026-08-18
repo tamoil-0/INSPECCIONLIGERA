@@ -1,37 +1,93 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Proyecto | ECOING</title><link rel="stylesheet" href="css/estilos.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071827">
+  <title>Resumen del proyecto | ECOING</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/estilos.css">
 </head>
-<body>
-  <main class="contenedor">
-    <header><div><p class="marca">ECOING</p><h1>Detalle del proyecto</h1></div><button class="boton-secundario" onclick="cerrarSesion()">Cerrar sesión</button></header>
-    <nav class="migas"><a href="proyectos.html">Proyectos</a> / Detalle</nav>
-    <dl id="detalle" class="detalle-grid"></dl>
-    <p><a id="lineas" href="#">Ver líneas y postes</a></p>
-    <p id="mensaje" class="mensaje"></p>
+<body class="app-body">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand-link" href="proyectos.html"><span class="logo-mark" aria-hidden="true">EC</span><span class="brand-copy"><strong>ECOING</strong><span>Operaciones de campo</span></span></a>
+      <nav class="topbar-center" aria-label="Navegación principal"><a class="nav-link activo" href="proyectos.html">Proyectos</a></nav>
+      <div class="topbar-actions">
+        <span class="conexion" data-api-status data-state="checking"><span>Verificando API</span></span>
+        <div class="usuario-compacto"><span class="usuario-avatar" data-user-initials>EC</span><span class="usuario-meta"><strong data-user-name>Usuario</strong><span data-user-role>Sesión activa</span></span></div>
+        <button class="button-ghost button-sm" type="button" onclick="cerrarSesion()">Salir</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <nav class="breadcrumbs" aria-label="Migas de pan"><a href="proyectos.html">Proyectos</a><span class="separador">/</span><strong>Resumen</strong></nav>
+    <section class="page-heading">
+      <div class="page-heading-copy"><p class="eyebrow">Vista ejecutiva</p><h1 id="tituloProyecto">Resumen del proyecto</h1><p id="descripcionProyecto">Cargando información operativa…</p></div>
+      <div class="page-actions"><a id="lineas" class="button button-primary" href="#">Explorar líneas y postes</a></div>
+    </section>
+
+    <p id="mensaje" class="mensaje" aria-live="polite"></p>
+
+    <section class="metric-grid" aria-label="Indicadores del proyecto">
+      <article class="metric-card"><span class="metric-label">Líneas</span><strong class="metric-value" id="totalLineas">—</strong><span class="metric-helper">Circuitos registrados</span></article>
+      <article class="metric-card"><span class="metric-label">Estructuras</span><strong class="metric-value" id="totalPostes">—</strong><span class="metric-helper">Padrón del proyecto</span></article>
+      <article class="metric-card" data-tone="success"><span class="metric-label">Formularios</span><strong class="metric-value" id="totalFormularios">—</strong><span class="metric-helper">Confirmados en servidor</span></article>
+      <article class="metric-card" data-tone="warning"><span class="metric-label">Evidencia completa</span><strong class="metric-value" id="totalImagenes">—</strong><span class="metric-helper">Postes con 28 imágenes</span></article>
+    </section>
+
+    <section class="section-block" aria-labelledby="datosProyectoTitulo">
+      <div class="section-heading"><div><h2 id="datosProyectoTitulo">Información general</h2><p>Datos administrativos y estado vigente del proyecto.</p></div><span id="estadoProyecto" class="status-badge status-neutral">Cargando</span></div>
+      <dl id="detalle" class="detalle-grid"></dl>
+    </section>
   </main>
+
+  <footer class="app-footer"><p>ECOING · Gestión de inspecciones</p><p>Entorno local seguro · <span data-current-year></span></p></footer>
+
   <script src="js/app.js"></script>
   <script>
     verificarSesion();
     const id = Number(new URLSearchParams(location.search).get("id"));
     if (!Number.isInteger(id) || id <= 0) location.replace("proyectos.html");
     document.getElementById("lineas").href = `detalle_linea.html?id=${id}`;
+
+    function agregarDetalle(target, label, value, wide = false) {
+      const box = document.createElement("div");
+      if (wide) box.className = "detail-wide";
+      const dt = document.createElement("dt");
+      const dd = document.createElement("dd");
+      dt.textContent = label;
+      dd.textContent = value ?? "—";
+      box.append(dt, dd);
+      target.appendChild(box);
+    }
+
     (async () => {
       try {
-        const data = await leerRespuesta(await fetchConToken(`proyectos/obtener.php?id=${id}`));
+        const [project, posts] = await Promise.all([
+          fetchConToken(`proyectos/obtener.php?id=${id}`).then(leerRespuesta),
+          fetchConToken(`postes/listar.php?proyecto_id=${id}`).then(leerRespuesta)
+        ]);
+        document.title = `${project.data.nombre_proyecto} | ECOING`;
+        document.getElementById("tituloProyecto").textContent = project.data.nombre_proyecto;
+        document.getElementById("descripcionProyecto").textContent = `${project.data.contratista} · ${project.data.ubicacion}`;
+        const lines = new Set(posts.data.map((post) => post.linea));
+        document.getElementById("totalLineas").textContent = lines.size;
+        document.getElementById("totalPostes").textContent = posts.count;
+        document.getElementById("totalFormularios").textContent = posts.data.filter((post) => Number(post.formulario_subido) === 1).length;
+        document.getElementById("totalImagenes").textContent = posts.data.filter((post) => Number(post.imagenes_subidas) === 1).length;
+        const status = document.getElementById("estadoProyecto");
+        status.replaceWith(insigniaEstado(project.data.estado));
         const detail = document.getElementById("detalle");
-        Object.entries(data.data).forEach(([label, value]) => {
-          const box = document.createElement("div");
-          const dt = document.createElement("dt");
-          const dd = document.createElement("dd");
-          dt.textContent = label.replaceAll("_", " ");
-          dd.textContent = value ?? "—";
-          box.append(dt, dd);
-          detail.appendChild(box);
-        });
-      } catch (error) { mostrarMensaje(document.getElementById("mensaje"), error.message); }
+        agregarDetalle(detail, "Proyecto", project.data.nombre_proyecto, true);
+        agregarDetalle(detail, "Contratista", project.data.contratista);
+        agregarDetalle(detail, "Ubicación", project.data.ubicacion);
+        agregarDetalle(detail, "Fecha de creación", formatearFecha(project.data.fecha_creacion));
+        agregarDetalle(detail, "Identificador", `#${project.data.id}`);
+      } catch (error) {
+        mostrarMensaje(document.getElementById("mensaje"), error.message);
+      }
     })();
   </script>
 </body>

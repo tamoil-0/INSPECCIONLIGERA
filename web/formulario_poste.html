@@ -1,64 +1,194 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Inspección del poste | ECOING</title><link rel="stylesheet" href="css/estilos.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071827">
+  <title>Detalle de inspección | ECOING</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/estilos.css">
 </head>
-<body>
-  <main class="contenedor">
-    <header><div><p class="marca">ECOING</p><h1>Inspección del poste</h1></div><button class="boton-secundario" onclick="cerrarSesion()">Cerrar sesión</button></header>
-    <nav class="migas"><a href="proyectos.html">Proyectos</a> / <a id="volver" href="#">Postes</a> / Datos</nav>
-    <div class="acciones"><button id="abrirPdf">Abrir reporte PDF</button></div>
-    <p id="mensaje" class="mensaje"></p>
-    <h2>Identificación</h2><dl id="poste" class="detalle-grid"></dl>
-    <h2>Formulario</h2><dl id="datos" class="detalle-grid"></dl>
-    <h2>Secciones RST</h2><div class="tabla-scroll"><table><thead><tr><th>Sección</th><th>Fase</th><th>Atributo</th></tr></thead><tbody id="rst"></tbody></table></div>
-    <h2>Imágenes registradas</h2><div class="tabla-scroll"><table><thead><tr><th>Tipo</th><th>Fecha</th><th>Zona</th></tr></thead><tbody id="imagenes"></tbody></table></div>
+<body class="app-body">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand-link" href="proyectos.html"><span class="logo-mark" aria-hidden="true">EC</span><span class="brand-copy"><strong>ECOING</strong><span>Operaciones de campo</span></span></a>
+      <nav class="topbar-center" aria-label="Navegación principal"><a class="nav-link activo" href="proyectos.html">Proyectos</a></nav>
+      <div class="topbar-actions">
+        <span class="conexion" data-api-status data-state="checking"><span>Verificando API</span></span>
+        <div class="usuario-compacto"><span class="usuario-avatar" data-user-initials>EC</span><span class="usuario-meta"><strong data-user-name>Usuario</strong><span data-user-role>Sesión activa</span></span></div>
+        <button class="button-ghost button-sm" type="button" onclick="cerrarSesion()">Salir</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <nav class="breadcrumbs" aria-label="Migas de pan"><a href="proyectos.html">Proyectos</a><span class="separador">/</span><a id="volver" href="#">Estructuras</a><span class="separador">/</span><strong>Inspección</strong></nav>
+    <section class="page-heading">
+      <div class="page-heading-copy"><p class="eyebrow">Expediente técnico</p><h1 id="tituloPoste">Detalle de inspección</h1><p id="subtituloPoste">Consultando información registrada en el servidor…</p></div>
+      <div class="page-actions"><button id="abrirPdf" class="button-primary" type="button">Abrir reporte PDF</button></div>
+    </section>
+
+    <p id="mensaje" class="mensaje" aria-live="polite"></p>
+
+    <section class="metric-grid" aria-label="Estado de la inspección">
+      <article class="metric-card" id="cardFormulario"><span class="metric-label">Formulario</span><strong class="metric-value" id="estadoFormulario">—</strong><span class="metric-helper">Datos técnicos</span></article>
+      <article class="metric-card" id="cardImagenes"><span class="metric-label">Imágenes</span><strong class="metric-value" id="estadoImagenes">—</strong><span class="metric-helper" id="detalleImagenes">De 28 requeridas</span></article>
+      <article class="metric-card"><span class="metric-label">Registros RST</span><strong class="metric-value" id="totalRst">—</strong><span class="metric-helper">Sección y fase</span></article>
+      <article class="metric-card" id="cardSync"><span class="metric-label">Sincronización</span><strong class="metric-value" id="estadoSync">—</strong><span class="metric-helper">Estado integral</span></article>
+    </section>
+
+    <nav class="section-nav" aria-label="Secciones del expediente">
+      <a href="#identificacion">Identificación</a>
+      <a href="#formulario">Formulario</a>
+      <a href="#secciones-rst">Secciones RST</a>
+      <a href="#evidencias">Evidencias</a>
+    </nav>
+
+    <section id="identificacion" class="section-block">
+      <div class="section-heading"><div><h2>Identificación de la estructura</h2><p>Información del padrón, ubicación y estado de carga.</p></div></div>
+      <dl id="poste" class="detalle-grid"></dl>
+    </section>
+
+    <section id="formulario" class="section-block">
+      <div class="section-heading"><div><h2>Formulario de inspección</h2><p>Condiciones y observaciones registradas por el equipo de campo.</p></div><span id="badgeFormulario" class="status-badge status-neutral">Cargando</span></div>
+      <dl id="datos" class="detalle-grid"></dl>
+    </section>
+
+    <section id="secciones-rst" class="section-block">
+      <div class="section-heading"><div><h2>Secciones RST</h2><p>Hallazgos clasificados por sección y fase.</p></div><span id="conteoRst" class="status-badge status-neutral">Cargando</span></div>
+      <div class="tabla-shell">
+        <div class="tabla-scroll tabla-responsive">
+          <table><thead><tr><th>Sección</th><th>Fase</th><th>Atributo</th></tr></thead><tbody id="rst"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="evidencias" class="section-block">
+      <div class="section-heading"><div><h2>Evidencias fotográficas</h2><p>Inventario de fotografías, fechas y coordenadas de captura.</p></div><span id="conteoImagenes" class="status-badge status-neutral">Cargando</span></div>
+      <div class="tabla-shell">
+        <div class="tabla-scroll tabla-responsive">
+          <table><thead><tr><th>Tipo de evidencia</th><th>Fecha de captura</th><th>UTM Este</th><th>UTM Norte</th><th>Zona</th></tr></thead><tbody id="imagenes"></tbody></table>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <footer class="app-footer"><p>ECOING · Gestión de inspecciones</p><p>Entorno local seguro · <span data-current-year></span></p></footer>
+
   <script src="js/app.js"></script>
   <script>
     verificarSesion();
     const query = new URLSearchParams(location.search);
     const posteId = Number(query.get("poste_id"));
     const proyectoId = Number(query.get("proyecto_id"));
-    if (!Number.isInteger(posteId) || !Number.isInteger(proyectoId)) location.replace("proyectos.html");
+    if (!Number.isInteger(posteId) || posteId <= 0 || !Number.isInteger(proyectoId) || proyectoId <= 0) location.replace("proyectos.html");
 
-    function renderDefinition(id, values) {
+    const CAMPOS_BOOLEANOS = new Set(["formulario_subido", "imagenes_subidas", "sincronizado"]);
+    const CAMPOS_FECHA = new Set(["fecha_inspeccion", "fecha_subida", "creado_en", "fecha_creacion"]);
+    const OMITIR_POSTE = new Set(["id", "proyecto_id"]);
+
+    function valorCampo(key, value) {
+      if (value === null || value === undefined || value === "") return "—";
+      if (CAMPOS_BOOLEANOS.has(key)) return Number(value) === 1 ? "Sí" : "No";
+      if (CAMPOS_FECHA.has(key)) return formatearFecha(value);
+      if (key === "distancia_acceso") return `${value} m`;
+      if (key === "comentarios") return String(value);
+      return String(value).replaceAll(",", ", ").replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
+    }
+
+    function renderDefinition(id, values, omit = new Set()) {
       const target = document.getElementById(id);
       target.replaceChildren();
-      Object.entries(values || {}).forEach(([key, value]) => {
+      const entries = Object.entries(values || {}).filter(([key]) => !omit.has(key));
+      if (!entries.length) {
         const box = document.createElement("div");
+        box.className = "detail-wide";
         const dt = document.createElement("dt");
         const dd = document.createElement("dd");
-        dt.textContent = key.replaceAll("_", " ");
-        dd.textContent = value === null || value === "" ? "—" : String(value);
+        dt.textContent = "Estado";
+        dd.textContent = "Todavía no se ha recibido información para esta sección.";
+        box.append(dt, dd);
+        target.appendChild(box);
+        return;
+      }
+      entries.forEach(([key, value]) => {
+        const box = document.createElement("div");
+        if (key === "comentarios" || key === "obstaculos_faja") box.className = "detail-wide";
+        const dt = document.createElement("dt");
+        const dd = document.createElement("dd");
+        dt.textContent = humanizarClave(key);
+        dd.textContent = valorCampo(key, value);
         box.append(dt, dd);
         target.appendChild(box);
       });
     }
 
     async function cargar() {
+      const rstBody = document.getElementById("rst");
+      const imageBody = document.getElementById("imagenes");
+      filaCargando(rstBody, 3, "Cargando registros RST…");
+      filaCargando(imageBody, 5, "Cargando evidencias…");
       try {
         const data = await leerRespuesta(await fetchConToken(`postes/poste_datos.php?poste_id=${posteId}`));
-        renderDefinition("poste", data.poste);
-        renderDefinition("datos", data.datos);
+        document.title = `${data.poste.codigo} · Inspección | ECOING`;
+        document.getElementById("tituloPoste").textContent = data.poste.codigo;
+        document.getElementById("subtituloPoste").textContent = `Línea ${data.poste.linea} · Estructura ${data.poste.estructura} · ${data.poste.ubicaciones || "Ubicación no especificada"}`;
         document.getElementById("volver").href = `detalle_poste.html?proyecto_id=${proyectoId}&linea=${encodeURIComponent(data.poste.linea)}`;
-        const rstBody = document.getElementById("rst");
+        renderDefinition("poste", data.poste, OMITIR_POSTE);
+        renderDefinition("datos", data.datos);
+
+        const formReady = Number(data.poste.formulario_subido) === 1;
+        const imagesReady = Number(data.poste.imagenes_subidas) === 1;
+        const fullySynced = formReady && imagesReady;
+        document.getElementById("estadoFormulario").textContent = formReady ? "Listo" : "Pendiente";
+        document.getElementById("estadoImagenes").textContent = `${data.imagenes.length}/28`;
+        document.getElementById("detalleImagenes").textContent = imagesReady ? "Evidencia completa" : "Evidencias registradas";
+        document.getElementById("totalRst").textContent = data.rst.length;
+        document.getElementById("estadoSync").textContent = fullySynced ? "Completo" : "Parcial";
+        document.getElementById("cardFormulario").dataset.tone = formReady ? "success" : "warning";
+        document.getElementById("cardImagenes").dataset.tone = imagesReady ? "success" : "warning";
+        document.getElementById("cardSync").dataset.tone = fullySynced ? "success" : "warning";
+        const oldBadge = document.getElementById("badgeFormulario");
+        oldBadge.replaceWith(insigniaBooleano(formReady, "Formulario recibido", "Formulario pendiente"));
+
         rstBody.replaceChildren();
-        if (!data.rst.length) filaVacia(rstBody, 3, "Sin registros RST.");
-        else data.rst.forEach((item) => { const row = document.createElement("tr"); row.append(celda(item.seccion), celda(item.fase), celda(item.atributo)); rstBody.appendChild(row); });
-        const imageBody = document.getElementById("imagenes");
+        document.getElementById("conteoRst").textContent = `${data.rst.length} ${data.rst.length === 1 ? "registro" : "registros"}`;
+        if (!data.rst.length) filaVacia(rstBody, 3, "No existen registros RST para esta estructura.");
+        else data.rst.forEach((item) => {
+          const row = document.createElement("tr");
+          row.append(celda(humanizarValor(item.seccion), "Sección"), celda(item.fase, "Fase"), celda(humanizarValor(item.atributo), "Atributo"));
+          rstBody.appendChild(row);
+        });
+
         imageBody.replaceChildren();
-        if (!data.imagenes.length) filaVacia(imageBody, 3, "Sin imágenes registradas.");
-        else data.imagenes.forEach((item) => { const row = document.createElement("tr"); row.append(celda(item.nombre_foto), celda(item.fecha_captura), celda(item.zona || "—")); imageBody.appendChild(row); });
-      } catch (error) { mostrarMensaje(document.getElementById("mensaje"), error.message); }
+        document.getElementById("conteoImagenes").textContent = `${data.imagenes.length} de 28`;
+        if (!data.imagenes.length) filaVacia(imageBody, 5, "No existen imágenes registradas para esta estructura.");
+        else data.imagenes.forEach((item) => {
+          const row = document.createElement("tr");
+          row.append(
+            celdaCompuesta(humanizarValor(item.nombre_foto), "Evidencia confirmada", "Tipo de evidencia"),
+            celda(formatearFecha(item.fecha_captura), "Fecha de captura"),
+            celda(item.utm_este || "—", "UTM Este"),
+            celda(item.utm_norte || "—", "UTM Norte"),
+            celda(item.zona || "—", "Zona")
+          );
+          imageBody.appendChild(row);
+        });
+      } catch (error) {
+        filaVacia(rstBody, 3, "No se pudo cargar la información RST.");
+        filaVacia(imageBody, 5, "No se pudieron cargar las evidencias.");
+        mostrarMensaje(document.getElementById("mensaje"), error.message);
+      }
     }
-    document.getElementById("abrirPdf").addEventListener("click", async () => {
+
+    document.getElementById("abrirPdf").addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      establecerCargando(button, true, "Generando…");
       try { await abrirPdfConToken(`ver_pdf_poste.php?poste_id=${posteId}&proyecto_id=${proyectoId}`); }
       catch (error) { mostrarMensaje(document.getElementById("mensaje"), error.message); }
+      finally { establecerCargando(button, false); }
     });
     cargar();
   </script>
 </body>
 </html>
-

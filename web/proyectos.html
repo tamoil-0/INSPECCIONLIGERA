@@ -3,48 +3,129 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071827">
+  <meta name="description" content="Panel de proyectos e inspecciones ECOING.">
   <title>Proyectos | ECOING</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/estilos.css">
 </head>
-<body>
-  <main class="contenedor">
-    <header>
-      <div><p class="marca">ECOING</p><h1>Proyectos</h1></div>
-      <button class="boton-secundario" type="button" onclick="cerrarSesion()">Cerrar sesión</button>
-    </header>
-    <section class="filtros" aria-label="Filtros">
-      <div><label for="busqueda">Buscar</label><input id="busqueda" placeholder="Nombre, contratista o ubicación"></div>
-      <div><label for="estadoFiltro">Estado</label><select id="estadoFiltro"><option value="">Todos</option><option value="activo">Activo</option><option value="completado">Completado</option><option value="cancelado">Cancelado</option></select></div>
-      <button id="buscar" type="button">Aplicar filtros</button>
-    </section>
-    <details id="nuevoProyecto" class="panel-formulario">
-      <summary>Crear un proyecto</summary>
-      <form id="proyectoForm" class="filtros">
-        <div><label for="nombreProyecto">Nombre</label><input id="nombreProyecto" required></div>
-        <div><label for="contratista">Contratista</label><input id="contratista" required></div>
-        <div><label for="ubicacion">Ubicación</label><input id="ubicacion" required></div>
-        <button type="submit">Guardar proyecto</button>
-      </form>
-    </details>
-    <p id="mensaje" class="mensaje" aria-live="polite"></p>
-    <div class="tabla-scroll">
-      <table>
-        <thead><tr><th>Nombre</th><th>Contratista</th><th>Ubicación</th><th>Estado</th><th>Creado</th><th>Acción</th></tr></thead>
-        <tbody id="tablaProyectos"></tbody>
-      </table>
+<body class="app-body">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand-link" href="proyectos.html" aria-label="Ir al panel de ECOING">
+        <span class="logo-mark" aria-hidden="true">EC</span>
+        <span class="brand-copy"><strong>ECOING</strong><span>Operaciones de campo</span></span>
+      </a>
+      <nav class="topbar-center" aria-label="Navegación principal">
+        <a class="nav-link activo" href="proyectos.html">Proyectos</a>
+      </nav>
+      <div class="topbar-actions">
+        <span class="conexion" data-api-status data-state="checking"><span>Verificando API</span></span>
+        <div class="usuario-compacto">
+          <span class="usuario-avatar" data-user-initials>EC</span>
+          <span class="usuario-meta"><strong data-user-name>Usuario</strong><span data-user-role>Sesión activa</span></span>
+        </div>
+        <button class="button-ghost button-sm" type="button" onclick="cerrarSesion()">Salir</button>
+      </div>
     </div>
+  </header>
+
+  <main class="app-main">
+    <nav class="breadcrumbs" aria-label="Migas de pan"><span>Panel operativo</span><span class="separador">/</span><strong>Proyectos</strong></nav>
+
+    <section class="page-heading">
+      <div class="page-heading-copy">
+        <p class="eyebrow">Gestión operativa</p>
+        <h1>Proyectos de inspección</h1>
+        <p>Consulte el avance de campo, filtre operaciones y acceda al padrón de estructuras.</p>
+      </div>
+      <div class="page-actions" id="accionNuevoProyecto">
+        <button class="button-primary" type="button" id="mostrarNuevoProyecto"><span class="button-icon">＋</span>Nuevo proyecto</button>
+      </div>
+    </section>
+
+    <section class="metric-grid" aria-label="Resumen de proyectos">
+      <article class="metric-card"><span class="metric-label">Total</span><strong class="metric-value" id="totalProyectos">—</strong><span class="metric-helper">Proyectos registrados</span></article>
+      <article class="metric-card" data-tone="success"><span class="metric-label">Activos</span><strong class="metric-value" id="proyectosActivos">—</strong><span class="metric-helper">En ejecución</span></article>
+      <article class="metric-card"><span class="metric-label">Completados</span><strong class="metric-value" id="proyectosCompletados">—</strong><span class="metric-helper">Operaciones cerradas</span></article>
+      <article class="metric-card" data-tone="danger"><span class="metric-label">Cancelados</span><strong class="metric-value" id="proyectosCancelados">—</strong><span class="metric-helper">Fuera de operación</span></article>
+    </section>
+
+    <details id="nuevoProyecto" class="panel-formulario" hidden>
+      <summary>Registrar un nuevo proyecto</summary>
+      <div class="panel-content">
+        <form id="proyectoForm" class="form-grid" novalidate>
+          <div class="campo"><label for="nombreProyecto">Nombre del proyecto</label><input id="nombreProyecto" placeholder="Ej. Inspección zona sierra" required></div>
+          <div class="campo"><label for="contratista">Contratista</label><input id="contratista" placeholder="Empresa responsable" required></div>
+          <div class="campo"><label for="ubicacion">Ubicación</label><input id="ubicacion" placeholder="Zona o tramo principal" required></div>
+          <div class="form-actions"><button class="button-success" type="submit">Guardar proyecto</button></div>
+        </form>
+      </div>
+    </details>
+
+    <p id="mensaje" class="mensaje" aria-live="polite"></p>
+
+    <section class="surface" aria-labelledby="filtrosTitulo">
+      <div class="surface-header">
+        <div><h2 id="filtrosTitulo">Directorio de proyectos</h2><p>Use los filtros para ubicar una operación específica.</p></div>
+        <span id="resultadoConteo" class="status-badge status-neutral">Cargando</span>
+      </div>
+      <div class="toolbar" aria-label="Filtros de proyectos">
+        <div class="campo"><label for="busqueda">Buscar proyecto</label><input id="busqueda" type="search" placeholder="Nombre, contratista o ubicación"></div>
+        <div class="campo"><label for="estadoFiltro">Estado</label><select id="estadoFiltro"><option value="">Todos los estados</option><option value="activo">Activo</option><option value="completado">Completado</option><option value="cancelado">Cancelado</option></select></div>
+        <button id="buscar" class="button-secondary" type="button">Aplicar filtros</button>
+      </div>
+    </section>
+
+    <section class="tabla-shell" style="margin-top:16px" aria-label="Listado de proyectos">
+      <div class="tabla-scroll tabla-responsive">
+        <table>
+          <thead><tr><th>Proyecto</th><th>Contratista</th><th>Ubicación</th><th>Estado</th><th>Creado</th><th>Acciones</th></tr></thead>
+          <tbody id="tablaProyectos"></tbody>
+        </table>
+      </div>
+    </section>
   </main>
+
+  <footer class="app-footer"><p>ECOING · Gestión de inspecciones</p><p>Entorno local seguro · <span data-current-year></span></p></footer>
+
   <script src="js/app.js"></script>
   <script>
     verificarSesion();
     const usuarioActual = obtenerUsuario();
-    if (!usuarioActual || !["administrador", "supervisor"].includes(usuarioActual.rol)) {
-      document.getElementById("nuevoProyecto").hidden = true;
+    const puedeCrear = usuarioActual && ["administrador", "supervisor"].includes(usuarioActual.rol);
+    const panelNuevo = document.getElementById("nuevoProyecto");
+    if (puedeCrear) {
+      panelNuevo.hidden = false;
+      document.getElementById("mostrarNuevoProyecto").addEventListener("click", () => {
+        panelNuevo.open = true;
+        document.getElementById("nombreProyecto").focus();
+        panelNuevo.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    } else {
+      document.getElementById("accionNuevoProyecto").hidden = true;
     }
+
+    async function cargarResumen() {
+      try {
+        const data = await leerRespuesta(await fetchConToken("proyectos/contar_estado.php"));
+        const total = Number(data.data.activo) + Number(data.data.completado) + Number(data.data.cancelado);
+        document.getElementById("totalProyectos").textContent = total;
+        document.getElementById("proyectosActivos").textContent = data.data.activo;
+        document.getElementById("proyectosCompletados").textContent = data.data.completado;
+        document.getElementById("proyectosCancelados").textContent = data.data.cancelado;
+      } catch {
+        ["totalProyectos", "proyectosActivos", "proyectosCompletados", "proyectosCancelados"].forEach((id) => document.getElementById(id).textContent = "—");
+      }
+    }
+
     async function cargarProyectos() {
       const tbody = document.getElementById("tablaProyectos");
       const message = document.getElementById("mensaje");
-      message.textContent = "";
+      const count = document.getElementById("resultadoConteo");
+      filaCargando(tbody, 6, "Consultando proyectos…");
+      limpiarMensaje(message);
+      count.textContent = "Cargando";
       const params = new URLSearchParams();
       const search = document.getElementById("busqueda").value.trim();
       const state = document.getElementById("estadoFiltro").value;
@@ -53,32 +134,47 @@
       try {
         const data = await leerRespuesta(await fetchConToken(`proyectos/listar.php?${params}`));
         tbody.replaceChildren();
-        if (!data.data.length) return filaVacia(tbody, 6, "No se encontraron proyectos.");
+        count.textContent = `${data.count} ${data.count === 1 ? "resultado" : "resultados"}`;
+        if (!data.data.length) return filaVacia(tbody, 6, "No se encontraron proyectos con esos filtros.");
         data.data.forEach((project) => {
           const row = document.createElement("tr");
-          row.append(celda(project.nombre_proyecto), celda(project.contratista), celda(project.ubicacion));
-          const stateCell = celda(project.estado);
-          stateCell.firstChild && (stateCell.className = "insignia");
-          row.append(stateCell, celda(project.fecha_creacion));
-          const action = celda("");
-          const link = document.createElement("a");
-          link.href = `detalle_linea.html?id=${encodeURIComponent(project.id)}`;
-          link.textContent = "Ver líneas";
-          action.appendChild(link);
+          row.append(celdaCompuesta(project.nombre_proyecto, `Proyecto #${project.id}`, "Proyecto"));
+          row.append(celda(project.contratista, "Contratista"), celda(project.ubicacion, "Ubicación"));
+          const stateCell = celda("", "Estado");
+          stateCell.appendChild(insigniaEstado(project.estado));
+          row.append(stateCell, celda(formatearFecha(project.fecha_creacion, true), "Creado"));
+          const action = celda("", "Acciones");
+          const actions = document.createElement("div");
+          actions.className = "table-actions";
+          const summary = document.createElement("a");
+          summary.className = "button button-secondary button-sm";
+          summary.href = `detalle_proyecto.html?id=${encodeURIComponent(project.id)}`;
+          summary.textContent = "Resumen";
+          const lines = document.createElement("a");
+          lines.className = "button button-primary button-sm";
+          lines.href = `detalle_linea.html?id=${encodeURIComponent(project.id)}`;
+          lines.textContent = "Ver líneas";
+          actions.append(summary, lines);
+          action.appendChild(actions);
           row.appendChild(action);
           tbody.appendChild(row);
         });
       } catch (error) {
+        count.textContent = "Sin datos";
         filaVacia(tbody, 6, "No se pudo cargar la información.");
         mostrarMensaje(message, error.message);
       }
     }
+
     document.getElementById("buscar").addEventListener("click", cargarProyectos);
+    document.getElementById("estadoFiltro").addEventListener("change", cargarProyectos);
     document.getElementById("busqueda").addEventListener("keydown", (event) => { if (event.key === "Enter") cargarProyectos(); });
     document.getElementById("proyectoForm").addEventListener("submit", async (event) => {
       event.preventDefault();
-      const button = event.currentTarget.querySelector("button");
-      button.disabled = true;
+      const form = event.currentTarget;
+      if (!form.reportValidity()) return;
+      const button = form.querySelector("button[type='submit']");
+      establecerCargando(button, true, "Guardando…");
       try {
         const data = await leerRespuesta(await fetchConToken("proyectos/crear.php", {
           method: "POST",
@@ -90,16 +186,17 @@
           })
         }));
         mostrarMensaje(document.getElementById("mensaje"), data.message, "ok");
-        event.currentTarget.reset();
-        document.getElementById("nuevoProyecto").open = false;
-        await cargarProyectos();
+        form.reset();
+        panelNuevo.open = false;
+        await Promise.all([cargarProyectos(), cargarResumen()]);
       } catch (error) {
         mostrarMensaje(document.getElementById("mensaje"), error.message);
       } finally {
-        button.disabled = false;
+        establecerCargando(button, false);
       }
     });
-    cargarProyectos();
+
+    Promise.all([cargarProyectos(), cargarResumen()]);
   </script>
 </body>
 </html>

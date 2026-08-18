@@ -3,56 +3,98 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071827">
+  <meta name="description" content="Configuración inicial segura de ECOING.">
   <title>Configuración inicial | ECOING</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/estilos.css">
 </head>
-<body class="pagina-centrada">
-  <main class="tarjeta acceso">
-    <p class="marca">ECOING</p>
-    <h1>Administrador inicial</h1>
-    <p class="subtitulo">Disponible solo desde este equipo y mientras la base no tenga usuarios.</p>
-    <form id="setupForm">
-      <label for="nombre">Nombre completo</label>
-      <input id="nombre" autocomplete="name" required>
-      <label for="usuario">Usuario</label>
-      <input id="usuario" autocomplete="username" required>
-      <label for="correo">Correo</label>
-      <input id="correo" type="email" autocomplete="email" required>
-      <label for="contrasena">Contraseña (mínimo 10 caracteres)</label>
-      <input id="contrasena" type="password" minlength="10" autocomplete="new-password" required>
-      <button type="submit">Crear administrador</button>
-    </form>
-    <p id="mensaje" class="mensaje" aria-live="polite"></p>
-    <a class="enlace-secundario" href="index.html">Volver al inicio</a>
+<body class="pagina-acceso">
+  <main class="acceso-shell">
+    <section class="acceso-marca" aria-label="Configuración ECOING">
+      <div class="brand-lockup">
+        <span class="logo-mark" aria-hidden="true">EC</span>
+        <span class="brand-copy"><strong>ECOING</strong><span>Configuración segura</span></span>
+      </div>
+      <div class="acceso-intro">
+        <p class="eyebrow" style="color:#8de9c7">Primer acceso</p>
+        <h1>Prepare el entorno de trabajo.</h1>
+        <p>Cree la cuenta responsable de administrar usuarios, proyectos y permisos del sistema.</p>
+        <ul class="beneficios">
+          <li>Disponible únicamente desde esta computadora</li>
+          <li>Se desactiva automáticamente después del primer usuario</li>
+          <li>Contraseñas protegidas mediante hash seguro</li>
+        </ul>
+      </div>
+      <p class="acceso-pie">Configuración local · ECOING <span data-current-year></span></p>
+    </section>
+
+    <section class="acceso-formulario">
+      <div class="formulario-cabecera">
+        <p class="eyebrow">Cuenta principal</p>
+        <h2>Administrador inicial</h2>
+        <p>Complete los datos del responsable principal. Todos los campos son obligatorios.</p>
+      </div>
+
+      <form id="setupForm" class="formulario-acceso" novalidate>
+        <div class="campo">
+          <label for="nombre">Nombre completo</label>
+          <input id="nombre" autocomplete="name" placeholder="Nombre y apellidos" required autofocus>
+        </div>
+        <div class="campo">
+          <label for="usuario">Nombre de usuario</label>
+          <input id="usuario" autocomplete="username" placeholder="Ej. administrador" required>
+        </div>
+        <div class="campo">
+          <label for="correo">Correo electrónico</label>
+          <input id="correo" type="email" autocomplete="email" placeholder="nombre@empresa.com" required>
+        </div>
+        <div class="campo">
+          <label for="contrasena">Contraseña</label>
+          <div class="input-con-accion">
+            <input id="contrasena" type="password" minlength="10" autocomplete="new-password" placeholder="Mínimo 10 caracteres" required>
+            <button class="password-toggle" type="button" data-password-toggle="contrasena" aria-pressed="false">Mostrar</button>
+          </div>
+          <small>Utilice una combinación única de letras, números y símbolos.</small>
+        </div>
+        <button class="button-success button-block" type="submit">Crear administrador</button>
+      </form>
+
+      <p id="mensaje" class="mensaje" aria-live="polite"></p>
+      <div class="acceso-ayuda"><a href="index.html">← Volver al inicio de sesión</a></div>
+    </section>
   </main>
+
   <script src="js/app.js"></script>
   <script>
     document.getElementById("setupForm").addEventListener("submit", async (event) => {
       event.preventDefault();
+      const form = event.currentTarget;
       const message = document.getElementById("mensaje");
-      const button = event.currentTarget.querySelector("button");
-      button.disabled = true;
+      const button = form.querySelector("button[type='submit']");
+      if (!form.reportValidity()) return;
+      limpiarMensaje(message);
+      establecerCargando(button, true, "Creando cuenta…");
       try {
-        const response = await fetch(apiUrl("usuarios/register_admin.php"), {
+        const response = await fetchConLimite(apiUrl("usuarios/register_admin.php"), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
           body: JSON.stringify({
             nombre_completo: document.getElementById("nombre").value.trim(),
             nombre_usuario: document.getElementById("usuario").value.trim(),
             correo_electronico: document.getElementById("correo").value.trim(),
             contrasena: document.getElementById("contrasena").value
           })
-        });
+        }, 15000);
         const data = await leerRespuesta(response);
-        mostrarMensaje(message, data.message, "ok");
-        event.currentTarget.reset();
+        mostrarMensaje(message, `${data.message} Ya puede iniciar sesión.`, "ok");
+        form.reset();
       } catch (error) {
         mostrarMensaje(message, error.message);
       } finally {
-        button.disabled = false;
+        establecerCargando(button, false);
       }
     });
   </script>
 </body>
 </html>
-

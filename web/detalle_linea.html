@@ -3,62 +3,106 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Líneas | ECOING</title>
+  <meta name="theme-color" content="#071827">
+  <title>Líneas del proyecto | ECOING</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/estilos.css">
 </head>
-<body>
-  <main class="contenedor">
-    <header>
-      <div><p class="marca">ECOING</p><h1>Líneas del proyecto</h1></div>
-      <button class="boton-secundario" onclick="cerrarSesion()">Cerrar sesión</button>
-    </header>
-    <nav class="migas"><a href="proyectos.html">Proyectos</a> / <span id="proyectoNombre">Proyecto</span></nav>
-    <p id="mensaje" class="mensaje" aria-live="polite"></p>
-    <div class="tabla-scroll">
-      <table>
-        <thead><tr><th>Línea</th><th>Total postes</th><th>Inspeccionados</th><th>Formularios</th><th>Imágenes completas</th><th>Acción</th></tr></thead>
-        <tbody id="tablaLineas"></tbody>
-      </table>
+<body class="app-body">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand-link" href="proyectos.html"><span class="logo-mark" aria-hidden="true">EC</span><span class="brand-copy"><strong>ECOING</strong><span>Operaciones de campo</span></span></a>
+      <nav class="topbar-center" aria-label="Navegación principal"><a class="nav-link activo" href="proyectos.html">Proyectos</a></nav>
+      <div class="topbar-actions">
+        <span class="conexion" data-api-status data-state="checking"><span>Verificando API</span></span>
+        <div class="usuario-compacto"><span class="usuario-avatar" data-user-initials>EC</span><span class="usuario-meta"><strong data-user-name>Usuario</strong><span data-user-role>Sesión activa</span></span></div>
+        <button class="button-ghost button-sm" type="button" onclick="cerrarSesion()">Salir</button>
+      </div>
     </div>
+  </header>
+
+  <main class="app-main">
+    <nav class="breadcrumbs" aria-label="Migas de pan"><a href="proyectos.html">Proyectos</a><span class="separador">/</span><a id="proyectoResumen" href="#">Resumen</a><span class="separador">/</span><strong>Líneas</strong></nav>
+    <section class="page-heading">
+      <div class="page-heading-copy"><p class="eyebrow">Avance por circuito</p><h1>Líneas del proyecto</h1><p id="proyectoNombre">Cargando proyecto…</p></div>
+      <div class="page-actions"><a class="button button-secondary" href="proyectos.html">Volver a proyectos</a></div>
+    </section>
+
+    <p id="mensaje" class="mensaje" aria-live="polite"></p>
+
+    <section class="metric-grid" aria-label="Resumen de líneas">
+      <article class="metric-card"><span class="metric-label">Líneas</span><strong class="metric-value" id="metricaLineas">—</strong><span class="metric-helper">Circuitos del proyecto</span></article>
+      <article class="metric-card"><span class="metric-label">Estructuras</span><strong class="metric-value" id="metricaPostes">—</strong><span class="metric-helper">Total del padrón</span></article>
+      <article class="metric-card" data-tone="success"><span class="metric-label">Formularios</span><strong class="metric-value" id="metricaFormularios">—</strong><span class="metric-helper">Recibidos en servidor</span></article>
+      <article class="metric-card" data-tone="warning"><span class="metric-label">Completos</span><strong class="metric-value" id="metricaCompletos">—</strong><span class="metric-helper">Formulario + 28 imágenes</span></article>
+    </section>
+
+    <section class="surface">
+      <div class="surface-header"><div><h2>Seguimiento de líneas</h2><p>El progreso se calcula con estructuras que ya tienen formulario y evidencia completa.</p></div><span id="conteoLineas" class="status-badge status-neutral">Cargando</span></div>
+      <div class="tabla-scroll tabla-responsive">
+        <table>
+          <thead><tr><th>Línea</th><th>Estructuras</th><th>Inspeccionadas</th><th>Formularios</th><th>28 imágenes</th><th>Avance completo</th><th>Acción</th></tr></thead>
+          <tbody id="tablaLineas"></tbody>
+        </table>
+      </div>
+    </section>
   </main>
+
+  <footer class="app-footer"><p>ECOING · Gestión de inspecciones</p><p>Entorno local seguro · <span data-current-year></span></p></footer>
+
   <script src="js/app.js"></script>
   <script>
     verificarSesion();
     const proyectoId = Number(new URLSearchParams(location.search).get("id"));
     if (!Number.isInteger(proyectoId) || proyectoId <= 0) location.replace("proyectos.html");
+    document.getElementById("proyectoResumen").href = `detalle_proyecto.html?id=${proyectoId}`;
 
     async function cargarLineas() {
       const tbody = document.getElementById("tablaLineas");
+      filaCargando(tbody, 7, "Calculando avance por línea…");
       try {
         const [project, posts] = await Promise.all([
           fetchConToken(`proyectos/obtener.php?id=${proyectoId}`).then(leerRespuesta),
           fetchConToken(`postes/listar.php?proyecto_id=${proyectoId}`).then(leerRespuesta)
         ]);
-        document.getElementById("proyectoNombre").textContent = project.data.nombre_proyecto;
+        document.title = `Líneas · ${project.data.nombre_proyecto} | ECOING`;
+        document.getElementById("proyectoNombre").textContent = `${project.data.nombre_proyecto} · ${project.data.ubicacion}`;
         const lines = new Map();
         posts.data.forEach((post) => {
-          const item = lines.get(post.linea) || { total: 0, inspected: 0, forms: 0, images: 0 };
+          const item = lines.get(post.linea) || { total: 0, inspected: 0, forms: 0, images: 0, complete: 0 };
           item.total++;
           if (post.fecha_inspeccion) item.inspected++;
           if (Number(post.formulario_subido) === 1) item.forms++;
           if (Number(post.imagenes_subidas) === 1) item.images++;
+          if (Number(post.formulario_subido) === 1 && Number(post.imagenes_subidas) === 1) item.complete++;
           lines.set(post.linea, item);
         });
+        const values = [...lines.values()];
+        document.getElementById("metricaLineas").textContent = lines.size;
+        document.getElementById("metricaPostes").textContent = posts.count;
+        document.getElementById("metricaFormularios").textContent = values.reduce((sum, item) => sum + item.forms, 0);
+        document.getElementById("metricaCompletos").textContent = values.reduce((sum, item) => sum + item.complete, 0);
+        document.getElementById("conteoLineas").textContent = `${lines.size} ${lines.size === 1 ? "línea" : "líneas"}`;
         tbody.replaceChildren();
-        if (!lines.size) return filaVacia(tbody, 6, "El proyecto todavía no tiene postes.");
-        [...lines.entries()].sort(([a], [b]) => a.localeCompare(b, "es", { numeric: true })).forEach(([line, values]) => {
+        if (!lines.size) return filaVacia(tbody, 7, "El proyecto todavía no tiene estructuras registradas.");
+        [...lines.entries()].sort(([a], [b]) => a.localeCompare(b, "es", { numeric: true })).forEach(([line, item]) => {
           const row = document.createElement("tr");
-          row.append(celda(line), celda(values.total), celda(values.inspected), celda(values.forms), celda(values.images));
-          const action = celda("");
+          row.append(celdaCompuesta(line, `${item.total} estructuras`, "Línea"));
+          row.append(celda(item.total, "Estructuras"), celda(item.inspected, "Inspeccionadas"), celda(item.forms, "Formularios"), celda(item.images, "28 imágenes"));
+          const progressCell = celda("", "Avance completo");
+          progressCell.appendChild(crearProgreso(item.complete, item.total));
+          row.appendChild(progressCell);
+          const action = celda("", "Acción");
           const link = document.createElement("a");
+          link.className = "button button-primary button-sm";
           link.href = `detalle_poste.html?proyecto_id=${proyectoId}&linea=${encodeURIComponent(line)}`;
-          link.textContent = "Ver postes";
+          link.textContent = "Ver estructuras";
           action.appendChild(link);
           row.appendChild(action);
           tbody.appendChild(row);
         });
       } catch (error) {
-        filaVacia(tbody, 6, "No se pudieron cargar las líneas.");
+        filaVacia(tbody, 7, "No se pudieron cargar las líneas.");
         mostrarMensaje(document.getElementById("mensaje"), error.message);
       }
     }

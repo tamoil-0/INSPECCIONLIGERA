@@ -3,28 +3,60 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Postes | ECOING</title>
+  <meta name="theme-color" content="#071827">
+  <title>Estructuras de la línea | ECOING</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/estilos.css">
 </head>
-<body>
-  <main class="contenedor">
-    <header>
-      <div><p class="marca">ECOING</p><h1>Postes de la línea</h1></div>
-      <button class="boton-secundario" onclick="cerrarSesion()">Cerrar sesión</button>
-    </header>
-    <nav class="migas"><a href="proyectos.html">Proyectos</a> / <a id="volverLineas" href="#">Líneas</a> / <span id="lineaTexto"></span></nav>
-    <div class="acciones">
-      <button id="exportarPdf">Descargar ZIP de reportes</button>
-      <button id="exportarExcel">Descargar Excel</button>
+<body class="app-body">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand-link" href="proyectos.html"><span class="logo-mark" aria-hidden="true">EC</span><span class="brand-copy"><strong>ECOING</strong><span>Operaciones de campo</span></span></a>
+      <nav class="topbar-center" aria-label="Navegación principal"><a class="nav-link activo" href="proyectos.html">Proyectos</a></nav>
+      <div class="topbar-actions">
+        <span class="conexion" data-api-status data-state="checking"><span>Verificando API</span></span>
+        <div class="usuario-compacto"><span class="usuario-avatar" data-user-initials>EC</span><span class="usuario-meta"><strong data-user-name>Usuario</strong><span data-user-role>Sesión activa</span></span></div>
+        <button class="button-ghost button-sm" type="button" onclick="cerrarSesion()">Salir</button>
+      </div>
     </div>
+  </header>
+
+  <main class="app-main">
+    <nav class="breadcrumbs" aria-label="Migas de pan"><a href="proyectos.html">Proyectos</a><span class="separador">/</span><a id="volverLineas" href="#">Líneas</a><span class="separador">/</span><strong id="lineaMiga">Línea</strong></nav>
+    <section class="page-heading">
+      <div class="page-heading-copy"><p class="eyebrow">Control de campo</p><h1>Estructuras de la línea <span id="lineaTexto"></span></h1><p>Revise el estado de cada estructura y genere los entregables de la línea.</p></div>
+      <div class="page-actions">
+        <button id="exportarExcel" class="button-secondary" type="button">Descargar Excel</button>
+        <button id="exportarPdf" class="button-primary" type="button">Descargar reportes ZIP</button>
+      </div>
+    </section>
+
     <p id="mensaje" class="mensaje" aria-live="polite"></p>
-    <div class="tabla-scroll">
-      <table>
-        <thead><tr><th>Código</th><th>Estructura</th><th>Inspeccionado</th><th>Formulario</th><th>28 imágenes</th><th>Acciones</th></tr></thead>
-        <tbody id="tablaPostes"></tbody>
-      </table>
-    </div>
+
+    <section class="metric-grid" aria-label="Resumen de estructuras">
+      <article class="metric-card"><span class="metric-label">Estructuras</span><strong class="metric-value" id="metricaTotal">—</strong><span class="metric-helper">En esta línea</span></article>
+      <article class="metric-card" data-tone="success"><span class="metric-label">Completas</span><strong class="metric-value" id="metricaCompletas">—</strong><span class="metric-helper">Formulario + imágenes</span></article>
+      <article class="metric-card" data-tone="warning"><span class="metric-label">En proceso</span><strong class="metric-value" id="metricaProceso">—</strong><span class="metric-helper">Con avance parcial</span></article>
+      <article class="metric-card" data-tone="danger"><span class="metric-label">Pendientes</span><strong class="metric-value" id="metricaPendientes">—</strong><span class="metric-helper">Sin información cargada</span></article>
+    </section>
+
+    <section class="surface">
+      <div class="surface-header"><div><h2>Padrón de estructuras</h2><p>Busque por código, número de estructura o tramo.</p></div><span id="conteoPostes" class="status-badge status-neutral">Cargando</span></div>
+      <div class="toolbar toolbar-compact">
+        <div class="campo"><label for="buscarPoste">Buscar estructura</label><input id="buscarPoste" type="search" placeholder="Ej. L-6311-01, 01 o Juliaca"></div>
+        <div class="campo"><label for="filtroAvance">Estado de avance</label><select id="filtroAvance"><option value="">Todos</option><option value="completo">Completos</option><option value="proceso">En proceso</option><option value="pendiente">Pendientes</option></select></div>
+      </div>
+      <div class="tabla-scroll tabla-responsive">
+        <table>
+          <thead><tr><th>Estructura</th><th>Tramo</th><th>UTM base</th><th>Formulario</th><th>28 imágenes</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <tbody id="tablaPostes"></tbody>
+        </table>
+      </div>
+    </section>
   </main>
+
+  <footer class="app-footer"><p>ECOING · Gestión de inspecciones</p><p>Entorno local seguro · <span data-current-year></span></p></footer>
+
   <script src="js/app.js"></script>
   <script>
     verificarSesion();
@@ -33,58 +65,109 @@
     const linea = (params.get("linea") || "").trim();
     if (!Number.isInteger(proyectoId) || proyectoId <= 0 || !linea) location.replace("proyectos.html");
     document.getElementById("lineaTexto").textContent = linea;
+    document.getElementById("lineaMiga").textContent = linea;
     document.getElementById("volverLineas").href = `detalle_linea.html?id=${proyectoId}`;
+    document.title = `${linea} · Estructuras | ECOING`;
+    let postes = [];
+
+    function estadoPoste(post) {
+      const form = Number(post.formulario_subido) === 1;
+      const images = Number(post.imagenes_subidas) === 1;
+      if (form && images) return "completo";
+      if (form || images || post.fecha_inspeccion) return "proceso";
+      return "pendiente";
+    }
+
+    function actualizarMetricas() {
+      const complete = postes.filter((post) => estadoPoste(post) === "completo").length;
+      const process = postes.filter((post) => estadoPoste(post) === "proceso").length;
+      document.getElementById("metricaTotal").textContent = postes.length;
+      document.getElementById("metricaCompletas").textContent = complete;
+      document.getElementById("metricaProceso").textContent = process;
+      document.getElementById("metricaPendientes").textContent = postes.length - complete - process;
+    }
+
+    function renderPostes() {
+      const tbody = document.getElementById("tablaPostes");
+      const query = document.getElementById("buscarPoste").value.trim().toLocaleLowerCase("es");
+      const filter = document.getElementById("filtroAvance").value;
+      const filtered = postes.filter((post) => {
+        const haystack = `${post.codigo} ${post.estructura} ${post.ubicaciones || ""}`.toLocaleLowerCase("es");
+        return (!query || haystack.includes(query)) && (!filter || estadoPoste(post) === filter);
+      });
+      document.getElementById("conteoPostes").textContent = `${filtered.length} de ${postes.length}`;
+      tbody.replaceChildren();
+      if (!filtered.length) return filaVacia(tbody, 7, "No hay estructuras que coincidan con los filtros.");
+      filtered.forEach((post) => {
+        const state = estadoPoste(post);
+        const row = document.createElement("tr");
+        row.append(celdaCompuesta(post.codigo, `Estructura ${post.estructura}`, "Estructura"));
+        row.append(celda(post.ubicaciones || "—", "Tramo"));
+        const utm = post.utm_x && post.utm_y ? `${post.utm_x} / ${post.utm_y} ${post.zona || ""}` : "Sin UTM base";
+        row.append(celda(utm, "UTM base"));
+        const formCell = celda("", "Formulario");
+        formCell.appendChild(insigniaBooleano(Number(post.formulario_subido) === 1, "Recibido", "Pendiente"));
+        const imageCell = celda("", "28 imágenes");
+        imageCell.appendChild(insigniaBooleano(Number(post.imagenes_subidas) === 1, "Completas", "Pendientes"));
+        const stateCell = celda("", "Estado");
+        const labels = { completo: ["Completo", "success"], proceso: ["En proceso", "warning"], pendiente: ["Pendiente", "danger"] };
+        stateCell.appendChild(crearInsignia(...labels[state]));
+        row.append(formCell, imageCell, stateCell);
+        const action = celda("", "Acciones");
+        const actions = document.createElement("div");
+        actions.className = "table-actions";
+        const details = document.createElement("a");
+        details.className = "button button-primary button-sm";
+        details.href = `formulario_poste.html?poste_id=${post.id}&proyecto_id=${proyectoId}`;
+        details.textContent = "Ver inspección";
+        const print = document.createElement("button");
+        print.type = "button";
+        print.className = "button-secondary button-sm";
+        print.textContent = "PDF";
+        print.addEventListener("click", async () => {
+          establecerCargando(print, true, "Abriendo…");
+          try { await abrirPdfConToken(`ver_pdf_poste.php?poste_id=${post.id}&proyecto_id=${proyectoId}`); }
+          catch (error) { mostrarMensaje(document.getElementById("mensaje"), error.message); }
+          finally { establecerCargando(print, false); }
+        });
+        actions.append(details, print);
+        action.appendChild(actions);
+        row.appendChild(action);
+        tbody.appendChild(row);
+      });
+    }
 
     async function cargarPostes() {
       const tbody = document.getElementById("tablaPostes");
+      filaCargando(tbody, 7, "Cargando padrón de estructuras…");
       try {
         const endpoint = `postes/buscar_por_linea.php?linea=${encodeURIComponent(linea)}&proyecto_id=${proyectoId}`;
         const data = await leerRespuesta(await fetchConToken(endpoint));
-        tbody.replaceChildren();
-        if (!data.data.length) return filaVacia(tbody, 6, "No hay postes para esta línea.");
-        data.data.forEach((post) => {
-          const row = document.createElement("tr");
-          row.append(celda(post.codigo), celda(post.estructura));
-          [[Boolean(post.fecha_inspeccion), "Sí", "No"], [Number(post.formulario_subido) === 1, "Sí", "No"], [Number(post.imagenes_subidas) === 1, "Sí", "No"]].forEach(([ok, yes, no]) => {
-            const cell = celda(ok ? yes : no);
-            cell.className = ok ? "estado-si" : "estado-no";
-            row.appendChild(cell);
-          });
-          const actions = celda("");
-          const details = document.createElement("a");
-          details.href = `formulario_poste.html?poste_id=${post.id}&proyecto_id=${proyectoId}`;
-          details.textContent = "Ver datos";
-          const print = document.createElement("button");
-          print.type = "button";
-          print.textContent = "Abrir PDF";
-          print.style.marginLeft = "10px";
-          print.addEventListener("click", async () => {
-            try { await abrirPdfConToken(`ver_pdf_poste.php?poste_id=${post.id}&proyecto_id=${proyectoId}`); }
-            catch (error) { mostrarMensaje(document.getElementById("mensaje"), error.message); }
-          });
-          actions.append(details, print);
-          row.appendChild(actions);
-          tbody.appendChild(row);
-        });
+        postes = data.data;
+        actualizarMetricas();
+        renderPostes();
       } catch (error) {
-        filaVacia(tbody, 6, "No se pudieron cargar los postes.");
+        filaVacia(tbody, 7, "No se pudieron cargar las estructuras.");
         mostrarMensaje(document.getElementById("mensaje"), error.message);
       }
     }
 
     async function ejecutarDescarga(button, endpoint, fallback) {
       const message = document.getElementById("mensaje");
-      button.disabled = true;
-      mostrarMensaje(message, "Generando archivo…", "ok");
+      establecerCargando(button, true, "Generando…");
+      mostrarMensaje(message, "Preparando el archivo. Esto puede tardar unos minutos.", "info");
       try {
         await descargarConToken(endpoint, fallback);
-        mostrarMensaje(message, "Descarga completada.", "ok");
+        mostrarMensaje(message, "Descarga completada correctamente.", "ok");
       } catch (error) {
         mostrarMensaje(message, error.message);
       } finally {
-        button.disabled = false;
+        establecerCargando(button, false);
       }
     }
+
+    document.getElementById("buscarPoste").addEventListener("input", renderPostes);
+    document.getElementById("filtroAvance").addEventListener("change", renderPostes);
     document.getElementById("exportarPdf").addEventListener("click", (event) => ejecutarDescarga(event.currentTarget, `exportar_linea_pdf.php?proyecto_id=${proyectoId}&linea=${encodeURIComponent(linea)}`, `linea_${linea}.zip`));
     document.getElementById("exportarExcel").addEventListener("click", (event) => ejecutarDescarga(event.currentTarget, `exportar_excel_linea.php?proyecto_id=${proyectoId}&linea=${encodeURIComponent(linea)}`, `linea_${linea}.xlsx`));
     cargarPostes();

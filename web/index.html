@@ -3,24 +3,63 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Acceso | ECOING</title>
+  <meta name="theme-color" content="#071827">
+  <meta name="description" content="Plataforma ECOING para la gestión de inspecciones de líneas de transmisión.">
+  <title>Iniciar sesión | ECOING</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/estilos.css">
 </head>
-<body class="pagina-centrada">
-  <main class="tarjeta acceso">
-    <p class="marca">ECOING</p>
-    <h1>Inspección ligera</h1>
-    <p class="subtitulo">Gestión de líneas de transmisión</p>
+<body class="pagina-acceso">
+  <main class="acceso-shell">
+    <section class="acceso-marca" aria-label="Presentación ECOING">
+      <div class="brand-lockup">
+        <span class="logo-mark" aria-hidden="true">EC</span>
+        <span class="brand-copy"><strong>ECOING</strong><span>Operaciones de campo</span></span>
+      </div>
+      <div class="acceso-intro">
+        <p class="eyebrow" style="color:#8de9c7">Inspección ligera</p>
+        <h1>Control técnico con información confiable.</h1>
+        <p>Administre proyectos, estructuras, evidencias e informes desde una sola plataforma.</p>
+        <ul class="beneficios">
+          <li>Padrón centralizado de líneas y estructuras</li>
+          <li>Seguimiento de formularios y evidencia fotográfica</li>
+          <li>Reportes PDF y Excel listos para entregar</li>
+        </ul>
+      </div>
+      <p class="acceso-pie">Sistema local protegido · ECOING <span data-current-year></span></p>
+    </section>
 
-    <form id="loginForm">
-      <label for="usuario">Usuario</label>
-      <input id="usuario" name="usuario" autocomplete="username" required>
-      <label for="contrasena">Contraseña</label>
-      <input id="contrasena" name="contrasena" type="password" autocomplete="current-password" required>
-      <button type="submit">Ingresar</button>
-    </form>
-    <p id="mensaje" class="mensaje" aria-live="polite"></p>
-    <a class="enlace-secundario" href="setup.html">Configurar el primer administrador</a>
+    <section class="acceso-formulario">
+      <div class="formulario-cabecera">
+        <p class="eyebrow">Acceso seguro</p>
+        <h2>Bienvenido</h2>
+        <p>Ingrese sus credenciales para continuar al panel operativo.</p>
+      </div>
+
+      <form id="loginForm" class="formulario-acceso" novalidate>
+        <div class="campo">
+          <label for="usuario">Nombre de usuario</label>
+          <input id="usuario" name="usuario" autocomplete="username" placeholder="Ej. tecnico01" required autofocus>
+        </div>
+        <div class="campo">
+          <label for="contrasena">Contraseña</label>
+          <div class="input-con-accion">
+            <input id="contrasena" name="contrasena" type="password" autocomplete="current-password" placeholder="Ingrese su contraseña" required>
+            <button class="password-toggle" type="button" data-password-toggle="contrasena" aria-pressed="false">Mostrar</button>
+          </div>
+        </div>
+        <button class="button-primary button-block" type="submit">Ingresar al sistema</button>
+      </form>
+
+      <p id="mensaje" class="mensaje" aria-live="polite"></p>
+      <div class="acceso-ayuda">
+        <span>¿Es la primera instalación?</span>
+        <a href="setup.html">Crear el administrador inicial</a>
+      </div>
+      <div class="conexion" data-api-status data-state="checking" style="margin-top:18px;color:#60717f;background:#f6f8fa;border-color:#dde4e9">
+        <span>Verificando API</span>
+      </div>
+    </section>
   </main>
 
   <script src="js/app.js"></script>
@@ -29,26 +68,29 @@
 
     document.getElementById("loginForm").addEventListener("submit", async (event) => {
       event.preventDefault();
+      const form = event.currentTarget;
       const message = document.getElementById("mensaje");
-      const button = event.currentTarget.querySelector("button");
-      button.disabled = true;
-      message.textContent = "";
+      const button = form.querySelector("button[type='submit']");
+      if (!form.reportValidity()) return;
+      limpiarMensaje(message);
+      establecerCargando(button, true, "Verificando…");
       try {
-        const response = await fetch(apiUrl("usuarios/login.php"), {
+        const response = await fetchConLimite(apiUrl("usuarios/login.php"), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
           body: JSON.stringify({
             nombre_usuario: document.getElementById("usuario").value.trim(),
             contrasena: document.getElementById("contrasena").value
           })
-        });
+        }, 15000);
         const data = await leerRespuesta(response);
         guardarToken(data.token, data.usuario);
-        window.location.replace("proyectos.html");
+        mostrarMensaje(message, "Acceso correcto. Abriendo el panel…", "ok");
+        window.setTimeout(() => window.location.replace("proyectos.html"), 250);
       } catch (error) {
         mostrarMensaje(message, error.message);
       } finally {
-        button.disabled = false;
+        establecerCargando(button, false);
       }
     });
   </script>
