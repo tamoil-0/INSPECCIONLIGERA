@@ -1,8 +1,12 @@
 import 'dart:io';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pruebaoffline/core/dimensiones_imagen.dart';
+import 'package:pruebaoffline/core/contrato_fotos.dart';
+import 'package:pruebaoffline/data/remoto/cliente_api.dart';
+import 'package:pruebaoffline/services/imagenesPoste_service.dart';
 import 'package:pruebaoffline/servicios/imagenes/cola_procesamiento.dart';
 import 'package:pruebaoffline/servicios/imagenes/perfil_dispositivo.dart';
 
@@ -288,13 +292,13 @@ void main() {
       expect(await cola.encolar(() async => 7), 7);
     });
 
-    test('22 fotos se procesan todas, sin perder ninguna', () async {
+    test('28 fotos se procesan todas, sin perder ninguna', () async {
       final cola = ColaProcesamiento(concurrencia: 2);
       final procesadas = <int>[];
 
       await Future.wait(
         List.generate(
-          22,
+          ContratoFotos.tiposRequeridos.length,
           (i) => cola.encolar(() async {
             await Future<void>.delayed(const Duration(milliseconds: 2));
             procesadas.add(i);
@@ -303,10 +307,67 @@ void main() {
         ),
       );
 
-      expect(procesadas, hasLength(22));
-      expect(procesadas.toSet(), hasLength(22));
+      expect(procesadas, hasLength(ContratoFotos.cantidadRequerida));
+      expect(procesadas.toSet(), hasLength(ContratoFotos.cantidadRequerida));
       expect(cola.pendientes, 0);
       expect(cola.activas, 0);
+    });
+  });
+
+  group('Contrato y confirmación del backend', () {
+    test('contiene exactamente los 28 tipos requeridos por PHP', () {
+      expect(ContratoFotos.tiposRequeridos, hasLength(28));
+      expect(
+        ContratoFotos.tiposRequeridos,
+        hasLength(ContratoFotos.cantidadRequerida),
+      );
+      expect(ContratoFotos.tiposRequeridos.toSet(), hasLength(28));
+      expect(ContratoFotos.tiposRequeridos, contains('foto_panoramica'));
+      expect(ContratoFotos.tiposRequeridos, contains('puesta_tierra_2'));
+      expect(ContratoFotos.tiposRequeridos, contains('otros'));
+      expect(ContratoFotos.fotosPorLote, inInclusiveRange(4, 8));
+    });
+
+    test('un lote parcial confirma solo las fotos aceptadas', () {
+      final servicio = ImagenesPosteService(
+        api: ClienteApi(baseUrl: 'https://ejemplo.test/api'),
+      );
+      final cuerpo = jsonEncode({
+        'success': false,
+        'resultados': {
+          'imagen_0': {'success': true, 'nombre_foto': 'foto_panoramica'},
+          'imagen_1': {'success': false, 'error': 'Imagen inválida.'},
+        },
+      });
+
+      final resultado = servicio.interpretarRespuesta(200, cuerpo, {
+        'foto_panoramica',
+        'placa',
+      });
+
+      expect(resultado.confirmadas, {'foto_panoramica'});
+      expect(resultado.rechazadas, {'placa'});
+      expect(resultado.todoConfirmado, isFalse);
+      expect(resultado.error, contains('inválida'));
+    });
+
+    test('401 de multipart dispara el cierre de sesión centralizado', () {
+      var avisos = 0;
+      ClienteApi.alVencerSesion = () => avisos++;
+      final servicio = ImagenesPosteService(
+        api: ClienteApi(baseUrl: 'https://ejemplo.test/api'),
+      );
+
+      final resultado = servicio.interpretarRespuesta(
+        401,
+        '{"success":false,"error":"token vencido"}',
+        {'placa'},
+      );
+
+      expect(resultado.confirmadas, isEmpty);
+      expect(resultado.rechazadas, {'placa'});
+      expect(avisos, 1);
+      ClienteApi.alVencerSesion = null;
     });
   });
 }

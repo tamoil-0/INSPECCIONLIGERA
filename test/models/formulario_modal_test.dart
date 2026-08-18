@@ -28,7 +28,7 @@ void main() {
       expect(m.camposRevisados, 0);
       expect(m.todoRevisado, isFalse);
       expect(m.sinRevisar.length, m.totalCampos);
-      expect(m.totalCampos, 27); // 26 desplegables + obstáculos
+      expect(m.totalCampos, 28); // 26 desplegables + obstáculos + distancia
     });
 
     test('marcar un campo lo saca de la lista de pendientes', () {
@@ -66,7 +66,7 @@ void main() {
 
       expect(mapa['campos_revisados'], contains('tipo_torre'));
       expect(mapa['campos_sin_revisar'], isA<List<String>>());
-      expect(mapa['total_campos'], 27);
+      expect(mapa['total_campos'], 28);
       expect(mapa['fecha_inspeccion'], isNotEmpty);
     });
 
@@ -94,7 +94,7 @@ void main() {
         // Pero el servidor SÍ puede distinguirlos: la lista de revisados va
         // vacía y la de sin revisar los enumera.
         expect(mapa['campos_revisados'], isEmpty);
-        expect((mapa['campos_sin_revisar'] as List).length, 27);
+        expect((mapa['campos_sin_revisar'] as List).length, 28);
       },
     );
 
@@ -135,6 +135,8 @@ void main() {
   group('cargarDesdeMap · recuperar el borrador', () {
     test('restaura los valores guardados', () {
       final original = FormularioModal()
+        ..distanciaAcceso = 12.5
+        ..cantidadPat = 2
         ..tipoTorre = 'fin_linea'
         ..ubicacion = 'urbana'
         ..accesoTorre = 'en_vehiculo'
@@ -147,6 +149,8 @@ void main() {
       final recuperado = FormularioModal()..cargarDesdeMap(original.toMap());
 
       expect(recuperado.tipoTorre, 'fin_linea');
+      expect(recuperado.distanciaAcceso, 12.5);
+      expect(recuperado.cantidadPat, 2);
       expect(recuperado.ubicacion, 'urbana');
       expect(recuperado.accesoTorre, 'en_vehiculo');
       expect(recuperado.estadoBase, 'mal_estado');
@@ -196,6 +200,20 @@ void main() {
       expect(m.estadoBase, FormularioModal.noRevisado);
       expect(m.oxidosBase, FormularioModal.noRevisado);
     });
+  });
+
+  test('el payload incluye la distancia obligatoria y fecha SQL', () {
+    final mapa =
+        (FormularioModal()
+              ..distanciaAcceso = 7.25
+              ..cantidadPat = 1)
+            .toMap();
+    expect(mapa['distancia_acceso'], 7.25);
+    expect(mapa['cantidad_pat'], 1);
+    expect(
+      mapa['fecha_inspeccion'],
+      matches(RegExp(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$')),
+    );
   });
 
   group('Catálogos de opciones', () {

@@ -34,6 +34,18 @@ class Entorno {
     defaultValue: 'https://virrgoecoing.com/api',
   );
 
+  /// URL validada y sin barras finales.
+  static String get apiBaseUrlNormalizada {
+    final valor = apiBaseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    final uri = Uri.tryParse(valor);
+    if (uri == null ||
+        !uri.hasAuthority ||
+        (uri.scheme != 'http' && uri.scheme != 'https')) {
+      throw StateError('API_BASE_URL debe ser una URL HTTP(S) válida.');
+    }
+    return valor;
+  }
+
   /// Nombre del entorno: `produccion`, `pruebas`, `local`.
   static const String nombre = String.fromEnvironment(
     'ENTORNO',
@@ -81,8 +93,9 @@ class Entorno {
 
   static bool get esProduccion => nombre == 'produccion';
 
-  static Duration get timeout => Duration(seconds: timeoutSegundos);
-  static Duration get timeoutSubida => Duration(minutes: timeoutSubidaMinutos);
+  static Duration get timeout => const Duration(seconds: timeoutSegundos);
+  static Duration get timeoutSubida =>
+      const Duration(minutes: timeoutSubidaMinutos);
 
   /// Etiqueta corta para mostrar en el login. En producción no se muestra nada:
   /// solo interesa saberlo cuando NO se está en producción.

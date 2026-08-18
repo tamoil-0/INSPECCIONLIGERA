@@ -32,6 +32,12 @@ class FormularioModal {
   /// Valor de un ítem que el inspector todavía no ha confirmado.
   static const String noRevisado = 'no_revisado';
 
+  /// Distancia de acceso en metros. Es obligatoria en el backend.
+  double? distanciaAcceso;
+
+  /// Cantidad de puestas a tierra observadas. Opcional, nunca negativa.
+  int? cantidadPat;
+
   // === Ítem 1: selección múltiple ===
   List<String> obstaculosFaja = [];
 
@@ -274,6 +280,7 @@ class FormularioModal {
   /// Claves que siguen sin revisar.
   List<String> get sinRevisar {
     final pendientes = <String>[];
+    if (distanciaAcceso == null) pendientes.add('distancia_acceso');
     camposSimples.forEach((clave, valor) {
       if (valor == null || valor == noRevisado) pendientes.add(clave);
     });
@@ -283,7 +290,8 @@ class FormularioModal {
     return pendientes;
   }
 
-  int get totalCampos => camposSimples.length + 1; // +1 por obstáculos
+  int get totalCampos =>
+      camposSimples.length + 2; // obstáculos + distancia de acceso
   int get camposRevisados => totalCampos - sinRevisar.length;
   bool get todoRevisado => sinRevisar.isEmpty;
 
@@ -297,11 +305,11 @@ class FormularioModal {
   /// alguien miró de lo que no.
   Map<String, dynamic> toMap() {
     final mapa = <String, dynamic>{
+      'distancia_acceso': distanciaAcceso,
+      if (cantidadPat != null) 'cantidad_pat': cantidadPat,
       'obstaculos_faja': obstaculosFaja,
       'comentarios': comentarios,
-      'fecha_inspeccion':
-          fechaInspeccion?.toIso8601String() ??
-          DateTime.now().toIso8601String(),
+      'fecha_inspeccion': _fechaSql(fechaInspeccion ?? DateTime.now()),
       // Metadatos de calidad del dato.
       'campos_revisados': revisados.toList()..sort(),
       'campos_sin_revisar': sinRevisar,
@@ -313,6 +321,13 @@ class FormularioModal {
     });
 
     return mapa;
+  }
+
+  static String _fechaSql(DateTime fecha) {
+    String dos(int valor) => valor.toString().padLeft(2, '0');
+    return '${fecha.year.toString().padLeft(4, '0')}-'
+        '${dos(fecha.month)}-${dos(fecha.day)} '
+        '${dos(fecha.hour)}:${dos(fecha.minute)}:${dos(fecha.second)}';
   }
 
   String? _valorParaEnviar(String clave, String? valor) {
@@ -359,6 +374,8 @@ class FormularioModal {
   /// abrir el formulario en blanco. Existía completo desde el principio pero
   /// **nunca se llamaba desde ningún sitio**.
   void cargarDesdeMap(Map<String, dynamic> map) {
+    distanciaAcceso = _leerDouble(map['distancia_acceso']);
+    cantidadPat = _leerInt(map['cantidad_pat']);
     final obstaculoRaw = map['obstaculos_faja'];
     if (obstaculoRaw is String) {
       obstaculosFaja = obstaculoRaw
@@ -420,7 +437,19 @@ class FormularioModal {
         if (valor != null && valor != noRevisado) revisados.add(clave);
       });
       if (obstaculosFaja.isNotEmpty) revisados.add('obstaculos_faja');
+      if (distanciaAcceso != null) revisados.add('distancia_acceso');
     }
+  }
+
+  double? _leerDouble(dynamic valor) {
+    if (valor is num) return valor.toDouble();
+    return double.tryParse((valor ?? '').toString().replaceAll(',', '.'));
+  }
+
+  int? _leerInt(dynamic valor) {
+    if (valor is int) return valor;
+    if (valor is num) return valor.toInt();
+    return int.tryParse((valor ?? '').toString());
   }
 
   String? _leer(

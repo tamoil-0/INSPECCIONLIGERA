@@ -29,15 +29,15 @@ Widget buildSeccionRST({
           2: FlexColumnWidth(1),
           3: FlexColumnWidth(1),
         },
-        border: TableBorder.all(color: Color(0xFFB0BEC5)), // Gris azulado
+        border: TableBorder.all(color: const Color(0xFFB0BEC5)), // Gris azulado
         children: [
-          TableRow(
-            decoration: const BoxDecoration(
+          const TableRow(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [Color(0xFF0D47A1), Color(0xFFB71C1C)],
               ),
             ),
-            children: const [
+            children: [
               Padding(
                 padding: EdgeInsets.all(8),
                 child: Text(
@@ -99,7 +99,7 @@ Widget buildSeccionRST({
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: valor
-                            ? const Color(0xFFB71C1C).withOpacity(0.15)
+                            ? const Color(0xFFB71C1C).withValues(alpha: 0.15)
                             : Colors.transparent,
                       ),
                       child: Checkbox(
@@ -111,10 +111,10 @@ Widget buildSeccionRST({
                       ),
                     ),
                   );
-                }).toList(),
+                }),
               ],
             );
-          }).toList(),
+          }),
         ],
       ),
     ],
@@ -138,6 +138,12 @@ Widget buildTableroRST({
       "empalme_deformado",
       "objetos_extranos",
     ],
+    "conductores_guarda": [
+      "hebras_rotas",
+      "encanastillado",
+      "empalme_deformado",
+      "objetos_extranos",
+    ],
     "estado_aisladores": [
       "buen_estado",
       "rotos_suspension",
@@ -152,7 +158,7 @@ Widget buildTableroRST({
     children: [
       const SizedBox(height: 24),
       const Text(
-        "22. Tablero RST",
+        "Tablero RST",
         style: TextStyle(
           fontWeight: FontWeight.bold,
           fontSize: 18,
@@ -167,7 +173,7 @@ Widget buildTableroRST({
           seleccionados: seleccionados,
           onChanged: onChanged,
         );
-      }).toList(),
+      }),
     ],
   );
 }
@@ -178,6 +184,8 @@ String _tituloSeccion(String clave) {
       return "Conductores de Fase";
     case "conductores_cuellos":
       return "Conductores Cuellos";
+    case "conductores_guarda":
+      return "Conductores de Guarda";
     case "estado_aisladores":
       return "Estado de Aisladores";
     default:

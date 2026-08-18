@@ -325,6 +325,12 @@ void main() {
       expect(heredado.first['revisados_json'], isNull);
     });
 
+    test('v4 conserva las coordenadas UTM separadas del padrón', () async {
+      final cols = await _columnas(db, 'postes');
+      expect(cols, containsAll(['utm_x', 'utm_y', 'zona']));
+      expect(await db.query('postes'), hasLength(2));
+    });
+
     test('es idempotente: volver a aplicarla no rompe ni duplica', () async {
       await Migraciones.aplicar(db, 1, Migraciones.version);
       await Migraciones.aplicar(db, 1, Migraciones.version);
@@ -359,6 +365,7 @@ void main() {
     await Migraciones.aplicar(nueva, 1, Migraciones.version);
 
     for (final tabla in [
+      'postes',
       'imagenes_poste_local',
       'formularios_pendientes',
       'poste_datos',
@@ -399,6 +406,23 @@ void main() {
     expect(despues.first['datos_json'], antes.first['datos_json']);
     expect(despues.first['uuid'], antes.first['uuid']);
 
+    await db.close();
+  });
+
+  test('un teléfono en v3 llega a v4 sin perder postes', () async {
+    final db = await _abrirV1ConDatos();
+    await Migraciones.aplicar(db, 1, 3);
+    final antes = await db.query('postes');
+
+    await Migraciones.aplicar(db, 3, 4);
+
+    expect(
+      await _columnas(db, 'postes'),
+      containsAll(['utm_x', 'utm_y', 'zona']),
+    );
+    final despues = await db.query('postes');
+    expect(despues.length, antes.length);
+    expect(despues.first['codigo'], antes.first['codigo']);
     await db.close();
   });
 }

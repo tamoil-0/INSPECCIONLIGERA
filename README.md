@@ -2,7 +2,7 @@
 
 Aplicativo móvil de campo para inspectores de **Ecoing Contratistas Generales S.R.L.**
 Documenta estructuras de líneas eléctricas de alta tensión: 23 ítems de formulario
-técnico, tablero RST y 22 fotografías obligatorias georreferenciadas en UTM.
+técnico, tablero RST y 28 fotografías obligatorias georreferenciadas en UTM.
 
 Diseñado para funcionar **sin cobertura**, en teléfonos de gama baja, a pleno sol
 y durante jornadas completas.
@@ -33,7 +33,7 @@ flutter analyze                # 0 errores, 0 warnings
 
 ```bash
 flutter run \
-  --dart-define=API_BASE_URL=http://192.168.0.101/api \
+  --dart-define=API_BASE_URL=http://192.168.18.28/INSPEECIONLIGERAECOING/api \
   --dart-define=ENTORNO=local \
   --dart-define=REGISTRO_DETALLADO=true
 ```
@@ -78,7 +78,7 @@ lib/
 │   └── cliente_api.dart          Cliente HTTP único, errores tipados
 ├── database/
 │   ├── database_helper.dart      SQLite
-│   └── migraciones.dart          Historial de esquema (v3)
+│   └── migraciones.dart          Historial de esquema (v4)
 ├── models/
 │   └── formulario_modal.dart     Formulario técnico + «No revisado»
 ├── presentacion/
@@ -118,7 +118,7 @@ lib/
 ## Flujo de la aplicación
 
 ```
-Login  →  Proyectos  →  Líneas  →  Estructuras  →  ┬─ Fotografías (22 + 4)
+Login  →  Proyectos  →  Líneas  →  Estructuras  →  ┬─ Fotografías (28)
                                                    └─ Formulario (5 pasos)
                                                           ↓
                                         Guardado local automático
@@ -206,7 +206,7 @@ lista completa en [`TESTING.md`](TESTING.md). Lo mínimo:
 
 1. Instalar **encima de la versión anterior** con datos existentes → la migración
    debe correr sin perder nada.
-2. Tomar 22 fotos **en modo avión**, cerrar la app a la fuerza, reabrir → las 22
+2. Tomar 28 fotos **en modo avión**, cerrar la app a la fuerza, reabrir → las 28
    siguen ahí.
 3. Cortar la red a mitad del envío → quedan como «Error al enviar — sigue
    guardada», nunca desaparecen.
@@ -222,7 +222,7 @@ lista completa en [`TESTING.md`](TESTING.md). Lo mínimo:
 |---|---|
 | P0 · Integridad de datos | ✅ |
 | P1 · Imágenes y almacenamiento | ✅ (valores de compresión pendientes de medir en campo) |
-| P2 · Sincronización | ✅ (pendiente cerrar contrato con el backend) |
+| P2 · Sincronización | ✅ Contrato verificado con el backend PHP |
 | P3 · Arquitectura | ✅ |
 | P4 · UX/UI | ✅ |
 | P5 · Seguridad | ⧗ Parcial: falta separar datos por usuario, keystore y `applicationId` |

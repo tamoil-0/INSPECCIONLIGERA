@@ -5,7 +5,7 @@ import 'dart:collection';
 ///
 /// ## Por qué existe
 ///
-/// Una estructura tiene 22 fotografías obligatorias. Lanzar 22 compresiones a
+/// Una estructura tiene 28 fotografías obligatorias. Lanzar 28 compresiones a
 /// la vez en un teléfono de gama baja agota la memoria: cada códec nativo
 /// reserva su propio búfer de trabajo. Aquí se procesan de una o de dos en dos
 /// según el perfil del dispositivo, sin bloquear la interfaz y sin que el

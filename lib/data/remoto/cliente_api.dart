@@ -135,11 +135,22 @@ class ClienteApi {
   ClienteApi({http.Client? cliente, AlmacenSeguro? almacen, String? baseUrl})
     : _cliente = cliente ?? http.Client(),
       _almacen = almacen ?? AlmacenSeguro(),
-      baseUrl = baseUrl ?? Entorno.apiBaseUrl;
+      baseUrl = _normalizarBase(baseUrl ?? Entorno.apiBaseUrlNormalizada);
 
   final http.Client _cliente;
   final AlmacenSeguro _almacen;
   final String baseUrl;
+
+  static String _normalizarBase(String valor) {
+    final limpio = valor.trim().replaceFirst(RegExp(r'/+$'), '');
+    final uri = Uri.tryParse(limpio);
+    if (uri == null ||
+        !uri.hasAuthority ||
+        (uri.scheme != 'http' && uri.scheme != 'https')) {
+      throw ArgumentError.value(valor, 'baseUrl', 'Debe ser una URL HTTP(S).');
+    }
+    return limpio;
+  }
 
   /// Se invoca cuando el servidor responde 401/403. La app lo usa para llevar
   /// al login **sin borrar** nada de lo pendiente.
@@ -248,7 +259,7 @@ class ClienteApi {
     } on SocketException catch (e) {
       throw ErrorApi(TipoErrorApi.sinRed, detalle: e.message);
     } on TimeoutException {
-      throw ErrorApi(
+      throw const ErrorApi(
         TipoErrorApi.timeout,
         detalle: 'sin respuesta en ${Entorno.timeoutSegundos} s',
       );

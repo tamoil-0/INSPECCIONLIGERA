@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/estados_sync.dart';
+import '../core/contrato_fotos.dart';
 import '../core/normalizar.dart';
 import '../core/preferencias_app.dart';
 import '../data/remoto/cliente_api.dart';
@@ -85,16 +86,17 @@ class _Estructura {
     this.formularioConError = false,
   });
 
-  /// Las 22 vistas obligatorias del catálogo de fotografías.
-  static const int fotosObligatorias = 22;
+  /// Las vistas obligatorias del contrato compartido con el backend.
+  static const int fotosObligatorias = ContratoFotos.cantidadRequerida;
 
   bool get fotosCompletas => fotos >= fotosObligatorias;
   bool get todoSincronizado =>
       formularioSincronizado && fotos > 0 && fotosSincronizadas == fotos;
 
   EstadoEstructura get estado {
-    if (formularioConError || fotosConError > 0)
+    if (formularioConError || fotosConError > 0) {
       return EstadoEstructura.conError;
+    }
     if (todoSincronizado) return EstadoEstructura.sincronizada;
     if (!tieneBorrador && fotos == 0) return EstadoEstructura.sinIniciar;
     if (tieneBorrador && fotosCompletas) return EstadoEstructura.pendiente;
@@ -185,14 +187,9 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
         try {
           final remotos = await _posteService.buscarPorLinea(
             widget.lineaSeleccionada,
+            proyectoId: widget.proyectoId,
           );
-          // Filtro por proyecto: el endpoint devuelve por nombre de línea y dos
-          // proyectos pueden compartirlo.
-          final delProyecto = remotos.where((p) {
-            final pid = int.tryParse((p['proyecto_id'] ?? '').toString());
-            return pid == null || pid == widget.proyectoId;
-          }).toList();
-          await _db.insertOrUpdatePostes(delProyecto);
+          await _db.insertOrUpdatePostes(remotos);
         } on ErrorApi catch (e) {
           _error =
               'No se pudo actualizar desde el servidor: '

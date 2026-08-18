@@ -87,7 +87,7 @@ GPS verifica que conserva el archivo y devuelve la foto a la cola.
 Lo que ninguna prueba automatizada cubre. Dispositivo disponible: **Samsung SM-N970F, Android 12**.
 
 1. Instalar **encima de la versión anterior** (no desinstalar) con datos existentes → la migración v2 debe correr sin perder nada.
-2. Tomar 22 fotos **en modo avión** → cerrar la app a la fuerza → reabrir → las 22 siguen ahí.
+2. Tomar 28 fotos **en modo avión** → cerrar la app a la fuerza → reabrir → las 28 siguen ahí.
 3. Tomar fotos **con Wi-Fi** y cortar la red a mitad del envío → deben quedar como "Error al enviar — sigue guardada", nunca desaparecer.
 4. Abrir una estructura **ya fotografiada** → deben aparecer las fotos, no una lista vacía.
 5. Pulsar "Editar" en una estructura **ya inventariada** → debe salir el banner de borrador recuperado con los valores anteriores.

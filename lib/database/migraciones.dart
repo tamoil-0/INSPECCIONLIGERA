@@ -23,7 +23,7 @@ class Migraciones {
   const Migraciones._();
 
   /// Versión de esquema que espera esta compilación de la app.
-  static const int version = 3;
+  static const int version = 4;
 
   static const Uuid _uuid = Uuid();
 
@@ -39,6 +39,9 @@ class Migraciones {
           break;
         case 3:
           await _v3CamposRevisados(db);
+          break;
+        case 4:
+          await _v4CoordenadasPadron(db);
           break;
       }
     }
@@ -210,6 +213,17 @@ class Migraciones {
     // Los borradores anteriores a esta versión no tienen esa información. Se
     // dejan a NULL a propósito: marcarlos como 'todo revisado' sería inventar
     // un dato que nadie confirmó, que es justo el problema que se corrige.
+  }
+
+  // ===========================================================================
+  // v4 — Coordenadas UTM del padrón descargado
+  // ===========================================================================
+  static Future<void> _v4CoordenadasPadron(Database db) async {
+    await _agregarColumnas(db, 'postes', {
+      'utm_x': 'REAL',
+      'utm_y': 'REAL',
+      'zona': 'TEXT',
+    });
   }
 
   // ===========================================================================

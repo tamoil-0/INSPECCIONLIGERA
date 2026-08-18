@@ -86,6 +86,9 @@ class DatabaseHelper {
     fecha_inspeccion TEXT,
     fecha_subida TEXT,
     coordenadas_utm TEXT,
+    utm_x REAL,
+    utm_y REAL,
+    zona TEXT,
     sincronizado INTEGER DEFAULT 0,
     creado_en TEXT,        
     ubicaciones TEXT,                  -- 🕒 Fecha en que se descargó o creó el registro
@@ -218,6 +221,8 @@ class DatabaseHelper {
     final batch = db.batch();
 
     for (var poste in postes) {
+      final utmX = poste['utm_x'];
+      final utmY = poste['utm_y'];
       batch.insert('postes', {
         'id': poste['id'],
         'codigo': poste['codigo'],
@@ -227,15 +232,26 @@ class DatabaseHelper {
 
         'proyecto_id': poste['proyecto_id'],
         'fecha_inspeccion': poste['fecha_inspeccion'],
-        'coordenadas_utm': poste['coordenadas_utm'],
-        'sincronizado': poste['sincronizado'] == true ? 1 : 0,
+        'coordenadas_utm': utmX != null && utmY != null
+            ? '$utmX, $utmY'
+            : poste['coordenadas_utm'],
+        'utm_x': utmX,
+        'utm_y': utmY,
+        'zona': poste['zona'],
+        'sincronizado': _bandera(poste['sincronizado']),
         'creado_en': poste['creado_en'],
-        'formulario_subido': poste['formulario_subido'] == true ? 1 : 0,
-        'imagenes_subidas': poste['imagenes_subidas'] == true ? 1 : 0,
+        'formulario_subido': _bandera(poste['formulario_subido']),
+        'imagenes_subidas': _bandera(poste['imagenes_subidas']),
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     await batch.commit(noResult: true);
+  }
+
+  int _bandera(dynamic valor) {
+    if (valor == true || valor == 1) return 1;
+    final texto = (valor ?? '').toString().trim().toLowerCase();
+    return texto == '1' || texto == 'true' ? 1 : 0;
   }
 
   Future<bool> verificarPostePerteneceAProyecto(
@@ -289,7 +305,7 @@ class DatabaseHelper {
       if (key.startsWith('RST_')) {
         final partes = key.split('_'); // Ejemplo: RST_conductores_fase_R
         if (partes.length >= 4) {
-          final seccion = partes[1] + '_' + partes[2];
+          final seccion = '${partes[1]}_${partes[2]}';
           final fase = partes[3];
           final atributos = datos[key];
 
@@ -561,23 +577,20 @@ class DatabaseHelper {
 
   Future<void> marcarPosteComoSincronizado({
     required int posteId,
-    bool formulario = false,
-    bool imagenes = false,
+    required bool formulario,
+    required bool imagenes,
   }) async {
     final db = await database;
-    final updateData = <String, dynamic>{};
-
-    if (formulario) updateData['formulario_subido'] = 1;
-    if (imagenes) updateData['imagenes_subidas'] = 1;
-
-    if (updateData.isNotEmpty) {
-      await db.update(
-        'postes',
-        updateData,
-        where: 'id = ?',
-        whereArgs: [posteId],
-      );
-    }
+    await db.update(
+      'postes',
+      {
+        'formulario_subido': formulario ? 1 : 0,
+        'imagenes_subidas': imagenes ? 1 : 0,
+        'sincronizado': formulario && imagenes ? 1 : 0,
+      },
+      where: 'id = ?',
+      whereArgs: [posteId],
+    );
   }
 
   Future<void> marcarImagenComoSincronizada(int imagenId) async {

@@ -344,12 +344,9 @@ class _LoginScreenState extends State<LoginScreen> {
     final entorno = Entorno.etiquetaVisible;
     return Column(
       children: [
-        Text(
+        const Text(
           'Versión 1.1.0',
-          style: const TextStyle(
-            fontSize: 12.5,
-            color: ColoresEcoing.textoTenue,
-          ),
+          style: TextStyle(fontSize: 12.5, color: ColoresEcoing.textoTenue),
         ),
         if (entorno != null) ...[
           const SizedBox(height: Espacio.xs),

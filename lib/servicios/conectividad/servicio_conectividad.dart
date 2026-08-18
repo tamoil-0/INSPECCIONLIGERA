@@ -1,8 +1,11 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+
+import '../../api/api_config.dart';
 
 /// Tipo de conexión disponible.
 enum TipoRed { ninguna, wifi, movil, otra }
@@ -11,10 +14,10 @@ enum TipoRed { ninguna, wifi, movil, otra }
 class EstadoRed {
   final TipoRed tipo;
 
-  /// `true` solo si además de estar conectado hay **internet real**.
+  /// `true` solo si además de estar conectado responde la API configurada.
   ///
-  /// Un Wi-Fi de hotel o un router sin salida dan `wifi` con `false`: la app
-  /// no debe declararse en línea en ese caso.
+  /// Se comprueba el backend y no un host público: una instalación XAMPP en la
+  /// red local funciona aunque el router no tenga salida a Internet.
   final bool hayInternet;
 
   final DateTime comprobadoEn;
@@ -31,7 +34,7 @@ class EstadoRed {
 
   String get descripcion {
     if (tipo == TipoRed.ninguna) return 'Sin conexión';
-    if (!hayInternet) return 'Conectado sin internet';
+    if (!hayInternet) return 'Red disponible, servidor no accesible';
     return esWifi ? 'Wi-Fi' : (esMovil ? 'Datos móviles' : 'Conectado');
   }
 
@@ -61,7 +64,7 @@ class ServicioConectividad {
   /// Cuánto se considera vigente una comprobación de internet real.
   static const Duration vigencia = Duration(seconds: 20);
 
-  /// Sobrescribible en pruebas para no depender de la red.
+  /// Sobrescribible en pruebas para no depender del servidor.
   @visibleForTesting
   static Future<bool> Function()? comprobadorDeInternet;
 
@@ -102,7 +105,7 @@ class ServicioConectividad {
   }
 
   /// Fuerza una comprobación. Si la última es reciente, devuelve la cacheada
-  /// para no repetir la petición.
+  /// para no repetir la petición al servicio de salud.
   Future<EstadoRed> comprobar({bool forzar = false}) async {
     final actual = estado.value;
     final vencida = DateTime.now().difference(actual.comprobadoEn) > vigencia;
@@ -144,15 +147,22 @@ class ServicioConectividad {
     }
   }
 
-  /// Comprueba que hay salida real a internet, no solo interfaz levantada.
+  /// Comprueba el servicio real que usa la app, incluida su conexión a MySQL.
   Future<bool> _verificarInternet() async {
     final comprobador = comprobadorDeInternet;
     if (comprobador != null) return comprobador();
     try {
-      final resultado = await InternetAddress.lookup(
-        'one.one.one.one',
-      ).timeout(const Duration(seconds: 5));
-      return resultado.isNotEmpty && resultado.first.rawAddress.isNotEmpty;
+      final respuesta = await http
+          .get(
+            Uri.parse('${ApiConfig.baseUrl}${ApiConfig.salud}'),
+            headers: const {'Accept': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 10));
+      if (respuesta.statusCode != 200) return false;
+      final cuerpo = jsonDecode(respuesta.body);
+      return cuerpo is Map &&
+          cuerpo['success'] == true &&
+          cuerpo['status'] == 'ok';
     } catch (_) {
       return false;
     }

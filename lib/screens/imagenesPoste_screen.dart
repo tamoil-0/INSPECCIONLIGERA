@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,14 +8,17 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../core/conversion_utm.dart';
+import '../core/contrato_fotos.dart';
 import '../core/estados_sync.dart';
 import '../core/preferencias_app.dart';
+import '../database/database_helper.dart';
 import '../repositorios/fotos_repositorio.dart';
 import '../servicios/conectividad/servicio_conectividad.dart';
 import '../servicios/imagenes/cola_procesamiento.dart';
 import '../servicios/imagenes/optimizador_imagenes.dart';
 import '../servicios/imagenes/perfil_dispositivo.dart';
 import '../services/imagenesPoste_service.dart';
+import '../services/poste_datos_service.dart';
 
 /// Captura de las fotografías de una estructura.
 ///
@@ -21,7 +26,7 @@ import '../services/imagenesPoste_service.dart';
 ///
 /// Antes, con internet, las fotos **solo** se subían: la escritura en SQLite
 /// vivía en la rama `else` del caso sin conexión. Un fallo de red hacía
-/// desaparecer las 22 fotos de una torre, sin registro y sin posibilidad de
+/// desaparecer las fotos de una torre, sin registro y sin posibilidad de
 /// reintentar.
 ///
 /// Ahora cada captura se copia a almacenamiento permanente y se registra en la
@@ -51,7 +56,9 @@ class ImagenesPosteScreen extends StatefulWidget {
 class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
   final ImagePicker _picker = ImagePicker();
   final ImagenesPosteService _service = ImagenesPosteService();
+  final PosteDatosService _datosService = PosteDatosService();
   final FotosRepositorio _fotos = FotosRepositorio();
+  final DatabaseHelper _db = DatabaseHelper();
 
   PerfilDispositivo _perfil = PerfilDispositivo.media;
   OptimizadorImagenes _optimizador = const OptimizadorImagenes();
@@ -76,46 +83,17 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
   bool _hayInternet = false;
   int _archivosPerdidos = 0;
 
-  static const List<String> _fotosRequeridas = [
-    'placa',
-    'torre_parte_inferior',
-    'torre_parte_superior',
-    'base_torre',
-    'mensulas',
-    'crucetas',
-    'perfiles_angulares',
-    'atiescalamiento',
-    'otros',
-    'aisladores_fase_r_atras',
-    'aisladores_fase_s_atras',
-    'aisladores_fase_t_atras',
-    'aisladores_fase_r_adelante',
-    'aisladores_fase_s_adelante',
-    'aisladores_fase_t_adelante',
-    'ferreteria_fase_r',
-    'ferreteria_fase_s',
-    'ferreteria_fase_t',
-    'cable_guarda',
-    'ferreteria_de_cable_de_guarda',
-    'conductor',
-    'ferreteria_de_conductor',
-    'puesta_tierra',
-    'retenida',
-    'faja_servidumbre',
-    'ubicacion_acceso',
-  ];
+  static const List<String> _fotosRequeridas = ContratoFotos.tiposRequeridos;
 
-  static const List<String> _fotosOpcionales = [
-    'otros',
-    'aisladores_fase_r_adelante',
-    'aisladores_fase_s_adelante',
-    'aisladores_fase_t_adelante',
-  ];
+  // El backend solo declara la inspección completa con los 28 tipos. Ninguno
+  // puede mostrarse como opcional en el cliente.
+  static const List<String> _fotosOpcionales = [];
 
   static const double _precisionGpsAceptable = 25;
 
   static const Map<String, List<String>> _categorias = {
     'Torre y entorno': [
+      'foto_panoramica',
       'placa',
       'torre_parte_inferior',
       'torre_parte_superior',
@@ -125,6 +103,7 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
       'perfiles_angulares',
       'atiescalamiento',
       'puesta_tierra',
+      'puesta_tierra_2',
       'retenida',
       'faja_servidumbre',
       'ubicacion_acceso',
@@ -181,7 +160,7 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
       perfil: _perfil,
       politica: prefs.politicaRetencion,
     );
-    // Concurrencia adaptada al teléfono: 22 compresiones a la vez agotarían la
+    // Concurrencia adaptada al teléfono: 28 compresiones a la vez agotarían la
     // memoria en gama baja.
     _cola = ColaProcesamiento(concurrencia: _perfil.concurrencia);
 
@@ -255,7 +234,7 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
   /// Recupera de la base las fotos ya tomadas de esta estructura.
   ///
   /// Sin esto, reabrir un poste ya fotografiado mostraba la lista en blanco y
-  /// obligaba a repetir las 22 capturas.
+  /// obligaba a repetir las 28 capturas.
   Future<void> _cargarFotosGuardadas() async {
     final perdidos = await _fotos.verificarArchivos(posteId: widget.posteId);
     final guardadas = await _fotos.fotosDePoste(widget.posteId);
@@ -602,14 +581,37 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
       for (final f in pendientes) {
         if (resultado.confirmadas.contains(f.nombreFoto)) {
           await _fotos.marcarSincronizada(f.id);
-          if (liberarOriginal) {
-            await _fotos.liberarOriginalSincronizado(f.id);
-          }
         } else {
           await _fotos.marcarFallida(
             f.id,
             resultado.error ?? 'El servidor no confirmó la recepción.',
           );
+        }
+      }
+
+      // La confirmación de cada foto permite sacarla de la cola, pero los
+      // originales solo se liberan cuando el servidor confirma el poste
+      // completo (formulario + los 28 tipos de fotografía).
+      var posteCompletoEnServidor = false;
+      try {
+        final estado = await _datosService.obtenerEstadoSincronizacion(
+          posteId: widget.posteId,
+        );
+        await _db.marcarPosteComoSincronizado(
+          posteId: widget.posteId,
+          formulario: estado.formulario,
+          imagenes: estado.imagenes,
+        );
+        posteCompletoEnServidor = estado.formulario && estado.imagenes;
+      } catch (_) {
+        // Las confirmaciones individuales siguen siendo válidas. Se conserva
+        // todo archivo original hasta poder ejecutar esta verificación.
+      }
+      if (liberarOriginal && posteCompletoEnServidor) {
+        for (final f in pendientes) {
+          if (resultado.confirmadas.contains(f.nombreFoto)) {
+            await _fotos.liberarOriginalSincronizado(f.id);
+          }
         }
       }
 
@@ -620,12 +622,20 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
         _confirmadasEnEnvio = resultado.confirmadas.length;
       });
 
-      if (resultado.confirmadas.length == pendientes.length) {
+      if (resultado.confirmadas.length == pendientes.length &&
+          posteCompletoEnServidor) {
         await _mostrarInfo(
           'Sincronización confirmada',
           'El servidor confirmó las ${resultado.confirmadas.length} '
-              'fotografía(s) enviadas.',
+              'fotografía(s) enviadas y la inspección completa.',
           exito: true,
+        );
+      } else if (resultado.confirmadas.length == pendientes.length) {
+        await _mostrarInfo(
+          'Fotografías confirmadas',
+          'El servidor recibió las ${resultado.confirmadas.length} fotografía(s). '
+              'La estructura seguirá pendiente hasta confirmar formulario y '
+              'los ${ContratoFotos.tiposRequeridos.length} tipos.',
         );
       } else if (resultado.confirmadas.isEmpty) {
         await _mostrarError(
@@ -774,7 +784,7 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
   );
 
   Widget _iconoInternet() => Tooltip(
-    message: _hayInternet ? 'Conectado a Internet' : 'Sin conexión',
+    message: _hayInternet ? 'Servidor disponible' : 'Servidor no disponible',
     child: Icon(
       _hayInternet ? Icons.wifi : Icons.wifi_off,
       color: _hayInternet ? Colors.greenAccent : Colors.white70,

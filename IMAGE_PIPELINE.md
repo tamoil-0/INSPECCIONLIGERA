@@ -7,15 +7,15 @@ Pruebas: [`test/servicios/imagenes_test.dart`](test/servicios/imagenes_test.dart
 
 ## El problema
 
-Un teléfono moderno saca fotos de 12, 48 o 108 MP. Una estructura pide 22 fotografías obligatorias. Sin optimización:
+Un teléfono moderno saca fotos de 12, 48 o 108 MP. Una estructura pide 28 fotografías obligatorias. Sin optimización:
 
-| Cámara | Peso por foto | 22 fotos | 10 estructuras |
+| Cámara | Peso por foto | 28 fotos | 10 estructuras |
 |---|---|---|---|
-| 12 MP | ~5 MB | 110 MB | 1,1 GB |
-| 48 MP | ~14 MB | 308 MB | 3,0 GB |
-| 108 MP | ~28 MB | 616 MB | 6,0 GB |
+| 12 MP | ~5 MB | 140 MB | 1,4 GB |
+| 48 MP | ~14 MB | 392 MB | 3,9 GB |
+| 108 MP | ~28 MB | 784 MB | 7,8 GB |
 
-Con 3G rural a ~200 kB/s, subir 308 MB son **más de 25 minutos** por torre — y basta un corte para volver a empezar. El teléfono se llena en una jornada.
+Con 3G rural a ~200 kB/s, subir 392 MB son **más de 30 minutos** por torre — y basta un corte para volver a empezar. El teléfono se llena en una jornada.
 
 ---
 
@@ -115,7 +115,7 @@ También se descarta el resultado si el "optimizado" pesa **más** que el origin
 
 ### Concurrencia limitada
 
-22 compresiones simultáneas agotan la memoria en gama baja: cada códec nativo reserva su búfer. [`ColaProcesamiento`](lib/servicios/imagenes/cola_procesamiento.dart) procesa de 1 en 1 o de 2 en 2 según el perfil.
+28 compresiones simultáneas agotan la memoria en gama baja: cada códec nativo reserva su búfer. [`ColaProcesamiento`](lib/servicios/imagenes/cola_procesamiento.dart) procesa de 1 en 1 o de 2 en 2 según el perfil.
 
 La cola es **en memoria**. Si la app se cierra, las fotos pendientes de optimizar siguen en disco con su registro completo y son perfectamente subibles; al reabrir la estructura, `sinOptimizar()` las detecta y se reencolan. Perder la cola no pierde nada.
 

@@ -60,7 +60,7 @@ class PreferenciasApp {
 
   /// Qué se conserva en el teléfono tras optimizar.
   ///
-  /// Por defecto [PoliticaRetencion.soloOptimizada]: 22 fotos de 12 MP
+  /// Por defecto [PoliticaRetencion.soloOptimizada]: 28 fotos de 12 MP
   /// conservando original y optimizada son ~310 MB por estructura, lo que llena
   /// un teléfono en unas diez torres. La versión optimizada es de alta calidad
   /// y es la que se sube; nunca se borra automáticamente.

@@ -8,7 +8,10 @@ class ApiConfig {
   const ApiConfig._();
 
   /// URL base, sin barra final. Configurable por entorno.
-  static String get baseUrl => Entorno.apiBaseUrl;
+  static String get baseUrl => Entorno.apiBaseUrlNormalizada;
+
+  // --- Salud ---------------------------------------------------------------
+  static const String salud = '/info.php';
 
   // --- Sesión -------------------------------------------------------------
   static const String login = '/usuarios/login.php';

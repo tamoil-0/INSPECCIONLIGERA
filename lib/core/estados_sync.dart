@@ -46,7 +46,11 @@ class EstadoSync {
   ];
 
   /// Estados elegibles para un intento de subida.
-  static const List<String> enviables = [local, pendiente, fallido];
+  ///
+  /// `local` se excluye deliberadamente: representa un borrador que el
+  /// inspector todavia no ha finalizado. Solo una accion explicita debe
+  /// moverlo a [pendiente].
+  static const List<String> enviables = [pendiente, fallido];
 
   /// Etiqueta honesta para mostrar al inspector. Nunca dice "enviado"
   /// cuando el dato solo está en el teléfono.

@@ -1,16 +1,20 @@
+// ignore_for_file: file_names
+
 import 'dart:io';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../api/api_config.dart';
+import '../core/contrato_fotos.dart';
 import '../core/entorno.dart';
 import '../data/remoto/cliente_api.dart';
 
 /// Resultado honesto de un intento de subida de fotografías.
 ///
 /// Reemplaza el `bool` anterior, que no permitía distinguir "todo bien" de
-/// "subieron 8 de 22". Quien llama debe marcar como sincronizada **solo** lo
+/// "subieron 8 de 28". Quien llama debe marcar como sincronizada **solo** lo
 /// que aparezca en [confirmadas].
 class ResultadoSubida {
   /// `nombre_foto` que el servidor confirmó haber recibido.
@@ -77,9 +81,8 @@ class ImagenesPosteService {
   /// Sube las [imagenes] del poste y devuelve exactamente qué confirmó el
   /// servidor.
   ///
-  /// Los lotes se mantienen como en la versión anterior (15 por petición
-  /// cuando hay más de 20 fotos) porque el backend PHP tiene límites de
-  /// `max_file_uploads` y `post_max_size`.
+  /// Siempre usa lotes pequeños. Si el servidor aun así responde 413, divide
+  /// automáticamente el lote hasta aislar el archivo demasiado grande.
   Future<ResultadoSubida> subirImagenBatch(
     int posteId,
     Map<String, File> imagenes,
@@ -89,10 +92,7 @@ class ImagenesPosteService {
       return const ResultadoSubida();
     }
     try {
-      if (imagenes.length > 20) {
-        return await _subirPorLotes(posteId, imagenes, metadatos);
-      }
-      return await _subirLote(posteId, imagenes, metadatos);
+      return await _subirPorLotes(posteId, imagenes, metadatos);
     } catch (e) {
       return ResultadoSubida(
         rechazadas: imagenes.keys.toSet(),
@@ -106,7 +106,7 @@ class ImagenesPosteService {
     Map<String, File> imagenes,
     Map<String, Map<String, dynamic>> metadatos,
   ) async {
-    const tamanoLote = 15;
+    const tamanoLote = ContratoFotos.fotosPorLote;
     final entries = imagenes.entries.toList();
     var acumulado = const ResultadoSubida();
 
@@ -115,12 +115,29 @@ class ImagenesPosteService {
         entries.sublist(i, (i + tamanoLote).clamp(0, entries.length)),
       );
       acumulado = acumulado.fusionar(
-        await _subirLote(posteId, lote, metadatos),
+        await _subirAdaptativo(posteId, lote, metadatos),
       );
       await Future.delayed(const Duration(milliseconds: 500));
     }
 
     return acumulado;
+  }
+
+  Future<ResultadoSubida> _subirAdaptativo(
+    int posteId,
+    Map<String, File> imagenes,
+    Map<String, Map<String, dynamic>> metadatos,
+  ) async {
+    final resultado = await _subirLote(posteId, imagenes, metadatos);
+    if (resultado.codigoHttp != 413 || imagenes.length <= 1) return resultado;
+
+    final entradas = imagenes.entries.toList();
+    final mitad = entradas.length ~/ 2;
+    final izquierda = Map<String, File>.fromEntries(entradas.sublist(0, mitad));
+    final derecha = Map<String, File>.fromEntries(entradas.sublist(mitad));
+    final primera = await _subirAdaptativo(posteId, izquierda, metadatos);
+    final segunda = await _subirAdaptativo(posteId, derecha, metadatos);
+    return primera.fusionar(segunda);
   }
 
   Future<ResultadoSubida> _subirLote(
@@ -186,30 +203,31 @@ class ImagenesPosteService {
       );
     }
 
-    return _interpretarRespuesta(res.statusCode, body, nombres);
+    return interpretarRespuesta(res.statusCode, body, nombres);
   }
 
   /// Traduce la respuesta del backend a confirmaciones concretas.
   ///
-  /// ## Contrato asumido (pendiente de verificar contra el PHP)
+  /// ## Contrato del backend PHP
   ///
   /// Se acepta cualquiera de estas formas como confirmación:
   ///   `{"success": true}` · `{"status": "success"}`
   ///
-  /// Si además viene un arreglo con los nombres recibidos —`fotos`, `imagenes`
-  /// o `data`, con `nombre_foto` en cada elemento— se usa para confirmar foto
-  /// por foto. Mientras el backend no lo devuelva, la confirmación es por lote
-  /// completo, que es la granularidad máxima disponible.
+  /// El backend actual devuelve `resultados.imagen_N` con `success` y
+  /// `nombre_foto`. Ese mapa se procesa incluso cuando el `success` global es
+  /// falso por un fallo parcial.
   ///
   /// **Regla:** ante cualquier ambigüedad se asume NO confirmado. Es preferible
   /// reintentar una foto ya subida (el backend deduplica por `uuid`/`checksum`)
   /// que dar por enviada una que no llegó.
-  ResultadoSubida _interpretarRespuesta(
+  @visibleForTesting
+  ResultadoSubida interpretarRespuesta(
     int codigo,
     String body,
     Set<String> nombresEnviados,
   ) {
     if (codigo == 401 || codigo == 403) {
+      ClienteApi.alVencerSesion?.call();
       return ResultadoSubida(
         rechazadas: nombresEnviados,
         codigoHttp: codigo,
@@ -259,8 +277,38 @@ class ImagenesPosteService {
       );
     }
 
+    // Confirmación foto por foto del backend vigente. En un lote parcial el
+    // HTTP es 200 pero `success` global es false; no se deben perder las fotos
+    // que sí quedaron almacenadas.
+    final resultados = json['resultados'];
+    if (codigo >= 200 && codigo < 300 && resultados is Map) {
+      final confirmadas = <String>{};
+      final errores = <String>[];
+      for (final resultado in resultados.values) {
+        if (resultado is! Map) continue;
+        if (resultado['success'] == true && resultado['nombre_foto'] != null) {
+          confirmadas.add(resultado['nombre_foto'].toString());
+        } else if (resultado['error'] != null) {
+          errores.add(resultado['error'].toString());
+        }
+      }
+      confirmadas.retainAll(nombresEnviados);
+      final rechazadas = nombresEnviados.difference(confirmadas);
+      return ResultadoSubida(
+        confirmadas: confirmadas,
+        rechazadas: rechazadas,
+        codigoHttp: codigo,
+        error: rechazadas.isEmpty
+            ? null
+            : (errores.isEmpty
+                  ? 'El servidor confirmó ${confirmadas.length} de '
+                        '${nombresEnviados.length} fotografías.'
+                  : errores.toSet().join(' · ')),
+      );
+    }
+
     final exito = json['success'] == true || json['status'] == 'success';
-    if (codigo != 200 || !exito) {
+    if (codigo < 200 || codigo >= 300 || !exito) {
       return ResultadoSubida(
         rechazadas: nombresEnviados,
         codigoHttp: codigo,

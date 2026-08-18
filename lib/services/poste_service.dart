@@ -21,21 +21,30 @@ class PosteService {
   }
 
   /// 🔍 Postes de una línea.
-  Future<List<Map<String, dynamic>>> buscarPorLinea(String linea) async {
+  Future<List<Map<String, dynamic>>> buscarPorLinea(
+    String linea, {
+    required int proyectoId,
+  }) async {
     final respuesta = await _api.get(
       ApiConfig.buscarLinea,
-      parametros: {'linea': linea},
+      parametros: {'linea': linea, 'proyecto_id': proyectoId},
     );
     return _lista(respuesta);
   }
 
   /// 🔍 Postes por número de estructura.
   Future<List<Map<String, dynamic>>> buscarPorEstructura(
-    String estructura,
-  ) async {
+    String estructura, {
+    required String linea,
+    required int proyectoId,
+  }) async {
     final respuesta = await _api.get(
       ApiConfig.posteBuscarEstructura,
-      parametros: {'estructura': estructura},
+      parametros: {
+        'estructura': estructura,
+        'linea': linea,
+        'proyecto_id': proyectoId,
+      },
     );
     return _lista(respuesta);
   }

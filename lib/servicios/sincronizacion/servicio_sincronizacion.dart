@@ -39,7 +39,7 @@ extension ImpedimentoSyncTexto on ImpedimentoSync {
       case ImpedimentoSync.sinConexion:
         return 'Sin conexión. Tu trabajo sigue guardado en el teléfono.';
       case ImpedimentoSync.sinInternetReal:
-        return 'Hay red pero sin salida a internet. Se reintentará solo.';
+        return 'Hay red, pero la API no responde. Se reintentará solo.';
       case ImpedimentoSync.requiereWifi:
         return 'Configuraste enviar fotografías solo con Wi-Fi.';
       case ImpedimentoSync.sinSesion:
@@ -217,9 +217,9 @@ class ServicioSincronizacion {
   final ServicioConectividad _conectividad;
   final PoliticaReintentos politica;
 
-  /// Cuántos postes se procesan a la vez. Tres es lo que ya usaba la pantalla
-  /// anterior y funciona bien en gama baja.
-  static const int postesEnParalelo = 3;
+  /// Dos postes simultáneos equilibran velocidad, memoria y ancho de banda en
+  /// teléfonos de campo y evitan saturar PHP durante lotes fotográficos.
+  static const int postesEnParalelo = 2;
 
   final ValueNotifier<ProgresoSync> progreso = ValueNotifier(
     const ProgresoSync(),
@@ -360,7 +360,6 @@ class ServicioSincronizacion {
           lote.map(
             (p) => _sincronizarPoste(
               posteId: p,
-              token: token,
               forzar: forzar,
               omitirFotos: soloFotosConWifi,
             ),
@@ -430,30 +429,44 @@ class ServicioSincronizacion {
 
   Future<ResultadoSync> _sincronizarPoste({
     required int posteId,
-    required String token,
     required bool forzar,
     required bool omitirFotos,
   }) async {
     var resultado = const ResultadoSync();
 
     resultado = resultado.mas(
-      await _enviarFormulario(posteId: posteId, token: token, forzar: forzar),
+      await _enviarFormulario(posteId: posteId, forzar: forzar),
     );
 
     if (omitirFotos) {
       final pendientes = await _fotos.pendientes(posteId: posteId);
+      await _actualizarEstadoServidor(posteId);
       return resultado.mas(ResultadoSync(omitidosPorEspera: pendientes.length));
     }
 
     resultado = resultado.mas(
       await _enviarFotos(posteId: posteId, forzar: forzar),
     );
+    await _actualizarEstadoServidor(posteId);
     return resultado;
+  }
+
+  Future<void> _actualizarEstadoServidor(int posteId) async {
+    try {
+      final estado = await _datos.obtenerEstadoSincronizacion(posteId: posteId);
+      await _db.marcarPosteComoSincronizado(
+        posteId: posteId,
+        formulario: estado.formulario,
+        imagenes: estado.imagenes,
+      );
+    } catch (_) {
+      // No invalida acuses anteriores. La comprobación se repetirá en la
+      // siguiente sincronización o al refrescar el padrón.
+    }
   }
 
   Future<ResultadoSync> _enviarFormulario({
     required int posteId,
-    required String token,
     required bool forzar,
   }) async {
     final borrador = await _borradores.obtener(posteId);
@@ -480,7 +493,6 @@ class ServicioSincronizacion {
     try {
       final okDatos = await _datos.actualizarDatosPoste(
         posteId: posteId,
-        token: token,
         datos: borrador.datos,
       );
       if (!okDatos) {
@@ -497,7 +509,6 @@ class ServicioSincronizacion {
       if (borrador.rst.isNotEmpty) {
         final okRst = await _datos.agregarSeccionRST(
           posteId: posteId,
-          token: token,
           datos: {'registros': borrador.rst},
         );
         if (!okRst) {
@@ -596,9 +607,6 @@ class ServicioSincronizacion {
       for (final f in enviables) {
         if (respuesta.confirmadas.contains(f.nombreFoto)) {
           await _fotos.marcarSincronizada(f.id);
-          if (liberarOriginal) {
-            await _fotos.liberarOriginalSincronizado(f.id);
-          }
           confirmadas++;
         } else {
           await _fotos.marcarFallida(
@@ -606,6 +614,29 @@ class ServicioSincronizacion {
             respuesta.error ?? 'El servidor no confirmó la recepción.',
           );
           fallidas++;
+        }
+      }
+
+      var posteCompletoEnServidor = false;
+      try {
+        final estado = await _datos.obtenerEstadoSincronizacion(
+          posteId: posteId,
+        );
+        await _db.marcarPosteComoSincronizado(
+          posteId: posteId,
+          formulario: estado.formulario,
+          imagenes: estado.imagenes,
+        );
+        posteCompletoEnServidor = estado.formulario && estado.imagenes;
+      } catch (_) {
+        // La subida individual ya fue confirmada. Se retienen los originales
+        // y la verificación final se repetirá en la siguiente sincronización.
+      }
+      if (liberarOriginal && posteCompletoEnServidor) {
+        for (final f in enviables) {
+          if (respuesta.confirmadas.contains(f.nombreFoto)) {
+            await _fotos.liberarOriginalSincronizado(f.id);
+          }
         }
       }
 

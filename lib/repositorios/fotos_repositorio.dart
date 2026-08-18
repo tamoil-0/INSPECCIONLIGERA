@@ -127,7 +127,7 @@ class FotoLocal {
 /// falla, se pierde el intento, nunca la fotografía.
 ///
 /// La versión anterior solo guardaba en SQLite en la rama sin conexión: con
-/// internet, un error de red hacía desaparecer las 22 fotos de una torre.
+/// internet, un error de red hacía desaparecer todas las fotos de una torre.
 class FotosRepositorio {
   final DatabaseHelper _db;
   final AlmacenamientoFotos _almacen;
@@ -382,7 +382,7 @@ class FotosRepositorio {
 
   /// Todas las fotos registradas de un poste, en cualquier estado.
   /// Es lo que permite que reabrir una estructura recupere el trabajo previo
-  /// en lugar de pedir las 22 fotos otra vez.
+  /// en lugar de pedir las 28 fotos otra vez.
   Future<List<FotoLocal>> fotosDePoste(int posteId) async {
     final db = await _db.database;
     final filas = await db.query(

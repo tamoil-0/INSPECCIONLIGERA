@@ -464,7 +464,21 @@ void main() {
         recuperado.seleccionadosRst.keys,
         contains('conductores_fase|hebras_rotas|R'),
       );
-      expect(recuperado.estado, EstadoSync.pendiente);
+      expect(
+        recuperado.estado,
+        EstadoSync.local,
+        reason: 'Un autoguardado no debe entrar en la cola antes de finalizar.',
+      );
+      expect(await borradores.pendientes(), isEmpty);
+
+      await borradores.guardar(
+        posteId: 101,
+        datos: datos,
+        rst: recuperado.rst,
+        marcarParaEnvio: true,
+      );
+      expect((await borradores.obtener(101))!.estado, EstadoSync.pendiente);
+      expect(await borradores.pendientes(), hasLength(1));
     });
 
     test(

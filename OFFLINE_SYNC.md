@@ -18,13 +18,13 @@ La versión anterior aplicaba este principio al formulario pero **no a las fotog
 // ANTES — lib/screens/imagenesPoste_screen.dart
 if (_hayInternet && !_modoOffline) {
   final success = await _service.subirImagenBatch(...);   // solo sube
-  // ...y nada más. Si success == false, las 22 fotos no existen en ninguna parte.
+  // ...y nada más. Si success == false, las fotos no existen en ninguna parte.
 } else {
   await db.guardarImagenPosteLocal(...);                  // solo aquí se guardaba
 }
 ```
 
-Con internet, un fallo de red (timeout, 500 del servidor, señal que se cae a mitad) dejaba las 22 fotos de una torre únicamente en la caché de la cámara, sin fila en SQLite. La pantalla de sincronización no las veía porque nunca se insertaron. El inspector tenía que repetir la visita completa a una torre remota.
+Con internet, un fallo de red (timeout, 500 del servidor, señal que se cae a mitad) dejaba las fotos de una torre únicamente en la caché de la cámara, sin fila en SQLite. La pantalla de sincronización no las veía porque nunca se insertaron. El inspector tenía que repetir la visita completa a una torre remota.
 
 ### Cómo está ahora
 
@@ -82,7 +82,7 @@ class ResultadoSubida {
 }
 ```
 
-Eso permite decir "se confirmaron 8 de 22" en lugar de "✅ Envío exitoso".
+Eso permite decir "se confirmaron 8 de 28" en lugar de "✅ Envío exitoso".
 
 ### Contrato asumido con el backend PHP
 
@@ -157,21 +157,19 @@ La pantalla muestra un banner naranja con el recuento.
 | Recuento honesto de lo confirmado | `ResumenSincronizacion` |
 | Recuperación tras cierre inesperado | `main.dart` |
 | Contador de intentos y último error por registro | Columnas `intentos`, `ultimo_error` |
-| Subida por lotes de 15 con pausa de 500 ms | `ImagenesPosteService._subirPorLotes` |
+| Subida por lotes de 6 con pausa de 500 ms y división automática ante 413 | `ImagenesPosteService._subirPorLotes` |
 | Timeout de 4 min por lote | `ImagenesPosteService.timeoutLote` |
 
-### Falta (fase de sincronización)
+### Implementado en la fase de sincronización
 
-| Pendiente | Nota |
+| Capacidad | Estado |
 |---|---|
-| Servicio central de sincronización | Hoy la orquestación vive dentro de `DetalleLineaScreen` |
-| Sincronizar línea / proyecto / todo | Hoy solo "esta página" (10 postes) |
-| Reintentos con backoff exponencial | Hoy el reintento es manual |
-| Disparo automático al recuperar conexión | `Connectivity().onConnectivityChanged` no se escucha en ningún sitio |
-| Preferencia "solo Wi-Fi" | No existe |
-| Límite de intentos configurable | El contador existe, el límite no |
-| Reconciliación de los `synced` heredados dudosos | Ver advertencia en `MIGRATIONS.md` |
-| Subida reanudable por partes | El backend no la ofrece; requiere cambio de servidor |
+| Servicio central por estructura, línea, proyecto o todo | `ServicioSincronizacion` |
+| Reintentos con espera incremental y acción manual | `PoliticaReintentos` |
+| Disparo al recuperar la API con la app abierta | `ServicioConectividad` |
+| Preferencia de fotografías solo con Wi-Fi | `PreferenciasApp` |
+| Confirmación parcial por `resultados.imagen_N` | `ImagenesPosteService` |
+| Verificación final formulario + 28 fotos | `sincronizacion_estado.php` |
 
 ### Límite honesto sobre el segundo plano
 
@@ -218,7 +216,7 @@ Lo que sí se puede garantizar y es lo que se implementará:
                            │  el dato ya está a salvo
    ┌─ ENVÍO ───────────────▼───────────────────────────────┐
    │ 4. UPDATE estado = uploading                          │
-   │ 5. multipart en lotes de 15, timeout 4 min            │
+   │ 5. multipart en lotes de 6, timeout 4 min             │
    │ 6. interpretar la respuesta                           │
    │      confirmada  → estado = synced   (+ id_remoto)    │
    │      no confirmada → estado = failed (+ intentos++,   │

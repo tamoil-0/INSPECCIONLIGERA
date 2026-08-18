@@ -326,8 +326,9 @@ class OptimizadorImagenes {
     var nombre = p.basenameWithoutExtension(rutaBase);
     // Evita acumular sufijos si se reoptimiza.
     for (final s in ['_opt', '_thumb']) {
-      if (nombre.endsWith(s))
+      if (nombre.endsWith(s)) {
         nombre = nombre.substring(0, nombre.length - s.length);
+      }
     }
     return p.join(dir, '${nombre}_$sufijo$extension');
   }

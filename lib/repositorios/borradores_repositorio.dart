@@ -69,7 +69,7 @@ class BorradoresRepositorio {
     required int posteId,
     required Map<String, dynamic> datos,
     required List<Map<String, dynamic>> rst,
-    bool marcarParaEnvio = true,
+    bool marcarParaEnvio = false,
   }) async {
     final db = await _db.database;
     final ahora = DateTime.now().toIso8601String();

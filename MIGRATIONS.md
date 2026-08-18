@@ -11,12 +11,14 @@ Pruebas: [`test/database/migraciones_test.dart`](test/database/migraciones_test.
 3. **Instalación nueva y actualización convergen.** `onCreate` crea el esquema v1 y después aplica todas las migraciones, de modo que un teléfono recién instalado y uno que viene de la versión anterior acaban con el mismo esquema exacto. Hay una prueba que compara columna por columna.
 4. **Sin `PRAGMA foreign_keys`.** Ver la nota al final.
 
-## Versión actual: 2
+## Versión actual: 4
 
 | Versión | Fecha | Contenido |
 |---|---|---|
 | 1 | (original) | Esquema base: `proyectos`, `postes`, `poste_datos`, `poste_secciones_rst`, `formularios_pendientes`, `imagenes_poste_local` |
 | **2** | 2026-08-18 | Estados de sincronización explícitos y trazabilidad de fotografías |
+| **3** | 2026-08-18 | Registro de campos revisados del formulario |
+| **4** | 2026-08-18 | Coordenadas `utm_x`, `utm_y` y `zona` del padrón en SQLite |
 
 ---
 
@@ -132,15 +134,15 @@ Definidos en [`lib/core/estados_sync.dart`](lib/core/estados_sync.dart).
 
 ---
 
-## Cómo añadir una migración v3
+## Cómo añadir una migración v5
 
-1. Subir `Migraciones.version` a `3`.
-2. Añadir un `case 3:` en `Migraciones.aplicar` que llame a un método privado nuevo.
+1. Subir `Migraciones.version` a `5`.
+2. Añadir un `case 5:` en `Migraciones.aplicar` que llame a un método privado nuevo.
 3. Escribir ese método usando `_agregarColumnas` (idempotente) y `CREATE ... IF NOT EXISTS`.
 4. Si hay que quitar filas, archivarlas primero.
 5. Añadir casos a `test/database/migraciones_test.dart`, incluyendo:
-   - que se aplica sobre una base v1 (salto 1→3);
-   - que se aplica sobre una base v2 (salto 2→3);
+   - que se aplica sobre una base v1 (salto 1→5);
+   - que se aplica sobre una base v4 (salto 4→5);
    - que es idempotente;
    - que instalación nueva y actualización convergen.
 6. Documentar la versión en este archivo.

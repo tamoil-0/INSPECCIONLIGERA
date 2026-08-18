@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/entorno.dart';
+import '../core/contrato_fotos.dart';
 import '../core/estados_sync.dart';
 import '../core/preferencias_app.dart';
 import '../data/remoto/cliente_api.dart';
@@ -65,6 +66,8 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
   final _modelo = FormularioModal();
   final _clavesPasos = List.generate(5, (_) => GlobalKey<FormState>());
   final _comentariosCtrl = TextEditingController();
+  final _distanciaAccesoCtrl = TextEditingController();
+  final _cantidadPatCtrl = TextEditingController();
   final _borradores = BorradoresRepositorio();
   final _fotos = FotosRepositorio();
   final _datosService = PosteDatosService();
@@ -90,6 +93,8 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
   void dispose() {
     _temporizadorAutoguardado?.cancel();
     _comentariosCtrl.dispose();
+    _distanciaAccesoCtrl.dispose();
+    _cantidadPatCtrl.dispose();
     super.dispose();
   }
 
@@ -113,6 +118,9 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
         _avisar('No se pudo recuperar el borrador: $e', ColoresEcoing.error);
       }
     }
+
+    _distanciaAccesoCtrl.text = _modelo.distanciaAcceso?.toString() ?? '';
+    _cantidadPatCtrl.text = _modelo.cantidadPat?.toString() ?? '';
 
     final fotos = await _fotos.fotosDePoste(widget.posteId);
     if (!mounted) return;
@@ -147,7 +155,10 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
     );
   }
 
-  Future<bool> _guardarBorrador({bool silencioso = false}) async {
+  Future<bool> _guardarBorrador({
+    bool silencioso = false,
+    bool marcarParaEnvio = false,
+  }) async {
     if (_guardando) return false;
     setState(() => _guardando = true);
     try {
@@ -156,6 +167,7 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
         posteId: widget.posteId,
         datos: _modelo.toMap(),
         rst: _modelo.toRSTLocal(),
+        marcarParaEnvio: marcarParaEnvio,
       );
       if (!mounted) return true;
       setState(() {
@@ -252,7 +264,7 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
     }
 
     // El guardado local ocurre siempre y primero.
-    if (!await _guardarBorrador()) return;
+    if (!await _guardarBorrador(marcarParaEnvio: true)) return;
     if (!mounted) return;
 
     setState(() => _enviando = true);
@@ -274,7 +286,7 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
         await _mostrarGuardadoLocal(
           red.tipo == TipoRed.ninguna
               ? 'No hay conexión en este momento.'
-              : 'Hay red pero sin salida a internet.',
+              : 'Hay red, pero el servidor no responde.',
         );
         return;
       }
@@ -284,7 +296,6 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
 
       final okDatos = await _datosService.actualizarDatosPoste(
         posteId: widget.posteId,
-        token: token,
         datos: datos,
       );
       if (!okDatos) {
@@ -303,7 +314,6 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
       if (rst.isNotEmpty) {
         final okRst = await _datosService.agregarSeccionRST(
           posteId: widget.posteId,
-          token: token,
           datos: {'registros': rst},
         );
         if (!okRst) {
@@ -324,6 +334,14 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
       await DatabaseHelper().guardarFormularioCompleto(
         posteId: widget.posteId,
         datos: datos,
+      );
+      final estadoServidor = await _datosService.obtenerEstadoSincronizacion(
+        posteId: widget.posteId,
+      );
+      await DatabaseHelper().marcarPosteComoSincronizado(
+        posteId: widget.posteId,
+        formulario: estadoServidor.formulario,
+        imagenes: estadoServidor.imagenes,
       );
       await _recargarBorrador();
       await _mostrarConfirmado();
@@ -470,7 +488,7 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
       canPop: !_hayCambiosSinGuardar,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
-        if (await _confirmarSalida() && mounted) {
+        if (await _confirmarSalida() && context.mounted) {
           Navigator.of(context).pop();
         }
       },
@@ -696,6 +714,50 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
 
       case 1:
         return [
+          TextFormField(
+            controller: _distanciaAccesoCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Distancia de acceso (m) *',
+              hintText: 'Ejemplo: 12.5',
+              suffixText: 'm',
+            ),
+            validator: (valor) {
+              final numero = double.tryParse(
+                (valor ?? '').trim().replaceAll(',', '.'),
+              );
+              if (numero == null) return 'Ingresa una distancia válida.';
+              if (numero < 0) return 'La distancia no puede ser negativa.';
+              return null;
+            },
+            onChanged: (valor) => _cambio('distancia_acceso', () {
+              _modelo.distanciaAcceso = double.tryParse(
+                valor.trim().replaceAll(',', '.'),
+              );
+            }),
+          ),
+          const SizedBox(height: Espacio.m),
+          TextFormField(
+            controller: _cantidadPatCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Cantidad de PAT (opcional)',
+              hintText: 'Ejemplo: 1',
+            ),
+            validator: (valor) {
+              final texto = (valor ?? '').trim();
+              if (texto.isEmpty) return null;
+              final numero = int.tryParse(texto);
+              if (numero == null || numero < 0) {
+                return 'Ingresa un número entero no negativo.';
+              }
+              return null;
+            },
+            onChanged: (valor) => _cambio('cantidad_pat', () {
+              _modelo.cantidadPat = int.tryParse(valor.trim());
+            }),
+          ),
+          const SizedBox(height: Espacio.l),
           buildDropdown(
             label: '7. Tipo de torre',
             value: _modelo.tipoTorre,
@@ -880,7 +942,8 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
 
   Widget _resumenFinal() {
     final sinRevisar = _modelo.sinRevisar;
-    final fotosCompletas = _fotosTomadas >= 22;
+    final fotosCompletas =
+        _fotosTomadas >= ContratoFotos.tiposRequeridos.length;
 
     return Container(
       padding: const EdgeInsets.all(Espacio.l),
@@ -900,7 +963,7 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
           _filaResumen(
             fotosCompletas ? Icons.check_circle : Icons.warning_amber_rounded,
             'Fotografías',
-            '$_fotosTomadas de 22 obligatorias',
+            '$_fotosTomadas de ${ContratoFotos.tiposRequeridos.length} obligatorias',
             fotosCompletas ? ColoresEcoing.exito : ColoresEcoing.pendiente,
           ),
           _filaResumen(
@@ -952,12 +1015,12 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
                     ),
                   ),
                   const SizedBox(height: Espacio.xs),
-                  Text(
+                  const Text(
                     Entorno.enviarNoRevisado
                         ? 'Se enviarán como «no revisado».'
                         : 'Se enviarán con su valor por defecto. Revísalos si '
                               'los inspeccionaste.',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: ColoresEcoing.textoSuave,
                     ),

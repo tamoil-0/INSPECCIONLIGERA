@@ -15,7 +15,6 @@ class PosteDatosService {
   /// Actualiza los datos del formulario de un poste.
   Future<bool> actualizarDatosPoste({
     required int posteId,
-    required String token,
     required Map<String, dynamic> datos,
   }) async {
     final respuesta = await _api.put(
@@ -29,7 +28,6 @@ class PosteDatosService {
   /// Envía las marcas del tablero RST.
   Future<bool> agregarSeccionRST({
     required int posteId,
-    required String token,
     required Map<String, dynamic> datos,
   }) async {
     final respuesta = await _api.post(
@@ -48,7 +46,6 @@ class PosteDatosService {
   /// podido preguntar.
   Future<({bool formulario, bool imagenes})> obtenerEstadoSincronizacion({
     required int posteId,
-    required String token,
   }) async {
     final respuesta = await _api.get(
       ApiConfig.estadoSincronizacion,
