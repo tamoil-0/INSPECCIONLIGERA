@@ -95,8 +95,6 @@ class DatabaseHelper {
   )
 ''');
 
-
-
     await db.execute('''
       CREATE TABLE poste_datos (
         poste_id INTEGER PRIMARY KEY,
@@ -174,9 +172,6 @@ class DatabaseHelper {
     UNIQUE(poste_id, nombre_foto)
   )
 ''');
-
-
-
   }
 
   Future<void> insertOrUpdateProyectos(List<dynamic> proyectos) async {
@@ -184,18 +179,14 @@ class DatabaseHelper {
     final batch = db.batch();
 
     for (var proyecto in proyectos) {
-      batch.insert(
-        'proyectos',
-        {
-          'id': proyecto['id'],
-          'nombre_proyecto': proyecto['nombre_proyecto'],
-          'contratista': proyecto['contratista'],
-          'ubicacion': proyecto['ubicacion'],
-          'estado': proyecto['estado'],
-          'fecha_creacion': proyecto['fecha_creacion'],
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      batch.insert('proyectos', {
+        'id': proyecto['id'],
+        'nombre_proyecto': proyecto['nombre_proyecto'],
+        'contratista': proyecto['contratista'],
+        'ubicacion': proyecto['ubicacion'],
+        'estado': proyecto['estado'],
+        'fecha_creacion': proyecto['fecha_creacion'],
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     await batch.commit(noResult: true);
@@ -227,31 +218,30 @@ class DatabaseHelper {
     final batch = db.batch();
 
     for (var poste in postes) {
-      batch.insert(
-        'postes',
-        {
-          'id': poste['id'],
-          'codigo': poste['codigo'],
-          'linea': poste['linea'],
-          'estructura': poste['estructura'],
-          'ubicaciones': poste['ubicaciones'], // ✅ AÑADIDO
+      batch.insert('postes', {
+        'id': poste['id'],
+        'codigo': poste['codigo'],
+        'linea': poste['linea'],
+        'estructura': poste['estructura'],
+        'ubicaciones': poste['ubicaciones'], // ✅ AÑADIDO
 
-          'proyecto_id': poste['proyecto_id'],
-          'fecha_inspeccion': poste['fecha_inspeccion'],
-          'coordenadas_utm': poste['coordenadas_utm'],
-          'sincronizado': poste['sincronizado'] == true ? 1 : 0,
-          'creado_en': poste['creado_en'],
-          'formulario_subido': poste['formulario_subido'] == true ? 1 : 0,
-          'imagenes_subidas': poste['imagenes_subidas'] == true ? 1 : 0,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-
+        'proyecto_id': poste['proyecto_id'],
+        'fecha_inspeccion': poste['fecha_inspeccion'],
+        'coordenadas_utm': poste['coordenadas_utm'],
+        'sincronizado': poste['sincronizado'] == true ? 1 : 0,
+        'creado_en': poste['creado_en'],
+        'formulario_subido': poste['formulario_subido'] == true ? 1 : 0,
+        'imagenes_subidas': poste['imagenes_subidas'] == true ? 1 : 0,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     await batch.commit(noResult: true);
   }
-  Future<bool> verificarPostePerteneceAProyecto(int posteId, int proyectoId) async {
+
+  Future<bool> verificarPostePerteneceAProyecto(
+    int posteId,
+    int proyectoId,
+  ) async {
     final db = await database;
 
     final result = await db.query(
@@ -263,22 +253,28 @@ class DatabaseHelper {
     return result.isNotEmpty;
   }
 
-
   Future<void> guardarFormularioCompleto({
     required int posteId,
     required Map<String, dynamic> datos,
   }) async {
     final datosSolo = {...datos};
 
-// Eliminar claves RST o relacionadas con secciones que no van en poste_datos
+    // Eliminar claves RST o relacionadas con secciones que no van en poste_datos
     final clavesRST = [
-      'conductores_fase_R',  'conductores_cuellos_R', 'estado_aisladores_R',
-      'conductores_fase_S',  'conductores_cuellos_S', 'estado_aisladores_S',
-      'conductores_fase_T',  'conductores_cuellos_T', 'estado_aisladores_T',
+      'conductores_fase_R',
+      'conductores_cuellos_R',
+      'estado_aisladores_R',
+      'conductores_fase_S',
+      'conductores_cuellos_S',
+      'estado_aisladores_S',
+      'conductores_fase_T',
+      'conductores_cuellos_T',
+      'estado_aisladores_T',
     ];
 
-    datosSolo.removeWhere((key, _) =>
-    key.startsWith('RST_') || clavesRST.contains(key));
+    datosSolo.removeWhere(
+      (key, _) => key.startsWith('RST_') || clavesRST.contains(key),
+    );
     //print("🟢 DATOS que se guardarán en SQLite: ${datosSolo}");
 
     // Guardar en poste_datos
@@ -312,22 +308,34 @@ class DatabaseHelper {
       }
     }
   }
-  Future<List<Map<String, String>>> obtenerLineasConUbicacion(int proyectoId) async {
+
+  Future<List<Map<String, String>>> obtenerLineasConUbicacion(
+    int proyectoId,
+  ) async {
     final db = await database;
-    final resultado = await db.rawQuery('''
+    final resultado = await db.rawQuery(
+      '''
     SELECT DISTINCT linea, ubicaciones
     FROM postes
     WHERE proyecto_id = ? AND linea IS NOT NULL
-  ''', [proyectoId]);
+  ''',
+      [proyectoId],
+    );
 
-    return resultado.map((fila) => {
-      'linea': (fila['linea'] ?? '').toString(),
-      'ubicacion': (fila['ubicaciones'] ?? 'Ubicación no disponible').toString(),
-    }).toList();
+    return resultado
+        .map(
+          (fila) => {
+            'linea': (fila['linea'] ?? '').toString(),
+            'ubicacion': (fila['ubicaciones'] ?? 'Ubicación no disponible')
+                .toString(),
+          },
+        )
+        .toList();
   }
 
-
-  Future<List<Map<String, dynamic>>> obtenerPostesPorProyecto(int proyectoId) async {
+  Future<List<Map<String, dynamic>>> obtenerPostesPorProyecto(
+    int proyectoId,
+  ) async {
     final db = await database;
     return await db.query(
       'postes',
@@ -336,7 +344,10 @@ class DatabaseHelper {
     );
   }
 
-  Future<void> guardarRSTLocal(int posteId, List<Map<String, dynamic>> registros) async {
+  Future<void> guardarRSTLocal(
+    int posteId,
+    List<Map<String, dynamic>> registros,
+  ) async {
     final db = await database;
 
     // 🧹 Borrar los datos antiguos de ese poste
@@ -348,23 +359,17 @@ class DatabaseHelper {
 
     // 💾 Insertar los nuevos registros (con sincronizado = 0)
     for (final registro in registros) {
-      await db.insert(
-        'poste_secciones_rst',
-        {
-          'poste_id': posteId,
-          'seccion': registro['seccion'],
-          'atributo': registro['atributo'],
-          'fase': registro['fase'],
-          'sincronizado': 0,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('poste_secciones_rst', {
+        'poste_id': posteId,
+        'seccion': registro['seccion'],
+        'atributo': registro['atributo'],
+        'fase': registro['fase'],
+        'sincronizado': 0,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     //print("✅ RST guardado localmente para poste $posteId con ${registros.length} registros");
   }
-
-
 
   Future<void> guardarPosteDatos(Map<String, dynamic> datos) async {
     final db = await database;
@@ -394,6 +399,7 @@ class DatabaseHelper {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
+
   Future<List<Map<String, dynamic>>> getRSTPorPoste(int posteId) async {
     final db = await database;
     final result = await db.query(
@@ -402,20 +408,26 @@ class DatabaseHelper {
       whereArgs: [posteId],
     );
 
-    return result.map((row) => {
-      "seccion": row["seccion"],
-      "atributo": row["atributo"],
-      "fase": row["fase"],
-    }).toList();
+    return result
+        .map(
+          (row) => {
+            "seccion": row["seccion"],
+            "atributo": row["atributo"],
+            "fase": row["fase"],
+          },
+        )
+        .toList();
   }
-
 
   Future<List<Map<String, dynamic>>> getProyectos() async {
     final db = await database;
     return await db.query('proyectos');
   }
 
-  Future<List<Map<String, dynamic>>> buscarPostesPorEstructuraLocal(String estructura, int proyectoId) async {
+  Future<List<Map<String, dynamic>>> buscarPostesPorEstructuraLocal(
+    String estructura,
+    int proyectoId,
+  ) async {
     final db = await database;
     return await db.query(
       'postes',
@@ -424,7 +436,9 @@ class DatabaseHelper {
     );
   }
 
-  Future<List<Map<String, dynamic>>> getPostesPorProyecto(int proyectoId) async {
+  Future<List<Map<String, dynamic>>> getPostesPorProyecto(
+    int proyectoId,
+  ) async {
     final db = await database;
     return await db.query(
       'postes',
@@ -450,22 +464,23 @@ class DatabaseHelper {
     required Map<String, dynamic> datos,
   }) async {
     final db = await database;
-    await db.insert(
-      'formularios_pendientes',
-      {
-        'poste_id': posteId,
-        'datos_json': jsonEncode(datos),
-        'enviado': 0,
-        'creado_en': DateTime.now().toIso8601String(),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('formularios_pendientes', {
+      'poste_id': posteId,
+      'datos_json': jsonEncode(datos),
+      'enviado': 0,
+      'creado_en': DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
     // print('💾 Formulario guardado localmente para el poste $posteId');
   }
-  Future<List<Map<String, dynamic>>> obtenerPostesConEstadoPorLinea(int proyectoId, String linea) async {
+
+  Future<List<Map<String, dynamic>>> obtenerPostesConEstadoPorLinea(
+    int proyectoId,
+    String linea,
+  ) async {
     final db = await database;
 
-    final result = await db.rawQuery('''
+    final result = await db.rawQuery(
+      '''
   SELECT 
     p.id as poste_id,
     p.codigo,
@@ -479,12 +494,14 @@ class DatabaseHelper {
   LEFT JOIN imagenes_poste_local i ON p.id = i.poste_id
   WHERE p.proyecto_id = ? AND p.linea = ?
   GROUP BY p.id
-''', [proyectoId, linea]);
+''',
+      [proyectoId, linea],
+    );
 
     return result;
   }
 
-// 🔍 Obtener formulario pendiente por poste
+  // 🔍 Obtener formulario pendiente por poste
   Future<Map<String, dynamic>?> getFormularioPorPoste(int posteId) async {
     final db = await database;
     final result = await db.query(
@@ -499,7 +516,7 @@ class DatabaseHelper {
     return null;
   }
 
-// 🧠 Decodificar string JSON a mapa
+  // 🧠 Decodificar string JSON a mapa
   Future<Map<String, dynamic>> decodeJson(String jsonString) async {
     return Map<String, dynamic>.from(jsonDecode(jsonString));
   }
@@ -511,25 +528,21 @@ class DatabaseHelper {
     String? utmEste,
     String? utmNorte,
     String? zona,
-    String? fechaInspeccion,      // 🟡 nuevo
-    String? fechaSubida,          // 🟢 nuevo
+    String? fechaInspeccion, // 🟡 nuevo
+    String? fechaSubida, // 🟢 nuevo
   }) async {
     final db = await database;
-    await db.insert(
-      'imagenes_poste_local',
-      {
-        'poste_id': posteId,
-        'nombre_foto': nombreFoto,
-        'ruta_archivo': rutaArchivo,
-        'fecha_inspeccion': fechaInspeccion,
-        'fecha_subida': fechaSubida,
-        'utm_este': utmEste,
-        'utm_norte': utmNorte,
-        'zona':zona,
-        'sincronizada': 0,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('imagenes_poste_local', {
+      'poste_id': posteId,
+      'nombre_foto': nombreFoto,
+      'ruta_archivo': rutaArchivo,
+      'fecha_inspeccion': fechaInspeccion,
+      'fecha_subida': fechaSubida,
+      'utm_este': utmEste,
+      'utm_norte': utmNorte,
+      'zona': zona,
+      'sincronizada': 0,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<Map<String, dynamic>>> obtenerImagenesDePoste(int posteId) async {
@@ -566,6 +579,7 @@ class DatabaseHelper {
       );
     }
   }
+
   Future<void> marcarImagenComoSincronizada(int imagenId) async {
     final db = await database;
     await db.update(
@@ -575,7 +589,11 @@ class DatabaseHelper {
       whereArgs: [imagenId],
     );
   }
-  Future<List<Map<String, dynamic>>> buscarPostesPorLineaLocal(int proyectoId, String linea) async {
+
+  Future<List<Map<String, dynamic>>> buscarPostesPorLineaLocal(
+    int proyectoId,
+    String linea,
+  ) async {
     final db = await database;
     return await db.query(
       'postes',
@@ -583,7 +601,6 @@ class DatabaseHelper {
       whereArgs: [proyectoId, linea],
     );
   }
-
 
   Future<List<String>> obtenerLineasPorProyectoLocal(int proyectoId) async {
     final db = await database;
@@ -594,8 +611,9 @@ class DatabaseHelper {
     return result.map((row) => row['linea']?.toString() ?? '').toList();
   }
 
-
-  Future<List<Map<String, dynamic>>> obtenerTodosLosPostesConEstado(int proyectoId) async {
+  Future<List<Map<String, dynamic>>> obtenerTodosLosPostesConEstado(
+    int proyectoId,
+  ) async {
     final db = await database;
 
     final postes = await db.query(
@@ -610,23 +628,27 @@ class DatabaseHelper {
       final posteId = poste['id'];
 
       // Formulario local pendiente
-      final formularioLocal = Sqflite.firstIntValue(await db.rawQuery(
-        'SELECT COUNT(*) FROM formularios_pendientes WHERE poste_id = ?',
-        [posteId],
-      ))! > 0;
-
-
-
+      final formularioLocal =
+          Sqflite.firstIntValue(
+            await db.rawQuery(
+              'SELECT COUNT(*) FROM formularios_pendientes WHERE poste_id = ?',
+              [posteId],
+            ),
+          )! >
+          0;
 
       // Imágenes locales
-      final imagenesLocales = Sqflite.firstIntValue(await db.rawQuery(
-        'SELECT COUNT(*) FROM imagenes_poste_local WHERE poste_id = ?',
-        [posteId],
-      ))! > 0;
+      final imagenesLocales =
+          Sqflite.firstIntValue(
+            await db.rawQuery(
+              'SELECT COUNT(*) FROM imagenes_poste_local WHERE poste_id = ?',
+              [posteId],
+            ),
+          )! >
+          0;
 
       final formularioServidor = poste['formulario_subido'] == 1;
       final imagenesSincronizadas = poste['imagenes_subidas'] == 1;
-
 
       resultado.add({
         'poste_id': posteId,
@@ -640,6 +662,4 @@ class DatabaseHelper {
 
     return resultado;
   }
-
-
 }

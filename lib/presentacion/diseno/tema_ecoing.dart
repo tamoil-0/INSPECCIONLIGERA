@@ -219,10 +219,19 @@ class TemaEcoing {
         ),
       ),
       textTheme: base.textTheme
-          .apply(bodyColor: ColoresEcoing.texto, displayColor: ColoresEcoing.texto)
+          .apply(
+            bodyColor: ColoresEcoing.texto,
+            displayColor: ColoresEcoing.texto,
+          )
           .copyWith(
-            bodyLarge: const TextStyle(fontSize: 16, color: ColoresEcoing.texto),
-            bodyMedium: const TextStyle(fontSize: 15, color: ColoresEcoing.texto),
+            bodyLarge: const TextStyle(
+              fontSize: 16,
+              color: ColoresEcoing.texto,
+            ),
+            bodyMedium: const TextStyle(
+              fontSize: 15,
+              color: ColoresEcoing.texto,
+            ),
             bodySmall: const TextStyle(
               fontSize: 13.5,
               color: ColoresEcoing.textoSuave,

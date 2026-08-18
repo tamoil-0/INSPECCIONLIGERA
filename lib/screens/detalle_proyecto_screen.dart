@@ -93,7 +93,8 @@ class _Estructura {
       formularioSincronizado && fotos > 0 && fotosSincronizadas == fotos;
 
   EstadoEstructura get estado {
-    if (formularioConError || fotosConError > 0) return EstadoEstructura.conError;
+    if (formularioConError || fotosConError > 0)
+      return EstadoEstructura.conError;
     if (todoSincronizado) return EstadoEstructura.sincronizada;
     if (!tieneBorrador && fotos == 0) return EstadoEstructura.sinIniciar;
     if (tieneBorrador && fotosCompletas) return EstadoEstructura.pendiente;
@@ -193,7 +194,8 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
           }).toList();
           await _db.insertOrUpdatePostes(delProyecto);
         } on ErrorApi catch (e) {
-          _error = 'No se pudo actualizar desde el servidor: '
+          _error =
+              'No se pudo actualizar desde el servidor: '
               '${e.mensajeUsuario}';
         } catch (e) {
           _error = 'No se pudo actualizar desde el servidor: $e';
@@ -234,8 +236,9 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
               poste['fecha_inspeccion']?.toString(),
           fotos: fotos.length,
           fotosSincronizadas: fotos.where((f) => f.estaSincronizada).length,
-          fotosConError:
-              fotos.where((f) => f.estado == EstadoSync.fallido).length,
+          fotosConError: fotos
+              .where((f) => f.estado == EstadoSync.fallido)
+              .length,
           tieneBorrador: borrador != null && borrador.datos.isNotEmpty,
           formularioSincronizado: borrador?.estaSincronizado ?? false,
           formularioConError: borrador?.estado == EstadoSync.fallido,
@@ -257,8 +260,9 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
         if (texto.isEmpty) return true;
         // Coincidencia exacta normalizada, o parcial por si escribe de más.
         return Normalizar.mismaEstructura(e.estructura, texto) ||
-            Normalizar.estructura(e.estructura)
-                .contains(Normalizar.estructura(texto)) ||
+            Normalizar.estructura(
+              e.estructura,
+            ).contains(Normalizar.estructura(texto)) ||
             Normalizar.contiene(e.codigo, texto);
       }).toList();
     });
@@ -355,7 +359,8 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
   Widget build(BuildContext context) {
     final red = _conectividad.estado.value;
     final pendientes =
-        _contar(EstadoEstructura.pendiente) + _contar(EstadoEstructura.borrador);
+        _contar(EstadoEstructura.pendiente) +
+        _contar(EstadoEstructura.borrador);
 
     return Stack(
       children: [
@@ -386,7 +391,8 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
         ),
         if (_sincronizando)
           CapaCargando(
-            mensaje: 'Enviando lo pendiente de la línea…\n'
+            mensaje:
+                'Enviando lo pendiente de la línea…\n'
                 'Puedes detenerlo: nada se pierde.',
             alCancelar: _sync.cancelar,
           ),
@@ -464,12 +470,7 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
   Widget _buscador() {
     return Container(
       color: ColoresEcoing.superficie,
-      padding: const EdgeInsets.fromLTRB(
-        Espacio.l,
-        0,
-        Espacio.l,
-        Espacio.m,
-      ),
+      padding: const EdgeInsets.fromLTRB(Espacio.l, 0, Espacio.l, Espacio.m),
       child: Column(
         children: [
           TextField(

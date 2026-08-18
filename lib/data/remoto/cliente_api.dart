@@ -132,13 +132,10 @@ class RespuestaApi {
 ///   petición con líneas que llevaran `&` o espacios.
 /// * **401 centralizado.** Un único punto avisa de que la sesión venció.
 class ClienteApi {
-  ClienteApi({
-    http.Client? cliente,
-    AlmacenSeguro? almacen,
-    String? baseUrl,
-  })  : _cliente = cliente ?? http.Client(),
-        _almacen = almacen ?? AlmacenSeguro(),
-        baseUrl = baseUrl ?? Entorno.apiBaseUrl;
+  ClienteApi({http.Client? cliente, AlmacenSeguro? almacen, String? baseUrl})
+    : _cliente = cliente ?? http.Client(),
+      _almacen = almacen ?? AlmacenSeguro(),
+      baseUrl = baseUrl ?? Entorno.apiBaseUrl;
 
   final http.Client _cliente;
   final AlmacenSeguro _almacen;
@@ -152,41 +149,38 @@ class ClienteApi {
     String ruta, {
     Map<String, dynamic>? parametros,
     bool requiereToken = true,
-  }) =>
-      _enviar(
-        'GET',
-        ruta,
-        parametros: parametros,
-        requiereToken: requiereToken,
-      );
+  }) => _enviar(
+    'GET',
+    ruta,
+    parametros: parametros,
+    requiereToken: requiereToken,
+  );
 
   Future<RespuestaApi> post(
     String ruta, {
     Map<String, dynamic>? parametros,
     Object? cuerpo,
     bool requiereToken = true,
-  }) =>
-      _enviar(
-        'POST',
-        ruta,
-        parametros: parametros,
-        cuerpo: cuerpo,
-        requiereToken: requiereToken,
-      );
+  }) => _enviar(
+    'POST',
+    ruta,
+    parametros: parametros,
+    cuerpo: cuerpo,
+    requiereToken: requiereToken,
+  );
 
   Future<RespuestaApi> put(
     String ruta, {
     Map<String, dynamic>? parametros,
     Object? cuerpo,
     bool requiereToken = true,
-  }) =>
-      _enviar(
-        'PUT',
-        ruta,
-        parametros: parametros,
-        cuerpo: cuerpo,
-        requiereToken: requiereToken,
-      );
+  }) => _enviar(
+    'PUT',
+    ruta,
+    parametros: parametros,
+    cuerpo: cuerpo,
+    requiereToken: requiereToken,
+  );
 
   /// Construye la URI escapando correctamente los parámetros.
   Uri uri(String ruta, [Map<String, dynamic>? parametros]) {
@@ -290,7 +284,9 @@ class ClienteApi {
     final pareceJson = recortado.startsWith('{') || recortado.startsWith('[');
     if (!pareceJson) {
       throw ErrorApi(
-        codigo >= 500 ? TipoErrorApi.errorServidor : TipoErrorApi.respuestaNoJson,
+        codigo >= 500
+            ? TipoErrorApi.errorServidor
+            : TipoErrorApi.respuestaNoJson,
         codigoHttp: codigo,
         detalle: _recorte(cuerpo),
       );

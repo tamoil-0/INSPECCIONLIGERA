@@ -86,7 +86,8 @@ class _SincronizacionScreenState extends State<SincronizacionScreen> {
     setState(() {
       _cargando = true;
       _proyectoId = id;
-      _proyectoNombre = (proyecto['nombre_proyecto'] ?? 'Proyecto $id').toString();
+      _proyectoNombre = (proyecto['nombre_proyecto'] ?? 'Proyecto $id')
+          .toString();
       _lineas = [];
     });
 
@@ -151,7 +152,8 @@ class _SincronizacionScreenState extends State<SincronizacionScreen> {
                     if (_modoOffline)
                       const Aviso(
                         icono: Icons.cloud_off,
-                        texto: 'Modo offline activado. Desactívalo desde la '
+                        texto:
+                            'Modo offline activado. Desactívalo desde la '
                             'pantalla de proyectos para poder enviar.',
                       ),
                     _resumenGlobal(),
@@ -325,10 +327,7 @@ class _SincronizacionScreenState extends State<SincronizacionScreen> {
   Widget _tarjetaLinea(Map<String, String> linea) {
     return Card(
       child: ListTile(
-        leading: const Icon(
-          Icons.alt_route_rounded,
-          color: ColoresEcoing.azul,
-        ),
+        leading: const Icon(Icons.alt_route_rounded, color: ColoresEcoing.azul),
         title: Text(linea['linea'] ?? ''),
         subtitle: Text(
           (linea['ubicacion'] ?? '').isEmpty

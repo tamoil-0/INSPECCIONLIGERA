@@ -34,8 +34,8 @@ class ResultadoLogin {
 
 class AuthService {
   AuthService({ClienteApi? api, AlmacenSeguro? almacen})
-      : _api = api ?? ClienteApi(),
-        _almacen = almacen ?? AlmacenSeguro();
+    : _api = api ?? ClienteApi(),
+      _almacen = almacen ?? AlmacenSeguro();
 
   final ClienteApi _api;
   final AlmacenSeguro _almacen;
@@ -45,17 +45,15 @@ class AuthService {
       final respuesta = await _api.post(
         ApiConfig.login,
         requiereToken: false,
-        cuerpo: {
-          'nombre_usuario': nombreUsuario,
-          'contrasena': contrasena,
-        },
+        cuerpo: {'nombre_usuario': nombreUsuario, 'contrasena': contrasena},
       );
 
       final token = respuesta.cuerpo['token']?.toString();
       if (token == null || token.isEmpty) {
         return ResultadoLogin(
           exito: false,
-          mensajeServidor: respuesta.mensajeServidor ??
+          mensajeServidor:
+              respuesta.mensajeServidor ??
               'El servidor no devolvió un token de sesión.',
         );
       }

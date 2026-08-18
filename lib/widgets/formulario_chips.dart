@@ -47,7 +47,9 @@ Widget buildDropdownMultiple({
               : '${seleccionados.length} seleccionado(s)',
           style: TextStyle(
             fontSize: 12.5,
-            color: sinRevisar ? ColoresEcoing.pendiente : ColoresEcoing.textoTenue,
+            color: sinRevisar
+                ? ColoresEcoing.pendiente
+                : ColoresEcoing.textoTenue,
           ),
         ),
         const SizedBox(height: Espacio.s),

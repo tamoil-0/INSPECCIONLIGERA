@@ -69,7 +69,13 @@ recuento real: «Servidor confirmó 8 de 22 fotografías».
   el color del botón «Ir», indistinguible de un error.
 - **Cliente HTTP único** con 14 tipos de error clasificados y timeouts.
 - **Token en el almacén seguro** del sistema, con expiración comprobada.
-- **147 pruebas** donde antes `flutter test` no compilaba.
+- **150 pruebas** donde antes `flutter test` no compilaba.
+- **Captura fotográfica agrupada** por torre, aisladores y conductores, con
+  selección desde galería, visor a pantalla completa con zoom y avance a la
+  siguiente vista pendiente.
+- **Reintento de GPS sin repetir la foto** cuando la precisión supera 25 m.
+- **Pantalla de Ajustes** para modo offline, solo Wi-Fi, perfil de imagen,
+  política de retención y limpieza explícita de originales sincronizados.
 
 ### Corregido
 
@@ -134,8 +140,9 @@ instalación nueva y una actualizada acaban con el mismo esquema exacto.
   haría que los teléfonos con inspecciones pendientes no recibieran la
   actualización.
 - Generar la keystore de release.
-- Galería, vista a pantalla completa con zoom y pantalla de Ajustes.
 - Compilar y probar en iOS (requiere un Mac).
+- Separar el almacenamiento por usuario sin ocultar los datos heredados cuya
+  cuenta de origen no puede deducirse con seguridad.
 - Reconciliar el histórico de fotos marcadas como sincronizadas que el servidor
   pudo no haber recibido.
 

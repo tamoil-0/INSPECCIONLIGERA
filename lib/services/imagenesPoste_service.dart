@@ -38,7 +38,9 @@ class ResultadoSubida {
   ResultadoSubida fusionar(ResultadoSubida otro) => ResultadoSubida(
     confirmadas: {...confirmadas, ...otro.confirmadas},
     rechazadas: {...rechazadas, ...otro.rechazadas}
-      ..removeWhere((n) => confirmadas.contains(n) || otro.confirmadas.contains(n)),
+      ..removeWhere(
+        (n) => confirmadas.contains(n) || otro.confirmadas.contains(n),
+      ),
     error: otro.error ?? error,
     codigoHttp: otro.codigoHttp ?? codigoHttp,
   );
@@ -51,8 +53,8 @@ class ResultadoSubida {
 
 class ImagenesPosteService {
   ImagenesPosteService({http.Client? client, ClienteApi? api})
-      : _client = client ?? http.Client(),
-        _api = api ?? ClienteApi();
+    : _client = client ?? http.Client(),
+      _api = api ?? ClienteApi();
 
   final http.Client _client;
   final ClienteApi _api;
@@ -157,11 +159,13 @@ class ImagenesPosteService {
       request.fields['uuid_$i'] = meta['uuid']!;
       request.fields['checksum_$i'] = meta['checksum']!;
 
-      request.files.add(await http.MultipartFile.fromPath(
-        'imagen_$i',
-        file.path,
-        filename: '${nombre}_${DateTime.now().millisecondsSinceEpoch}.jpg',
-      ));
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'imagen_$i',
+          file.path,
+          filename: '${nombre}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        ),
+      );
       i++;
     }
 
@@ -209,7 +213,8 @@ class ImagenesPosteService {
       return ResultadoSubida(
         rechazadas: nombresEnviados,
         codigoHttp: codigo,
-        error: 'Sesión vencida o sin permiso (HTTP $codigo). '
+        error:
+            'Sesión vencida o sin permiso (HTTP $codigo). '
             'Vuelve a iniciar sesión; tus fotos siguen guardadas.',
       );
     }
@@ -217,18 +222,20 @@ class ImagenesPosteService {
       return ResultadoSubida(
         rechazadas: nombresEnviados,
         codigoHttp: codigo,
-        error: 'El servidor rechazó el envío por tamaño (HTTP 413). '
+        error:
+            'El servidor rechazó el envío por tamaño (HTTP 413). '
             'Se reintentará en lotes más pequeños.',
       );
     }
 
-    final pareceJson = body.trimLeft().startsWith('{') ||
-        body.trimLeft().startsWith('[');
+    final pareceJson =
+        body.trimLeft().startsWith('{') || body.trimLeft().startsWith('[');
     if (!pareceJson) {
       return ResultadoSubida(
         rechazadas: nombresEnviados,
         codigoHttp: codigo,
-        error: 'El servidor respondió algo que no es JSON (HTTP $codigo): '
+        error:
+            'El servidor respondió algo que no es JSON (HTTP $codigo): '
             '${_recorte(body)}',
       );
     }
@@ -272,7 +279,7 @@ class ImagenesPosteService {
         error: confirmadas.length == nombresEnviados.length
             ? null
             : 'El servidor confirmó ${confirmadas.length} de '
-                '${nombresEnviados.length} fotografías.',
+                  '${nombresEnviados.length} fotografías.',
       );
     }
 

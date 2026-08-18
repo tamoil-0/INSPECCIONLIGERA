@@ -100,7 +100,8 @@ void main() {
             children: [
               const ChipEstado(estado: EstadoSync.fallido),
               const Aviso(
-                texto: 'Modo offline. Todo se guarda en el teléfono y nada se '
+                texto:
+                    'Modo offline. Todo se guarda en el teléfono y nada se '
                     'envía hasta que lo desactives.',
               ),
               const BarraProgreso(
@@ -155,7 +156,8 @@ void main() {
                 ChipEstado(estado: EstadoSync.sincronizado),
                 ChipEstado(estado: EstadoSync.pendiente),
                 Aviso.error(
-                  texto: '3 fotografías no pudieron enviarse. Tu información '
+                  texto:
+                      '3 fotografías no pudieron enviarse. Tu información '
                       'sigue segura en el teléfono.',
                 ),
                 BarraProgreso(hechas: 5, total: 22, etiqueta: 'Fotografías'),

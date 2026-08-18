@@ -11,6 +11,7 @@ import '../../services/imagenesPoste_service.dart';
 import '../../services/poste_datos_service.dart';
 import '../../storage/almacen_seguro.dart';
 import '../conectividad/servicio_conectividad.dart';
+import '../imagenes/optimizador_imagenes.dart';
 import 'politica_reintentos.dart';
 
 /// Ámbito de una sincronización.
@@ -123,7 +124,8 @@ class ResultadoSync {
 
   ResultadoSync mas(ResultadoSync otro) => ResultadoSync(
     impedimento: impedimento,
-    formulariosConfirmados: formulariosConfirmados + otro.formulariosConfirmados,
+    formulariosConfirmados:
+        formulariosConfirmados + otro.formulariosConfirmados,
     formulariosFallidos: formulariosFallidos + otro.formulariosFallidos,
     fotosConfirmadas: fotosConfirmadas + otro.fotosConfirmadas,
     fotosFallidas: fotosFallidas + otro.fotosFallidas,
@@ -196,13 +198,13 @@ class ServicioSincronizacion {
     AlmacenSeguro? almacenSeguro,
     ServicioConectividad? conectividad,
     this.politica = const PoliticaReintentos(),
-  })  : _fotos = fotos ?? FotosRepositorio(),
-        _borradores = borradores ?? BorradoresRepositorio(),
-        _datos = datosService ?? PosteDatosService(),
-        _imagenes = imagenesService ?? ImagenesPosteService(),
-        _db = db ?? DatabaseHelper(),
-        _almacenSeguro = almacenSeguro ?? AlmacenSeguro(),
-        _conectividad = conectividad ?? ServicioConectividad.instancia;
+  }) : _fotos = fotos ?? FotosRepositorio(),
+       _borradores = borradores ?? BorradoresRepositorio(),
+       _datos = datosService ?? PosteDatosService(),
+       _imagenes = imagenesService ?? ImagenesPosteService(),
+       _db = db ?? DatabaseHelper(),
+       _almacenSeguro = almacenSeguro ?? AlmacenSeguro(),
+       _conectividad = conectividad ?? ServicioConectividad.instancia;
 
   static final ServicioSincronizacion instancia = ServicioSincronizacion();
 
@@ -238,7 +240,9 @@ class ServicioSincronizacion {
   /// No es sincronización en segundo plano: solo funciona con la app abierta.
   void activarDisparoAutomatico() {
     _suscripcionReconexion?.cancel();
-    _suscripcionReconexion = _conectividad.alRecuperarConexion.listen((_) async {
+    _suscripcionReconexion = _conectividad.alRecuperarConexion.listen((
+      _,
+    ) async {
       if (_enMarcha) return;
       final prefs = await PreferenciasApp.instancia();
       if (prefs.modoOffline) return;
@@ -262,8 +266,14 @@ class ServicioSincronizacion {
   // Entradas públicas
   // ===========================================================================
 
-  Future<ResultadoSync> sincronizarEstructura(int posteId, {bool forzar = true}) =>
-      sincronizar(ambito: AmbitoSync.estructura, posteId: posteId, forzar: forzar);
+  Future<ResultadoSync> sincronizarEstructura(
+    int posteId, {
+    bool forzar = true,
+  }) => sincronizar(
+    ambito: AmbitoSync.estructura,
+    posteId: posteId,
+    forzar: forzar,
+  );
 
   Future<ResultadoSync> sincronizarLinea(int proyectoId, String linea) =>
       sincronizar(
@@ -432,9 +442,7 @@ class ServicioSincronizacion {
 
     if (omitirFotos) {
       final pendientes = await _fotos.pendientes(posteId: posteId);
-      return resultado.mas(
-        ResultadoSync(omitidosPorEspera: pendientes.length),
-      );
+      return resultado.mas(ResultadoSync(omitidosPorEspera: pendientes.length));
     }
 
     resultado = resultado.mas(
@@ -545,7 +553,7 @@ class ServicioSincronizacion {
         await _fotos.marcarFallida(
           foto.id,
           'El archivo de la fotografía ya no está en el teléfono. '
-              'Hay que volver a tomarla.',
+          'Hay que volver a tomarla.',
         );
         fallidasPorArchivo++;
         continue;
@@ -582,9 +590,15 @@ class ServicioSincronizacion {
 
       var confirmadas = 0;
       var fallidas = fallidasPorArchivo;
+      final liberarOriginal =
+          (await PreferenciasApp.instancia()).politicaRetencion ==
+          PoliticaRetencion.liberarTrasSincronizar;
       for (final f in enviables) {
         if (respuesta.confirmadas.contains(f.nombreFoto)) {
           await _fotos.marcarSincronizada(f.id);
+          if (liberarOriginal) {
+            await _fotos.liberarOriginalSincronizado(f.id);
+          }
           confirmadas++;
         } else {
           await _fotos.marcarFallida(

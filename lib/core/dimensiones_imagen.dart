@@ -85,10 +85,19 @@ class LectorDimensiones {
   static Future<DimensionesImagen?> _leerJpeg(RandomAccessFile lector) async {
     await lector.setPosition(2); // tras FFD8
     const sofValidos = {
-      0xC0, 0xC1, 0xC2, 0xC3,
-      0xC5, 0xC6, 0xC7,
-      0xC9, 0xCA, 0xCB,
-      0xCD, 0xCE, 0xCF,
+      0xC0,
+      0xC1,
+      0xC2,
+      0xC3,
+      0xC5,
+      0xC6,
+      0xC7,
+      0xC9,
+      0xCA,
+      0xCB,
+      0xCD,
+      0xCE,
+      0xCF,
     };
 
     // Tope de seguridad: un archivo malformado no debe provocar un bucle largo.
@@ -97,7 +106,8 @@ class LectorDimensiones {
       if (marcador == null) return null;
 
       // Marcadores sin payload.
-      if (marcador == 0xD8 || marcador == 0x01 ||
+      if (marcador == 0xD8 ||
+          marcador == 0x01 ||
           (marcador >= 0xD0 && marcador <= 0xD7)) {
         continue;
       }

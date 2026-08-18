@@ -75,26 +75,31 @@ class ConversionUtm {
     final c = pow(e, 2) / (1 - pow(e, 2)) * pow(cos(latRad), 2);
     final aa = cos(latRad) * (lonRad - lonOriginRad);
 
-    final m = _a *
+    final m =
+        _a *
         ((1 - pow(e, 2) / 4 - 3 * pow(e, 4) / 64 - 5 * pow(e, 6) / 256) *
                 latRad -
-            (3 * pow(e, 2) / 8 +
-                    3 * pow(e, 4) / 32 +
-                    45 * pow(e, 6) / 1024) *
+            (3 * pow(e, 2) / 8 + 3 * pow(e, 4) / 32 + 45 * pow(e, 6) / 1024) *
                 sin(2 * latRad) +
             (15 * pow(e, 4) / 256 + 45 * pow(e, 6) / 1024) * sin(4 * latRad) -
             (35 * pow(e, 6) / 3072) * sin(6 * latRad));
 
-    final easting = _k0 *
+    final easting =
+        _k0 *
             n *
             (aa +
                 (1 - t + c) * pow(aa, 3) / 6 +
-                (5 - 18 * t + t * t + 72 * c - 58 * pow(e, 2) / (1 - pow(e, 2))) *
+                (5 -
+                        18 * t +
+                        t * t +
+                        72 * c -
+                        58 * pow(e, 2) / (1 - pow(e, 2))) *
                     pow(aa, 5) /
                     120) +
         500000.0;
 
-    var northing = _k0 *
+    var northing =
+        _k0 *
         (m +
             n *
                 tan(latRad) *

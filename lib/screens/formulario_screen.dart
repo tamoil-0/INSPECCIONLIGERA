@@ -171,7 +171,8 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
       if (!silencioso) {
         await _mostrarDialogo(
           titulo: 'No se pudo guardar en el teléfono',
-          mensaje: 'El formulario NO quedó guardado. No cierres la pantalla: '
+          mensaje:
+              'El formulario NO quedó guardado. No cierres la pantalla: '
               'vuelve a intentarlo.\n\nDetalle: $e',
           esError: true,
         );
@@ -241,7 +242,8 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
       setState(() => _paso = 4);
       await _mostrarDialogo(
         titulo: 'Error en el tablero RST',
-        mensaje: 'Solo puedes marcar una opción por fase (R, S o T) en cada '
+        mensaje:
+            'Solo puedes marcar una opción por fase (R, S o T) en cada '
             'grupo.\n\nEjemplo: no se puede marcar «hebras rotas» y '
             '«encanastillado» a la vez en la fase R.',
         esError: true,
@@ -348,9 +350,9 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
 
   void _avisar(String mensaje, [Color? color]) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensaje), backgroundColor: color),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(mensaje), backgroundColor: color));
   }
 
   Future<void> _mostrarDialogo({
@@ -386,7 +388,8 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
   Future<void> _mostrarGuardadoLocal(String motivo, {bool esError = false}) {
     return _mostrarDialogo(
       titulo: 'Guardado en este teléfono',
-      mensaje: '$motivo\n\nEl formulario quedó guardado y pendiente de enviar. '
+      mensaje:
+          '$motivo\n\nEl formulario quedó guardado y pendiente de enviar. '
           'Se sincronizará desde la pantalla de Sincronización cuando tengas '
           'señal. Tu información está segura.',
       esError: esError,
@@ -582,8 +585,8 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
                       : (_hayCambiosSinGuardar
                             ? 'Cambios sin guardar'
                             : _ultimoGuardado == null
-                                  ? 'Sin guardar todavía'
-                                  : 'Guardado ${_haceCuanto(_ultimoGuardado!)}'),
+                            ? 'Sin guardar todavía'
+                            : 'Guardado ${_haceCuanto(_ultimoGuardado!)}'),
                   style: const TextStyle(
                     fontSize: 12.5,
                     color: ColoresEcoing.textoSuave,
@@ -611,7 +614,8 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
     final b = _borrador!;
     if (b.estaSincronizado) {
       return const Aviso.exito(
-        texto: 'Esta inspección ya está confirmada por el servidor. Si guardas '
+        texto:
+            'Esta inspección ya está confirmada por el servidor. Si guardas '
             'cambios, se volverá a enviar.',
       );
     }

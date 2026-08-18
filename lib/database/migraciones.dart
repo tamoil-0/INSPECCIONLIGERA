@@ -99,17 +99,23 @@ class Migraciones {
     // servidor (se marcaba ignorando el resultado de la subida). Aun así se
     // respeta el valor existente para no reenviar de golpe todo el histórico:
     // el usuario puede forzar la revisión desde la pantalla de sincronización.
-    await db.execute('''
+    await db.execute(
+      '''
       UPDATE imagenes_poste_local
          SET estado = CASE WHEN sincronizada = 1 THEN ? ELSE ? END
        WHERE estado IS NULL
-    ''', [EstadoSync.sincronizado, EstadoSync.pendiente]);
+    ''',
+      [EstadoSync.sincronizado, EstadoSync.pendiente],
+    );
 
-    await db.execute('''
+    await db.execute(
+      '''
       UPDATE formularios_pendientes
          SET estado = CASE WHEN enviado = 1 THEN ? ELSE ? END
        WHERE estado IS NULL
-    ''', [EstadoSync.sincronizado, EstadoSync.pendiente]);
+    ''',
+      [EstadoSync.sincronizado, EstadoSync.pendiente],
+    );
 
     // --- 4. Archivar duplicados de formularios ANTES de desduplicar ---------
     // No se borra nada sin copia: los borradores repetidos del mismo poste se

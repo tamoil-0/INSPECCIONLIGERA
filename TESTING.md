@@ -69,15 +69,17 @@ Las pruebas de integridad no son casos sintéticos: cada una reproduce algo que 
 | UTM en el meridiano central del ecuador | E = 500000, N = 0 exactos (identidad matemática) |
 | UTM entre 80° y 84° | No lanza `RangeError` (fallo del código original) |
 
+## Cobertura automatizada actual
+
+El pipeline de imágenes, el backoff, el cliente HTTP, «No revisado», las
+migraciones, pantalla pequeña y texto ampliado ya están cubiertos. La limpieza
+de originales verifica que una foto pendiente nunca se borra, y el reintento de
+GPS verifica que conserva el archivo y devuelve la foto a la cola.
+
 ## Qué falta
 
 | Pendiente | Fase |
 |---|---|
-| Pipeline de imágenes: orientación EXIF, no recomprimir lo optimizado, 108 MP, imagen corrupta | P1 |
-| Cola de sincronización: backoff, token vencido a mitad, red que cae en la foto 10 de 22, doble pulsación de "Sincronizar" | P2 |
-| Pruebas de widget de las pantallas principales | P4 |
-| Pantalla pequeña y texto ampliado | P4 |
-| Formulario con valores "No revisado" | P4 |
 | Pruebas de integración en dispositivo real (`integration_test`) | P6 |
 
 ## Qué hay que probar a mano en el teléfono

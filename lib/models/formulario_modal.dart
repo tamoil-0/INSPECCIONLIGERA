@@ -208,12 +208,7 @@ class FormularioModal {
     'falta',
     'n_a',
   ];
-  static const List<String> oxidosBaseOptions = [
-    noRevisado,
-    'si',
-    'no',
-    'n_a',
-  ];
+  static const List<String> oxidosBaseOptions = [noRevisado, 'si', 'no', 'n_a'];
   static const List<String> cadenaAisladoresOptions = [
     noRevisado,
     'en_suspension',
@@ -409,7 +404,9 @@ class FormularioModal {
     comentarios = map['comentarios']?.toString();
 
     final fecha = map['fecha_inspeccion'];
-    fechaInspeccion = fecha == null ? null : DateTime.tryParse(fecha.toString());
+    fechaInspeccion = fecha == null
+        ? null
+        : DateTime.tryParse(fecha.toString());
 
     // Campos que ya estaban confirmados.
     revisados.clear();
@@ -426,7 +423,11 @@ class FormularioModal {
     }
   }
 
-  String? _leer(Map<String, dynamic> map, String clave, {bool conDefecto = true}) {
+  String? _leer(
+    Map<String, dynamic> map,
+    String clave, {
+    bool conDefecto = true,
+  }) {
     final valor = map[clave];
     if (valor == null) return conDefecto ? noRevisado : null;
     final texto = valor.toString();

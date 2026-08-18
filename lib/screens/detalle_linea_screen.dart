@@ -42,14 +42,16 @@ class _FilaSync {
     this.errorFoto,
   });
 
-  bool get formularioSincronizado => estadoFormulario == EstadoSync.sincronizado;
+  bool get formularioSincronizado =>
+      estadoFormulario == EstadoSync.sincronizado;
   bool get fotosPendientes => fotos > fotosSincronizadas;
   bool get todoSincronizado =>
       (!formularioLocal || formularioSincronizado) &&
       (fotos == 0 || fotosSincronizadas == fotos);
   bool get hayPendiente =>
       (formularioLocal && !formularioSincronizado) || fotosPendientes;
-  bool get hayError => fotosConError > 0 || estadoFormulario == EstadoSync.fallido;
+  bool get hayError =>
+      fotosConError > 0 || estadoFormulario == EstadoSync.fallido;
   String? get ultimoError => errorFormulario ?? errorFoto;
 }
 
@@ -154,7 +156,9 @@ class _DetalleLineaScreenState extends State<DetalleLineaScreen> {
       );
     }
 
-    filas.sort((a, b) => Normalizar.compararNatural(a.estructura, b.estructura));
+    filas.sort(
+      (a, b) => Normalizar.compararNatural(a.estructura, b.estructura),
+    );
 
     if (!mounted) return;
     setState(() {
@@ -236,7 +240,8 @@ class _DetalleLineaScreenState extends State<DetalleLineaScreen> {
     setState(() => _exportando = true);
 
     try {
-      final base = await getExternalStorageDirectory() ??
+      final base =
+          await getExternalStorageDirectory() ??
           await getApplicationDocumentsDirectory();
       final destinoBase = Directory('${base.path}/exportadas');
       if (!await destinoBase.exists()) {
@@ -355,8 +360,7 @@ class _DetalleLineaScreenState extends State<DetalleLineaScreen> {
             progreso: progreso.totalElementos > 0 ? progreso.fraccion : null,
             alCancelar: _sync.cancelar,
           ),
-        if (_exportando)
-          const CapaCargando(mensaje: 'Copiando fotografías…'),
+        if (_exportando) const CapaCargando(mensaje: 'Copiando fotografías…'),
       ],
     );
   }
@@ -417,12 +421,7 @@ class _DetalleLineaScreenState extends State<DetalleLineaScreen> {
     return Container(
       width: double.infinity,
       color: ColoresEcoing.superficie,
-      padding: const EdgeInsets.fromLTRB(
-        Espacio.l,
-        0,
-        Espacio.l,
-        Espacio.m,
-      ),
+      padding: const EdgeInsets.fromLTRB(Espacio.l, 0, Espacio.l, Espacio.m),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(

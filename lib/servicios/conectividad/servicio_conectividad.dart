@@ -105,8 +105,7 @@ class ServicioConectividad {
   /// para no repetir la petición.
   Future<EstadoRed> comprobar({bool forzar = false}) async {
     final actual = estado.value;
-    final vencida =
-        DateTime.now().difference(actual.comprobadoEn) > vigencia;
+    final vencida = DateTime.now().difference(actual.comprobadoEn) > vigencia;
     if (!forzar && !vencida) return actual;
     await _actualizar(await _connectivity.checkConnectivity());
     return estado.value;
@@ -116,8 +115,9 @@ class ServicioConectividad {
     final tipo = _tipoDe(resultado);
     final anteriorConectado = estado.value.conectado;
 
-    final hayInternet =
-        tipo == TipoRed.ninguna ? false : await _verificarInternet();
+    final hayInternet = tipo == TipoRed.ninguna
+        ? false
+        : await _verificarInternet();
 
     estado.value = EstadoRed(
       tipo: tipo,

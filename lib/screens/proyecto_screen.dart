@@ -172,8 +172,7 @@ class _ProyectosScreenState extends State<ProyectosScreen> {
     setState(() {
       _filtrados = _proyectos.where((p) {
         final estado = (p['estado'] ?? '').toString().toLowerCase();
-        if (_filtroEstado != 'Todos' &&
-            estado != _filtroEstado.toLowerCase()) {
+        if (_filtroEstado != 'Todos' && estado != _filtroEstado.toLowerCase()) {
           return false;
         }
         if (texto.isEmpty) return true;
@@ -264,6 +263,25 @@ class _ProyectosScreenState extends State<ProyectosScreen> {
     Navigator.pushReplacementNamed(context, '/login');
   }
 
+  Future<void> _accionMenu(String accion) async {
+    switch (accion) {
+      case 'sincronizacion':
+        await Navigator.pushNamed(context, '/sincronizacion');
+        if (mounted) await _cargarResumen();
+        break;
+      case 'ajustes':
+        await Navigator.pushNamed(context, '/ajustes');
+        if (!mounted) return;
+        final prefs = await PreferenciasApp.instancia();
+        setState(() => _modoOffline = prefs.modoOffline);
+        await _cargarProyectos();
+        break;
+      case 'salir':
+        await _cerrarSesion();
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final red = _conectividad.estado.value;
@@ -287,10 +305,33 @@ class _ProyectosScreenState extends State<ProyectosScreen> {
                     await _cargarResumen();
                   },
           ),
-          IconButton(
-            tooltip: 'Cerrar sesión',
-            icon: const Icon(Icons.logout),
-            onPressed: _cerrarSesion,
+          PopupMenuButton<String>(
+            tooltip: 'Más opciones',
+            onSelected: _accionMenu,
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'sincronizacion',
+                child: ListTile(
+                  leading: Icon(Icons.sync),
+                  title: Text('Sincronización'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'ajustes',
+                child: ListTile(
+                  leading: Icon(Icons.settings_outlined),
+                  title: Text('Ajustes'),
+                ),
+              ),
+              PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'salir',
+                child: ListTile(
+                  leading: Icon(Icons.logout),
+                  title: Text('Cerrar sesión'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -299,7 +340,8 @@ class _ProyectosScreenState extends State<ProyectosScreen> {
           if (_modoOffline)
             const Aviso(
               icono: Icons.cloud_off,
-              texto: 'Modo offline. Todo se guarda en el teléfono; nada se '
+              texto:
+                  'Modo offline. Todo se guarda en el teléfono; nada se '
                   'envía hasta que lo desactives.',
             ),
           _cabecera(),
@@ -449,12 +491,7 @@ class _ProyectosScreenState extends State<ProyectosScreen> {
   Widget _buscador() {
     return Container(
       color: ColoresEcoing.superficie,
-      padding: const EdgeInsets.fromLTRB(
-        Espacio.l,
-        0,
-        Espacio.l,
-        Espacio.m,
-      ),
+      padding: const EdgeInsets.fromLTRB(Espacio.l, 0, Espacio.l, Espacio.m),
       child: Column(
         children: [
           TextField(
@@ -535,8 +572,7 @@ class _ProyectosScreenState extends State<ProyectosScreen> {
       child: ListView(
         padding: const EdgeInsets.only(bottom: Espacio.xl),
         children: [
-          if (_error != null)
-            Aviso(icono: Icons.cloud_off, texto: _error!),
+          if (_error != null) Aviso(icono: Icons.cloud_off, texto: _error!),
           if (_desdeLocal && _error == null)
             const Aviso(
               icono: Icons.smartphone,
@@ -591,15 +627,15 @@ class _ProyectosScreenState extends State<ProyectosScreen> {
               _linea(Icons.engineering, proyecto['contratista']),
               _linea(Icons.place_outlined, proyecto['ubicacion']),
               const SizedBox(height: Espacio.m),
-              Row(
+              const Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.arrow_forward,
                     size: 18,
                     color: ColoresEcoing.azul,
                   ),
-                  const SizedBox(width: Espacio.xs),
-                  const Text(
+                  SizedBox(width: Espacio.xs),
+                  Text(
                     'Ver líneas y estructuras',
                     style: TextStyle(
                       color: ColoresEcoing.azul,

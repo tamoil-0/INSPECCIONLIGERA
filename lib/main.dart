@@ -7,6 +7,7 @@ import 'presentacion/diseno/tema_ecoing.dart';
 import 'repositorios/borradores_repositorio.dart';
 import 'repositorios/fotos_repositorio.dart';
 import 'screens/login_screen.dart';
+import 'screens/ajustes_screen.dart';
 import 'screens/proyecto_screen.dart';
 import 'screens/sincronizacion.dart';
 import 'servicios/conectividad/servicio_conectividad.dart';
@@ -51,8 +52,8 @@ void main() async {
 Future<void> _recuperarTrabajoInterrumpido() async {
   try {
     final fotos = await FotosRepositorio().recuperarSubidasInterrumpidas();
-    final formularios =
-        await BorradoresRepositorio().recuperarEnviosInterrumpidos();
+    final formularios = await BorradoresRepositorio()
+        .recuperarEnviosInterrumpidos();
     if (fotos > 0 || formularios > 0) {
       debugPrint(
         'Recuperados tras cierre inesperado: $fotos fotografía(s) y '
@@ -113,10 +114,9 @@ class MyApp extends StatelessWidget {
       // siendo usable con la accesibilidad al máximo, sin ignorar la
       // preferencia del sistema.
       builder: (context, child) {
-        final escala = MediaQuery.textScalerOf(context).clamp(
-          minScaleFactor: 0.9,
-          maxScaleFactor: 1.6,
-        );
+        final escala = MediaQuery.textScalerOf(
+          context,
+        ).clamp(minScaleFactor: 0.9, maxScaleFactor: 1.6);
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: escala),
           child: child ?? const SizedBox.shrink(),
@@ -126,6 +126,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/proyectos': (context) => const ProyectosScreen(),
         '/sincronizacion': (context) => const SincronizacionScreen(),
+        '/ajustes': (context) => const AjustesScreen(),
       },
       // Evita la pantalla de error de Flutter si se navega a una ruta que no
       // existe: el menú anterior tenía un "Editar Postes" apuntando a

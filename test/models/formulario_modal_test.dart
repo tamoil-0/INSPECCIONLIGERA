@@ -121,10 +121,7 @@ void main() {
 
       final servidor = m.toRSTServidor();
       expect(servidor, hasLength(2));
-      expect(
-        servidor.map((r) => r['fase']),
-        containsAll(['R', 'T']),
-      );
+      expect(servidor.map((r) => r['fase']), containsAll(['R', 'T']));
       expect(m.toRSTLocal(), hasLength(2));
     });
 
@@ -242,7 +239,10 @@ void main() {
         'Conductor en mal estado',
       );
       expect(FormularioModal.etiqueta('n_a'), 'No aplica');
-      expect(FormularioModal.etiqueta(FormularioModal.noRevisado), 'No revisado');
+      expect(
+        FormularioModal.etiqueta(FormularioModal.noRevisado),
+        'No revisado',
+      );
       expect(FormularioModal.etiqueta(null), 'Sin elegir');
       expect(FormularioModal.etiqueta(''), 'Sin elegir');
     });

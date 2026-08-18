@@ -40,11 +40,41 @@ Widget buildSeccionRST({
             children: const [
               Padding(
                 padding: EdgeInsets.all(8),
-                child: Text("Atributo", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: Text(
+                  "Atributo",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-              Center(child: Text("R", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-              Center(child: Text("S", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-              Center(child: Text("T", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+              Center(
+                child: Text(
+                  "R",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Center(
+                child: Text(
+                  "S",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Center(
+                child: Text(
+                  "T",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ],
           ),
           ...atributos.map((atributo) {
@@ -55,7 +85,10 @@ Widget buildSeccionRST({
                   padding: const EdgeInsets.all(8),
                   child: Text(
                     atributo.replaceAll('_', ' '),
-                    style: const TextStyle(color: Color(0xFF3A3A3A), fontSize: 14),
+                    style: const TextStyle(
+                      color: Color(0xFF3A3A3A),
+                      fontSize: 14,
+                    ),
                   ),
                 ),
                 ..._fases.map((fase) {
@@ -65,7 +98,9 @@ Widget buildSeccionRST({
                     child: Container(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: valor ? const Color(0xFFB71C1C).withOpacity(0.15) : Colors.transparent,
+                        color: valor
+                            ? const Color(0xFFB71C1C).withOpacity(0.15)
+                            : Colors.transparent,
                       ),
                       child: Checkbox(
                         value: valor,
@@ -95,20 +130,20 @@ Widget buildTableroRST({
       "hebras_rotas",
       "encanastillado",
       "empalme_deformado",
-      "objetos_extranos"
+      "objetos_extranos",
     ],
     "conductores_cuellos": [
       "hebras_rotas",
       "encanastillado",
       "empalme_deformado",
-      "objetos_extranos"
+      "objetos_extranos",
     ],
     "estado_aisladores": [
       "buen_estado",
       "rotos_suspension",
       "rotos_anclaje_adelante",
       "rotos_anclaje_atras",
-      "mal_estado"
+      "mal_estado",
     ],
   };
 

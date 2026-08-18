@@ -373,7 +373,9 @@ Búsqueda **normalizada**: `0025` = `25` = ` 25 ` = `25a` → hoy la comparació
 ```
 
 **Ya implementado en P0**: contador de obligatorias, estado por foto con el error real, miniaturas con `cacheWidth`, UTM y precisión visibles, repetir y eliminar con confirmación, aviso de archivos perdidos, sin bloqueo del envío.
-**Falta en P4**: agrupación por categorías, vista a pantalla completa con zoom, elegir de galería, aviso de precisión GPS mala con botón de reintento, y volver automáticamente a la siguiente vista pendiente tras capturar.
+**Completado en P4**: agrupación por categorías, vista a pantalla completa con
+zoom, elección desde galería, aviso de precisión GPS mala con reintento sin
+repetir la foto, y avance automático a la siguiente vista pendiente.
 
 ### Formulario técnico
 
@@ -464,7 +466,7 @@ Pantalla de resumen antes de finalizar: fotos completas · campos sin revisar ·
 5. `chore`: retirar 6 dependencias sin usar y ~450 líneas de código muerto
 6. `docs`: `ARCHITECTURE.md`
 
-### ⧗ P4 · UX/UI
+### ✅ P4 · UX/UI
 
 1. `feat(diseno)`: sistema de diseño (colores, tipografía, espaciado, componentes)
 2. `feat(ux)`: login, inicio con pendientes y progreso visible

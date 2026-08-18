@@ -175,14 +175,14 @@ class Aviso extends StatelessWidget {
   });
 
   const Aviso.error({super.key, required this.texto, this.accion})
-      : icono = Icons.error_outline,
-        color = ColoresEcoing.error,
-        fondo = ColoresEcoing.errorFondo;
+    : icono = Icons.error_outline,
+      color = ColoresEcoing.error,
+      fondo = ColoresEcoing.errorFondo;
 
   const Aviso.exito({super.key, required this.texto, this.accion})
-      : icono = Icons.check_circle_outline,
-        color = ColoresEcoing.exito,
-        fondo = ColoresEcoing.exitoFondo;
+    : icono = Icons.check_circle_outline,
+      color = ColoresEcoing.exito,
+      fondo = ColoresEcoing.exitoFondo;
 
   @override
   Widget build(BuildContext context) {
@@ -238,8 +238,8 @@ class VistaEstado extends StatelessWidget {
     this.detalle,
     this.textoAccion,
     this.alPulsar,
-  })  : icono = Icons.inbox_outlined,
-        color = ColoresEcoing.textoTenue;
+  }) : icono = Icons.inbox_outlined,
+       color = ColoresEcoing.textoTenue;
 
   const VistaEstado.error({
     super.key,
@@ -247,8 +247,8 @@ class VistaEstado extends StatelessWidget {
     this.detalle,
     this.textoAccion = 'Reintentar',
     this.alPulsar,
-  })  : icono = Icons.cloud_off,
-        color = ColoresEcoing.error;
+  }) : icono = Icons.cloud_off,
+       color = ColoresEcoing.error;
 
   @override
   Widget build(BuildContext context) {

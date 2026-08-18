@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -10,6 +9,7 @@ import '../core/conversion_utm.dart';
 import '../core/estados_sync.dart';
 import '../core/preferencias_app.dart';
 import '../repositorios/fotos_repositorio.dart';
+import '../servicios/conectividad/servicio_conectividad.dart';
 import '../servicios/imagenes/cola_procesamiento.dart';
 import '../servicios/imagenes/optimizador_imagenes.dart';
 import '../servicios/imagenes/perfil_dispositivo.dart';
@@ -60,6 +60,9 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
 
   /// Estado de cada vista fotográfica, indexado por `nombre_foto`.
   final Map<String, FotoLocal> _registradas = {};
+  final Map<String, GlobalKey> _clavesFoto = {
+    for (final nombre in _fotosRequeridas) nombre: GlobalKey(),
+  };
 
   /// Vistas cuya optimización está en marcha o en cola.
   final Set<String> _optimizando = {};
@@ -108,6 +111,43 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
     'aisladores_fase_s_adelante',
     'aisladores_fase_t_adelante',
   ];
+
+  static const double _precisionGpsAceptable = 25;
+
+  static const Map<String, List<String>> _categorias = {
+    'Torre y entorno': [
+      'placa',
+      'torre_parte_inferior',
+      'torre_parte_superior',
+      'base_torre',
+      'mensulas',
+      'crucetas',
+      'perfiles_angulares',
+      'atiescalamiento',
+      'puesta_tierra',
+      'retenida',
+      'faja_servidumbre',
+      'ubicacion_acceso',
+      'otros',
+    ],
+    'Aisladores': [
+      'aisladores_fase_r_atras',
+      'aisladores_fase_s_atras',
+      'aisladores_fase_t_atras',
+      'aisladores_fase_r_adelante',
+      'aisladores_fase_s_adelante',
+      'aisladores_fase_t_adelante',
+    ],
+    'Conductores y ferretería': [
+      'ferreteria_fase_r',
+      'ferreteria_fase_s',
+      'ferreteria_fase_t',
+      'cable_guarda',
+      'ferreteria_de_cable_de_guarda',
+      'conductor',
+      'ferreteria_de_conductor',
+    ],
+  };
 
   List<String> get _obligatorias =>
       _fotosRequeridas.where((f) => !_fotosOpcionales.contains(f)).toList();
@@ -173,40 +213,43 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
     if (_optimizando.contains(foto.nombreFoto)) return;
     setState(() => _optimizando.add(foto.nombreFoto));
 
-    _cola.encolar(() => _optimizador.optimizar(foto.archivo)).then(
-      (resultado) async {
-        try {
-          final actualizada = await _fotos.aplicarOptimizacion(
-            id: foto.id,
-            rutaSubible: resultado.rutaSubible,
-            rutaOriginal: resultado.rutaOriginal,
-            rutaMiniatura: resultado.rutaMiniatura,
-            tamanoSubible: resultado.tamanoSubible,
-            tamanoOriginal: resultado.tamanoOriginal,
-            ancho: resultado.ancho,
-            alto: resultado.alto,
-          );
-          if (!mounted) return;
-          setState(() {
-            _registradas[foto.nombreFoto] = actualizada;
-            _optimizando.remove(foto.nombreFoto);
-          });
-        } catch (e) {
-          debugPrint('No se pudo registrar la optimización: $e');
-          if (mounted) {
-            setState(() => _optimizando.remove(foto.nombreFoto));
-          }
-        }
-      },
-      onError: (Object e) {
-        // La foto sigue guardada y subible tal cual: la optimización es una
-        // mejora, no un requisito.
-        debugPrint('Optimización fallida de ${foto.nombreFoto}: $e');
-        if (mounted) {
-          setState(() => _optimizando.remove(foto.nombreFoto));
-        }
-      },
-    );
+    _cola
+        .encolar(() => _optimizador.optimizar(foto.archivo))
+        .then(
+          (resultado) async {
+            try {
+              final actualizada = await _fotos.aplicarOptimizacion(
+                id: foto.id,
+                rutaSubible: resultado.rutaSubible,
+                rutaOriginal: resultado.rutaOriginal,
+                rutaMiniatura: resultado.rutaMiniatura,
+                tamanoSubible: resultado.tamanoSubible,
+                tamanoOriginal: resultado.tamanoOriginal,
+                ancho: resultado.ancho,
+                alto: resultado.alto,
+              );
+              if (!mounted) return;
+              setState(() {
+                _registradas[foto.nombreFoto] = actualizada;
+                _optimizando.remove(foto.nombreFoto);
+              });
+              _actualizarEspacio();
+            } catch (e) {
+              debugPrint('No se pudo registrar la optimización: $e');
+              if (mounted) {
+                setState(() => _optimizando.remove(foto.nombreFoto));
+              }
+            }
+          },
+          onError: (Object e) {
+            // La foto sigue guardada y subible tal cual: la optimización es una
+            // mejora, no un requisito.
+            debugPrint('Optimización fallida de ${foto.nombreFoto}: $e');
+            if (mounted) {
+              setState(() => _optimizando.remove(foto.nombreFoto));
+            }
+          },
+        );
   }
 
   /// Recupera de la base las fotos ya tomadas de esta estructura.
@@ -251,23 +294,17 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
 
   Future<void> _cargarEstadoConexion() async {
     final prefs = await PreferenciasApp.instancia();
-    final conectado = await _verificarConexion();
+    final red = await ServicioConectividad.instancia.comprobar(forzar: true);
     if (!mounted) return;
     setState(() {
       _modoOffline = prefs.modoOffline;
-      _hayInternet = conectado;
+      _hayInternet = red.conectado;
     });
   }
 
-  Future<bool> _verificarConexion() async {
-    try {
-      final result = await InternetAddress.lookup(
-        'google.com',
-      ).timeout(const Duration(seconds: 5));
-      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
-    } catch (_) {
-      return false;
-    }
+  Future<void> _actualizarEspacio() async {
+    final ocupado = await _fotos.almacen.espacioOcupado();
+    if (mounted) setState(() => _espacioOcupado = ocupado);
   }
 
   Future<Position?> _obtenerPosicionPrecisa() async {
@@ -291,10 +328,16 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
   // Captura
   // ===========================================================================
 
-  Future<void> _tomarFoto(String nombreFoto) async {
+  Future<void> _tomarFoto(String nombreFoto) =>
+      _capturarFoto(nombreFoto, ImageSource.camera);
+
+  Future<void> _elegirFotoDeGaleria(String nombreFoto) =>
+      _capturarFoto(nombreFoto, ImageSource.gallery);
+
+  Future<void> _capturarFoto(String nombreFoto, ImageSource origen) async {
     if (_enviando) return;
 
-    final XFile? foto = await _picker.pickImage(source: ImageSource.camera);
+    final XFile? foto = await _picker.pickImage(source: origen);
     if (foto == null) return;
     if (!mounted) return;
 
@@ -333,11 +376,21 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
 
       // La foto ya está a salvo. La optimización va por detrás, sin bloquear.
       _encolarOptimizacion(registrada);
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _irASiguientePendiente(nombreFoto),
+      );
 
       if (posicion == null) {
         _avisar(
           'Foto guardada en el teléfono, pero sin coordenadas GPS. '
           'Puedes repetirla en un punto con mejor señal.',
+          color: const Color(0xFFEF6C00),
+        );
+      } else if (posicion.accuracy > _precisionGpsAceptable) {
+        _avisar(
+          'Foto guardada. La precisión GPS es de '
+          '±${posicion.accuracy.toStringAsFixed(0)} m; puedes reintentar la '
+          'ubicación sin repetir la foto.',
           color: const Color(0xFFEF6C00),
         );
       }
@@ -350,6 +403,111 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
             'Detalle: $e',
       );
     }
+  }
+
+  void _irASiguientePendiente(String actual) {
+    final inicio = _fotosRequeridas.indexOf(actual);
+    if (inicio < 0) return;
+    for (
+      var desplazamiento = 1;
+      desplazamiento <= _fotosRequeridas.length;
+      desplazamiento++
+    ) {
+      final nombre =
+          _fotosRequeridas[(inicio + desplazamiento) % _fotosRequeridas.length];
+      if (_fotosOpcionales.contains(nombre) ||
+          _registradas.containsKey(nombre)) {
+        continue;
+      }
+      final destino = _clavesFoto[nombre]?.currentContext;
+      if (destino != null) {
+        Scrollable.ensureVisible(
+          destino,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOut,
+          alignment: 0.25,
+        );
+      }
+      return;
+    }
+  }
+
+  Future<void> _elegirOrigen(String nombreFoto) async {
+    final origen = await showModalBottomSheet<ImageSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Tomar fotografía'),
+              subtitle: const Text('Abrir la cámara ahora'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Elegir de la galería'),
+              subtitle: const Text(
+                'Usar una imagen que ya está en el teléfono',
+              ),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (origen != null) await _capturarFoto(nombreFoto, origen);
+  }
+
+  Future<void> _reintentarGps(FotoLocal foto) async {
+    setState(() => _procesando = foto.nombreFoto);
+    final posicion = await _obtenerPosicionPrecisa();
+    if (!mounted) return;
+    if (posicion == null) {
+      setState(() => _procesando = null);
+      _avisar('No se pudo obtener una ubicación. Inténtalo al aire libre.');
+      return;
+    }
+
+    final utm = ConversionUtm.desdeLatLon(
+      posicion.latitude,
+      posicion.longitude,
+    );
+    final actualizada = await _fotos.actualizarUbicacion(
+      id: foto.id,
+      latitud: posicion.latitude,
+      longitud: posicion.longitude,
+      precisionGps: posicion.accuracy,
+      utmEste: utm.este.toString(),
+      utmNorte: utm.norte.toString(),
+      zona: utm.zonaCompleta,
+    );
+    if (!mounted) return;
+    setState(() {
+      _registradas[foto.nombreFoto] = actualizada;
+      _procesando = null;
+    });
+    _avisar(
+      'Ubicación actualizada: ±${posicion.accuracy.toStringAsFixed(0)} m.',
+      color: posicion.accuracy <= _precisionGpsAceptable
+          ? const Color(0xFF2E7D32)
+          : const Color(0xFFEF6C00),
+    );
+  }
+
+  Future<void> _verFoto(FotoLocal foto) async {
+    if (!await foto.archivo.exists() || !mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _VisorFoto(
+          archivo: foto.archivo,
+          titulo: _titulo(foto.nombreFoto),
+          detalle: _detalleFoto(foto),
+        ),
+      ),
+    );
   }
 
   Future<void> _eliminarFoto(String nombreFoto) async {
@@ -371,7 +529,9 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFFC62828)),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFC62828),
+            ),
             child: const Text('Eliminar'),
           ),
         ],
@@ -436,9 +596,15 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
       );
 
       // Solo lo confirmado por el servidor pasa a sincronizado.
+      final liberarOriginal =
+          (await PreferenciasApp.instancia()).politicaRetencion ==
+          PoliticaRetencion.liberarTrasSincronizar;
       for (final f in pendientes) {
         if (resultado.confirmadas.contains(f.nombreFoto)) {
           await _fotos.marcarSincronizada(f.id);
+          if (liberarOriginal) {
+            await _fotos.liberarOriginalSincronizado(f.id);
+          }
         } else {
           await _fotos.marcarFallida(
             f.id,
@@ -503,9 +669,9 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
 
   void _avisar(String mensaje, {Color? color}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensaje), backgroundColor: color),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(mensaje), backgroundColor: color));
   }
 
   Future<void> _mostrarInfo(
@@ -527,7 +693,10 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
             Expanded(
               child: Text(
                 titulo,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
               ),
             ),
           ],
@@ -595,7 +764,9 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
   }
 
   Widget _iconoModoOffline() => Tooltip(
-    message: _modoOffline ? 'Modo offline ACTIVADO' : 'Modo offline DESACTIVADO',
+    message: _modoOffline
+        ? 'Modo offline ACTIVADO'
+        : 'Modo offline DESACTIVADO',
     child: Icon(
       _modoOffline ? Icons.cloud_off : Icons.cloud_done,
       color: _modoOffline ? Colors.orange : Colors.white,
@@ -671,15 +842,49 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
                 _barraProgreso(),
                 if (_archivosPerdidos > 0) _avisoArchivosPerdidos(),
                 Expanded(
-                  child: ListView.builder(
+                  child: ListView(
                     padding: const EdgeInsets.only(bottom: 88),
-                    itemCount: _fotosRequeridas.length,
-                    itemBuilder: (context, index) =>
-                        _buildFotoItem(_fotosRequeridas[index]),
+                    children: [
+                      for (final categoria in _categorias.entries) ...[
+                        _cabeceraCategoria(categoria.key, categoria.value),
+                        for (final foto in categoria.value)
+                          _buildFotoItem(foto),
+                      ],
+                    ],
                   ),
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _cabeceraCategoria(String titulo, List<String> nombres) {
+    final obligatorias = nombres.where((f) => !_fotosOpcionales.contains(f));
+    final hechas = obligatorias.where(_registradas.containsKey).length;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              titulo,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0D47A1),
+              ),
+            ),
+          ),
+          Text(
+            '$hechas/${obligatorias.length}',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.black54,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -706,7 +911,10 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
               const SizedBox(width: 8),
               Text(
                 '$hechas de $total obligatorias',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
               const Spacer(),
               if (_pendientesDeEnviar > 0)
@@ -780,49 +988,54 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
         _procesando == nombreFoto || _optimizando.contains(nombreFoto);
     final archivoValido = foto != null && foto.archivo.existsSync();
 
-    final (Color fondo, Color borde, String etiqueta, IconData icono) =
-        switch (foto?.estado) {
-          EstadoSync.sincronizado => (
-            const Color(0xFFE8F5E9),
-            const Color(0xFF2E7D32),
-            'Sincronizada',
-            Icons.cloud_done,
-          ),
-          EstadoSync.fallido => (
-            const Color(0xFFFFEBEE),
-            const Color(0xFFC62828),
-            'Error al enviar — sigue guardada',
-            Icons.error_outline,
-          ),
-          EstadoSync.subiendo => (
-            const Color(0xFFE3F2FD),
-            const Color(0xFF1565C0),
-            'Subiendo…',
-            Icons.cloud_upload,
-          ),
-          null =>
-            esOpcional
-                ? (
-                    const Color(0xFFF5F5F5),
-                    const Color(0xFF757575),
-                    'Opcional',
-                    Icons.camera_alt_rounded,
-                  )
-                : (
-                    const Color(0xFFFFF8E1),
-                    const Color(0xFFEF6C00),
-                    'Obligatoria — pendiente',
-                    Icons.camera_alt_rounded,
-                  ),
-          _ => (
-            const Color(0xFFFFF3E0),
-            const Color(0xFFEF6C00),
-            'Guardada — por enviar',
-            Icons.save_alt,
-          ),
-        };
+    final (
+      Color fondo,
+      Color borde,
+      String etiqueta,
+      IconData icono,
+    ) = switch (foto?.estado) {
+      EstadoSync.sincronizado => (
+        const Color(0xFFE8F5E9),
+        const Color(0xFF2E7D32),
+        'Sincronizada',
+        Icons.cloud_done,
+      ),
+      EstadoSync.fallido => (
+        const Color(0xFFFFEBEE),
+        const Color(0xFFC62828),
+        'Error al enviar — sigue guardada',
+        Icons.error_outline,
+      ),
+      EstadoSync.subiendo => (
+        const Color(0xFFE3F2FD),
+        const Color(0xFF1565C0),
+        'Subiendo…',
+        Icons.cloud_upload,
+      ),
+      null =>
+        esOpcional
+            ? (
+                const Color(0xFFF5F5F5),
+                const Color(0xFF757575),
+                'Opcional',
+                Icons.camera_alt_rounded,
+              )
+            : (
+                const Color(0xFFFFF8E1),
+                const Color(0xFFEF6C00),
+                'Obligatoria — pendiente',
+                Icons.camera_alt_rounded,
+              ),
+      _ => (
+        const Color(0xFFFFF3E0),
+        const Color(0xFFEF6C00),
+        'Guardada — por enviar',
+        Icons.save_alt,
+      ),
+    };
 
     return Container(
+      key: _clavesFoto[nombreFoto],
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: fondo,
@@ -884,7 +1097,10 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
                   foto.ultimoError!,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFFC62828)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFFC62828),
+                  ),
                 ),
             ],
           ],
@@ -902,15 +1118,51 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
               iconSize: 26,
             ),
             if (foto != null)
-              IconButton(
-                tooltip: 'Eliminar foto',
-                onPressed: _enviando ? null : () => _eliminarFoto(nombreFoto),
-                icon: const Icon(Icons.delete_outline, color: Color(0xFF757575)),
-                iconSize: 24,
+              PopupMenuButton<String>(
+                tooltip: 'Más opciones',
+                enabled: !_enviando,
+                onSelected: (accion) {
+                  switch (accion) {
+                    case 'galeria':
+                      _elegirFotoDeGaleria(nombreFoto);
+                      break;
+                    case 'gps':
+                      _reintentarGps(foto);
+                      break;
+                    case 'eliminar':
+                      _eliminarFoto(nombreFoto);
+                      break;
+                  }
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'galeria',
+                    child: ListTile(
+                      leading: Icon(Icons.photo_library_outlined),
+                      title: Text('Reemplazar desde galería'),
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'gps',
+                    child: ListTile(
+                      leading: Icon(Icons.my_location),
+                      title: Text('Actualizar ubicación'),
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'eliminar',
+                    child: ListTile(
+                      leading: Icon(Icons.delete_outline),
+                      title: Text('Eliminar'),
+                    ),
+                  ),
+                ],
               ),
           ],
         ),
-        onTap: _enviando ? null : () => _tomarFoto(nombreFoto),
+        onTap: _enviando
+            ? null
+            : () => foto == null ? _elegirOrigen(nombreFoto) : _verFoto(foto),
       ),
     );
   }
@@ -918,7 +1170,9 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
   String _detalleFoto(FotoLocal foto) {
     final partes = <String>[];
     if (foto.tamanoBytes != null) {
-      partes.add('${(foto.tamanoBytes! / (1024 * 1024)).toStringAsFixed(1)} MB');
+      partes.add(
+        '${(foto.tamanoBytes! / (1024 * 1024)).toStringAsFixed(1)} MB',
+      );
     }
     if (foto.ancho != null && foto.alto != null) {
       partes.add('${foto.ancho}×${foto.alto}');
@@ -935,5 +1189,61 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
       partes.add('${foto.intentos} intento(s)');
     }
     return partes.join(' · ');
+  }
+}
+
+class _VisorFoto extends StatelessWidget {
+  final File archivo;
+  final String titulo;
+  final String detalle;
+
+  const _VisorFoto({
+    required this.archivo,
+    required this.titulo,
+    required this.detalle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: Text(titulo, overflow: TextOverflow.ellipsis),
+        backgroundColor: Colors.black,
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: Center(
+                child: InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 6,
+                  child: Image.file(
+                    archivo,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.broken_image_outlined,
+                      size: 72,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              color: Colors.black87,
+              child: Text(
+                '$detalle\nPellizca para ampliar · doble toque no requerido',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

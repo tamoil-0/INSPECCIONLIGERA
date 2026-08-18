@@ -26,14 +26,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// [cerrarSesion] limpia credenciales y **nada más**. La base local con
 /// formularios y fotografías pendientes queda intacta: perder el trabajo de una
-/// jornada por pulsar "Cerrar sesión" sería inaceptable. La separación de datos
-/// entre usuarios se resuelve por `usuario_id`, no borrando.
+/// jornada por pulsar "Cerrar sesión" sería inaceptable. La separación segura
+/// entre usuarios sigue pendiente: los datos heredados no guardan quién los
+/// creó y asignarlos automáticamente podría ocultar trabajo a la cuenta real.
 class AlmacenSeguro {
   AlmacenSeguro({FlutterSecureStorage? almacen})
-      : _almacen = almacen ??
-            const FlutterSecureStorage(
-              aOptions: AndroidOptions(encryptedSharedPreferences: true),
-            );
+    : _almacen =
+          almacen ??
+          const FlutterSecureStorage(
+            aOptions: AndroidOptions(encryptedSharedPreferences: true),
+          );
 
   final FlutterSecureStorage _almacen;
 

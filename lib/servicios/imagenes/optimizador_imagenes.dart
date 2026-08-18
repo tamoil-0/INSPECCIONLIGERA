@@ -206,7 +206,8 @@ class OptimizadorImagenes {
           ancho: dimensiones?.ancho,
           alto: dimensiones?.alto,
           seOptimizo: false,
-          nota: 'La versión optimizada no pesaba menos; se conserva la original.',
+          nota:
+              'La versión optimizada no pesaba menos; se conserva la original.',
           milisegundos: cronometro.elapsedMilliseconds,
         );
       }
@@ -325,7 +326,8 @@ class OptimizadorImagenes {
     var nombre = p.basenameWithoutExtension(rutaBase);
     // Evita acumular sufijos si se reoptimiza.
     for (final s in ['_opt', '_thumb']) {
-      if (nombre.endsWith(s)) nombre = nombre.substring(0, nombre.length - s.length);
+      if (nombre.endsWith(s))
+        nombre = nombre.substring(0, nombre.length - s.length);
     }
     return p.join(dir, '${nombre}_$sufijo$extension');
   }

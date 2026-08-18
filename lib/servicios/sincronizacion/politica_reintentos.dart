@@ -40,10 +40,7 @@ class PoliticaReintentos {
   }
 
   /// Momento a partir del cual se puede reintentar.
-  DateTime proximoIntento({
-    required int intentos,
-    DateTime? ultimoIntento,
-  }) {
+  DateTime proximoIntento({required int intentos, DateTime? ultimoIntento}) {
     final base = ultimoIntento ?? DateTime.fromMillisecondsSinceEpoch(0);
     return base.add(esperaPara(intentos));
   }
@@ -74,7 +71,10 @@ class PoliticaReintentos {
     if (requiereAtencionManual(intentos)) {
       return 'Falló $intentos veces. Revísalo y reintenta a mano.';
     }
-    final momento = proximoIntento(intentos: intentos, ultimoIntento: ultimoIntento);
+    final momento = proximoIntento(
+      intentos: intentos,
+      ultimoIntento: ultimoIntento,
+    );
     final restante = momento.difference(DateTime.now());
     if (restante.isNegative || restante.inSeconds < 5) {
       return 'Se reintentará en el próximo envío.';

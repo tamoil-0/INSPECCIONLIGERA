@@ -191,15 +191,18 @@ El espacio ocupado se muestra en la propia pantalla de fotos: `Fotos en el telé
 
 ---
 
+## Completado en la interfaz
+
+- Vista a pantalla completa con zoom.
+- Cámara o galería por cada vista fotográfica.
+- Agrupación por torre/entorno, aisladores y conductores/ferretería.
+- Aviso de precisión GPS mayor de 25 m y reintento sin repetir la imagen.
+- Ajustes de perfil, retención y solo Wi-Fi.
+- Limpieza explícita de originales ya confirmados; nunca toca pendientes.
+
 ## Qué falta
 
 | Pendiente | Fase |
 |---|---|
 | Rellenar la matriz de medición con fotos reales | P6 |
-| Vista a pantalla completa con zoom | P4 |
-| Elegir de galería | P4 |
-| Agrupar las 26 vistas por categoría (torre / aisladores / conductores / entorno) | P4 |
-| Aviso de precisión GPS mala con botón de reintento | P4 |
-| Pantalla de Ajustes que exponga perfil y política | P4 |
-| Diálogo de liberación de espacio con las tres opciones | P4 |
 | Espacio **libre** del volumen (requiere canal nativo; hoy solo se mide el ocupado) | P6 |

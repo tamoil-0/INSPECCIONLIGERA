@@ -172,32 +172,35 @@ void main() {
 
     tearDown(() async => db.close());
 
-    test('agrega las columnas de trazabilidad a imagenes_poste_local', () async {
-      final cols = await _columnas(db, 'imagenes_poste_local');
-      expect(
-        cols,
-        containsAll([
-          'uuid',
-          'estado',
-          'intentos',
-          'ultimo_error',
-          'fecha_ultimo_intento',
-          'checksum',
-          'id_remoto',
-          'ruta_miniatura',
-          'tamano_original',
-          'tamano_optimizado',
-          'ancho',
-          'alto',
-          'latitud',
-          'longitud',
-          'precision_gps',
-          'proyecto_id',
-        ]),
-      );
-      // Y conserva las columnas originales.
-      expect(cols, containsAll(['sincronizada', 'utm_este', 'zona']));
-    });
+    test(
+      'agrega las columnas de trazabilidad a imagenes_poste_local',
+      () async {
+        final cols = await _columnas(db, 'imagenes_poste_local');
+        expect(
+          cols,
+          containsAll([
+            'uuid',
+            'estado',
+            'intentos',
+            'ultimo_error',
+            'fecha_ultimo_intento',
+            'checksum',
+            'id_remoto',
+            'ruta_miniatura',
+            'tamano_original',
+            'tamano_optimizado',
+            'ancho',
+            'alto',
+            'latitud',
+            'longitud',
+            'precision_gps',
+            'proyecto_id',
+          ]),
+        );
+        // Y conserva las columnas originales.
+        expect(cols, containsAll(['sincronizada', 'utm_este', 'zona']));
+      },
+    );
 
     test('agrega las columnas de estado a formularios_pendientes', () async {
       final cols = await _columnas(db, 'formularios_pendientes');
@@ -217,35 +220,47 @@ void main() {
     });
 
     test('traduce los booleanos antiguos a estados explícitos', () async {
-      final pendiente = await db.query('imagenes_poste_local',
-          where: 'nombre_foto = ?', whereArgs: ['placa']);
+      final pendiente = await db.query(
+        'imagenes_poste_local',
+        where: 'nombre_foto = ?',
+        whereArgs: ['placa'],
+      );
       expect(pendiente.first['estado'], EstadoSync.pendiente);
 
-      final sincronizada = await db.query('imagenes_poste_local',
-          where: 'nombre_foto = ?', whereArgs: ['base_torre']);
+      final sincronizada = await db.query(
+        'imagenes_poste_local',
+        where: 'nombre_foto = ?',
+        whereArgs: ['base_torre'],
+      );
       expect(sincronizada.first['estado'], EstadoSync.sincronizado);
 
-      final form102 = await db.query('formularios_pendientes',
-          where: 'poste_id = ?', whereArgs: [102]);
+      final form102 = await db.query(
+        'formularios_pendientes',
+        where: 'poste_id = ?',
+        whereArgs: [102],
+      );
       expect(form102.first['estado'], EstadoSync.sincronizado);
     });
 
-    test('deja un solo borrador por poste y conserva el más reciente', () async {
-      final vigentes = await db.query('formularios_pendientes',
-          where: 'poste_id = ?', whereArgs: [101]);
-      expect(vigentes, hasLength(1));
-      expect(vigentes.first['datos_json'], contains('version vigente'));
-    });
+    test(
+      'deja un solo borrador por poste y conserva el más reciente',
+      () async {
+        final vigentes = await db.query(
+          'formularios_pendientes',
+          where: 'poste_id = ?',
+          whereArgs: [101],
+        );
+        expect(vigentes, hasLength(1));
+        expect(vigentes.first['datos_json'], contains('version vigente'));
+      },
+    );
 
     test('NO pierde los borradores duplicados: los archiva', () async {
       final historial = await db.query('formularios_pendientes_historial');
       expect(historial, hasLength(2));
       expect(
         historial.map((h) => h['datos_json'].toString()).toList(),
-        containsAll([
-          contains('primer intento'),
-          contains('segundo intento'),
-        ]),
+        containsAll([contains('primer intento'), contains('segundo intento')]),
       );
       expect(historial.first['motivo'], contains('duplicado'));
     });
@@ -302,8 +317,11 @@ void main() {
 
       // Los borradores heredados quedan a NULL: marcarlos como 'todo revisado'
       // sería inventar un dato que nadie confirmó.
-      final heredado = await db.query('formularios_pendientes',
-          where: 'poste_id = ?', whereArgs: [101]);
+      final heredado = await db.query(
+        'formularios_pendientes',
+        where: 'poste_id = ?',
+        whereArgs: [101],
+      );
       expect(heredado.first['revisados_json'], isNull);
     });
 
@@ -312,7 +330,11 @@ void main() {
       await Migraciones.aplicar(db, 1, Migraciones.version);
 
       expect(
-        await db.query('formularios_pendientes', where: 'poste_id = ?', whereArgs: [101]),
+        await db.query(
+          'formularios_pendientes',
+          where: 'poste_id = ?',
+          whereArgs: [101],
+        ),
         hasLength(1),
       );
       expect(await db.query('formularios_pendientes_historial'), hasLength(2));
@@ -344,7 +366,8 @@ void main() {
       expect(
         await _columnas(nueva, tabla),
         equals(await _columnas(actualizada, tabla)),
-        reason: 'El esquema de $tabla difiere entre instalación nueva y '
+        reason:
+            'El esquema de $tabla difiere entre instalación nueva y '
             'actualizada; un teléfono nuevo y uno migrado deben ser idénticos.',
       );
     }

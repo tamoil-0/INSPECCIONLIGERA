@@ -99,14 +99,20 @@ void main() {
     });
 
     test('JPEG de 48 MP horizontal', () async {
-      final f = await escribir('p48mp.jpg', jpegDePrueba(ancho: 8000, alto: 6000));
+      final f = await escribir(
+        'p48mp.jpg',
+        jpegDePrueba(ancho: 8000, alto: 6000),
+      );
       final dims = await LectorDimensiones.leer(f);
       expect(dims!.ladoMayor, 8000);
       expect(dims.megapixeles, 48);
     });
 
     test('PNG', () async {
-      final f = await escribir('captura.png', pngDePrueba(ancho: 1080, alto: 2400));
+      final f = await escribir(
+        'captura.png',
+        pngDePrueba(ancho: 1080, alto: 2400),
+      );
       final dims = await LectorDimensiones.leer(f);
       expect(dims!.ancho, 1080);
       expect(dims.alto, 2400);
@@ -129,7 +135,14 @@ void main() {
     });
 
     test('no lanza con un JPEG sin SOF (solo datos)', () async {
-      final f = await escribir('sinsof.jpg', [0xFF, 0xD8, 0xFF, 0xDA, 0x00, 0x02]);
+      final f = await escribir('sinsof.jpg', [
+        0xFF,
+        0xD8,
+        0xFF,
+        0xDA,
+        0x00,
+        0x02,
+      ]);
       expect(await LectorDimensiones.leer(f), isNull);
     });
   });

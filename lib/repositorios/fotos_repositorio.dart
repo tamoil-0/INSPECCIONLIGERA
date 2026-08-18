@@ -7,6 +7,17 @@ import '../core/almacenamiento_fotos.dart';
 import '../core/estados_sync.dart';
 import '../database/database_helper.dart';
 
+/// Resultado de una limpieza solicitada expresamente por el inspector.
+class ResultadoLiberacionEspacio {
+  final int archivos;
+  final int bytes;
+
+  const ResultadoLiberacionEspacio({
+    required this.archivos,
+    required this.bytes,
+  });
+}
+
 /// Una fotografía de inspección tal como vive en el teléfono.
 class FotoLocal {
   final int id;
@@ -75,7 +86,8 @@ class FotoLocal {
     longitud: (f['longitud'] as num?)?.toDouble(),
     precisionGps: (f['precision_gps'] as num?)?.toDouble(),
     fechaCaptura: f['fecha_captura']?.toString(),
-    tamanoBytes: (f['tamano_optimizado'] as int?) ?? (f['tamano_original'] as int?),
+    tamanoBytes:
+        (f['tamano_optimizado'] as int?) ?? (f['tamano_original'] as int?),
     checksum: f['checksum'] as String?,
   );
 
@@ -121,12 +133,10 @@ class FotosRepositorio {
   final AlmacenamientoFotos _almacen;
   final Uuid _uuid;
 
-  FotosRepositorio({
-    DatabaseHelper? db,
-    AlmacenamientoFotos? almacen,
-  })  : _db = db ?? DatabaseHelper(),
-        _almacen = almacen ?? AlmacenamientoFotos(),
-        _uuid = const Uuid();
+  FotosRepositorio({DatabaseHelper? db, AlmacenamientoFotos? almacen})
+    : _db = db ?? DatabaseHelper(),
+      _almacen = almacen ?? AlmacenamientoFotos(),
+      _uuid = const Uuid();
 
   AlmacenamientoFotos get almacen => _almacen;
 
@@ -213,11 +223,18 @@ class FotosRepositorio {
     try {
       if (anterior != null) {
         id = anterior['id'] as int;
-        await db.update('imagenes_poste_local', valores,
-            where: 'id = ?', whereArgs: [id]);
+        await db.update(
+          'imagenes_poste_local',
+          valores,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
       } else {
-        id = await db.insert('imagenes_poste_local', valores,
-            conflictAlgorithm: ConflictAlgorithm.replace);
+        id = await db.insert(
+          'imagenes_poste_local',
+          valores,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
       }
     } catch (e) {
       // El registro es la fuente de verdad: sin fila, el archivo no sirve.
@@ -236,8 +253,12 @@ class FotosRepositorio {
       }
     }
 
-    final fila = await db.query('imagenes_poste_local',
-        where: 'id = ?', whereArgs: [id], limit: 1);
+    final fila = await db.query(
+      'imagenes_poste_local',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
     return FotoLocal.desdeFila(fila.first);
   }
 
@@ -297,6 +318,46 @@ class FotosRepositorio {
       whereArgs: [id],
       limit: 1,
     );
+    return FotoLocal.desdeFila(fila.first);
+  }
+
+  /// Actualiza únicamente la georreferencia de una fotografía ya guardada.
+  /// Sirve para reintentar el GPS sin obligar al inspector a repetir una foto
+  /// técnicamente válida.
+  Future<FotoLocal> actualizarUbicacion({
+    required int id,
+    required double latitud,
+    required double longitud,
+    required double precisionGps,
+    required String utmEste,
+    required String utmNorte,
+    required String zona,
+  }) async {
+    final db = await _db.database;
+    await db.update(
+      'imagenes_poste_local',
+      {
+        'latitud': latitud,
+        'longitud': longitud,
+        'precision_gps': precisionGps,
+        'utm_este': utmEste,
+        'utm_norte': utmNorte,
+        'zona': zona,
+        // Cambiar metadatos de una foto confirmada exige volver a enviarla.
+        'estado': EstadoSync.pendiente,
+        'sincronizada': 0,
+        'ultimo_error': null,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    final fila = await db.query(
+      'imagenes_poste_local',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (fila.isEmpty) throw StateError('La fotografía $id ya no existe.');
     return FotoLocal.desdeFila(fila.first);
   }
 
@@ -406,7 +467,9 @@ class FotosRepositorio {
       limit: 1,
     );
     if (filas.isEmpty) return null;
-    return DateTime.tryParse((filas.first['fecha_ultimo_intento'] ?? '').toString());
+    return DateTime.tryParse(
+      (filas.first['fecha_ultimo_intento'] ?? '').toString(),
+    );
   }
 
   /// Conteo por estado para el resumen de sincronización.
@@ -416,9 +479,9 @@ class FotosRepositorio {
       proyectoId == null
           ? 'SELECT estado, COUNT(*) AS n FROM imagenes_poste_local GROUP BY estado'
           : 'SELECT i.estado AS estado, COUNT(*) AS n '
-              'FROM imagenes_poste_local i '
-              'JOIN postes p ON p.id = i.poste_id '
-              'WHERE p.proyecto_id = ? GROUP BY i.estado',
+                'FROM imagenes_poste_local i '
+                'JOIN postes p ON p.id = i.poste_id '
+                'WHERE p.proyecto_id = ? GROUP BY i.estado',
       proyectoId == null ? null : [proyectoId],
     );
     return {
@@ -466,9 +529,16 @@ class FotosRepositorio {
   /// Marca el intento como fallido conservando la foto en cola.
   Future<void> marcarFallida(int id, String error) async {
     final db = await _db.database;
-    final actual = await db.query('imagenes_poste_local',
-        columns: ['intentos'], where: 'id = ?', whereArgs: [id], limit: 1);
-    final intentos = actual.isEmpty ? 0 : (actual.first['intentos'] as int?) ?? 0;
+    final actual = await db.query(
+      'imagenes_poste_local',
+      columns: ['intentos'],
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    final intentos = actual.isEmpty
+        ? 0
+        : (actual.first['intentos'] as int?) ?? 0;
 
     await db.update(
       'imagenes_poste_local',
@@ -492,7 +562,8 @@ class FotosRepositorio {
       'imagenes_poste_local',
       {
         'estado': EstadoSync.pendiente,
-        'ultimo_error': 'Subida interrumpida: la app se cerró durante el envío.',
+        'ultimo_error':
+            'Subida interrumpida: la app se cerró durante el envío.',
       },
       where: 'estado = ?',
       whereArgs: [EstadoSync.subiendo],
@@ -524,7 +595,7 @@ class FotosRepositorio {
           'estado': EstadoSync.fallido,
           'ultimo_error':
               'El archivo de la fotografía ya no está en el teléfono. '
-                  'Hay que volver a tomarla.',
+              'Hay que volver a tomarla.',
         },
         where: 'id = ?',
         whereArgs: [f['id']],
@@ -549,6 +620,73 @@ class FotosRepositorio {
     for (final clave in ['ruta_archivo', 'ruta_original', 'ruta_miniatura']) {
       await _almacen.eliminar(filas.first[clave]?.toString());
     }
+  }
+
+  /// Libera únicamente originales de fotografías ya confirmadas por el
+  /// servidor. La imagen optimizada que se subió y su miniatura se conservan.
+  ///
+  /// Esta limpieza masiva solo se ejecuta por decisión explícita desde Ajustes.
+  /// La política `liberarTrasSincronizar` usa la variante individual cuando el
+  /// servidor confirma una foto. Si un archivo no se puede borrar, su ruta
+  /// tampoco se limpia de SQLite, de modo que se pueda reintentar después.
+  Future<ResultadoLiberacionEspacio> liberarOriginalesSincronizados() async {
+    final db = await _db.database;
+    final filas = await db.query(
+      'imagenes_poste_local',
+      columns: ['id', 'ruta_archivo', 'ruta_original'],
+      where: 'estado = ? AND ruta_original IS NOT NULL AND ruta_original <> ?',
+      whereArgs: [EstadoSync.sincronizado, ''],
+    );
+
+    var archivos = 0;
+    var bytes = 0;
+    for (final fila in filas) {
+      final liberados = await liberarOriginalSincronizado(fila['id'] as int);
+      if (liberados == null) continue;
+      archivos++;
+      bytes += liberados;
+    }
+
+    return ResultadoLiberacionEspacio(archivos: archivos, bytes: bytes);
+  }
+
+  /// Libera el original de una sola foto únicamente si ya está sincronizada.
+  /// Devuelve los bytes liberados, o `null` si no había nada seguro que borrar.
+  Future<int?> liberarOriginalSincronizado(int id) async {
+    final db = await _db.database;
+    final filas = await db.query(
+      'imagenes_poste_local',
+      columns: ['ruta_archivo', 'ruta_original'],
+      where: 'id = ? AND estado = ?',
+      whereArgs: [id, EstadoSync.sincronizado],
+      limit: 1,
+    );
+    if (filas.isEmpty) return null;
+
+    final original = filas.first['ruta_original']?.toString();
+    final subible = filas.first['ruta_archivo']?.toString();
+    if (original == null || original.isEmpty || original == subible) {
+      return null;
+    }
+
+    final archivo = File(original);
+    var tamano = 0;
+    if (await archivo.exists()) {
+      try {
+        tamano = await archivo.length();
+      } catch (_) {
+        tamano = 0;
+      }
+      if (!await _almacen.eliminar(original)) return null;
+    }
+
+    await db.update(
+      'imagenes_poste_local',
+      {'ruta_original': null, 'tamano_original': null},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    return tamano;
   }
 
   // ===========================================================================

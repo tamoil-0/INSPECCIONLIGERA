@@ -25,7 +25,7 @@ pierde el intento de envío, nunca el trabajo del inspector.
 ```bash
 flutter pub get
 flutter run                    # servidor de producción
-flutter test                   # 147 pruebas
+flutter test                   # 150 pruebas
 flutter analyze                # 0 errores, 0 warnings
 ```
 
@@ -224,8 +224,8 @@ lista completa en [`TESTING.md`](TESTING.md). Lo mínimo:
 | P1 · Imágenes y almacenamiento | ✅ (valores de compresión pendientes de medir en campo) |
 | P2 · Sincronización | ✅ (pendiente cerrar contrato con el backend) |
 | P3 · Arquitectura | ✅ |
-| P4 · UX/UI | ✅ (pendiente: galería, pantalla completa con zoom, Ajustes) |
-| P5 · Seguridad | ✅ (pendiente: keystore y `applicationId`) |
+| P4 · UX/UI | ✅ |
+| P5 · Seguridad | ⧗ Parcial: falta separar datos por usuario, keystore y `applicationId` |
 | P6 · Rendimiento y publicación | ⧗ Parcial: tamaño del APK resuelto; mediciones en dispositivo pendientes |
 
 Detalle y siguientes pasos en [`PLAN_MEJORAS.md`](PLAN_MEJORAS.md).

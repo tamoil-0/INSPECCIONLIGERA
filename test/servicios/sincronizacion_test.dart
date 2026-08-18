@@ -24,7 +24,8 @@ void main() {
         expect(
           esperas[i],
           greaterThan(esperas[i - 1]),
-          reason: 'La espera del intento ${i + 1} debe ser mayor que la anterior',
+          reason:
+              'La espera del intento ${i + 1} debe ser mayor que la anterior',
         );
       }
       expect(esperas.first, const Duration(seconds: 30));
@@ -93,10 +94,7 @@ void main() {
         politica.describirEspera(intentos: 10, ultimoIntento: ahora),
         contains('a mano'),
       );
-      expect(
-        politica.describirEspera(intentos: 0),
-        contains('próximo envío'),
-      );
+      expect(politica.describirEspera(intentos: 0), contains('próximo envío'));
     });
   });
 
@@ -109,10 +107,7 @@ void main() {
     });
 
     test('todo confirmado enumera lo que confirmó el servidor', () {
-      const r = ResultadoSync(
-        formulariosConfirmados: 2,
-        fotosConfirmadas: 44,
-      );
+      const r = ResultadoSync(formulariosConfirmados: 2, fotosConfirmadas: 44);
       expect(r.todoConfirmado, isTrue);
       expect(r.mensaje, contains('Servidor confirmó'));
       expect(r.mensaje, contains('2 formulario'));

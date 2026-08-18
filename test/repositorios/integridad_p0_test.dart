@@ -173,42 +173,8 @@ void main() {
       );
     });
 
-    test('repetir una foto reemplaza en su sitio, sin dejar huérfanos', () async {
-      final primera = await fotos.registrarCaptura(
-        archivoTemporal: await crearFotoEnCache('placa', kb: 8),
-        posteId: 101,
-        nombreFoto: 'placa',
-        proyectoId: 7,
-      );
-
-      final segunda = await fotos.registrarCaptura(
-        archivoTemporal: await crearFotoEnCache('placa_v2', kb: 16),
-        posteId: 101,
-        nombreFoto: 'placa',
-        proyectoId: 7,
-      );
-
-      // El UUID y la fila se conservan: el slot es el mismo.
-      expect(segunda.uuid, primera.uuid);
-      expect(segunda.id, primera.id);
-      expect(await fotos.fotosDePoste(101), hasLength(1));
-
-      // Y en disco queda exactamente un archivo, el nuevo.
-      final carpeta = await almacen.carpetaDePoste(posteId: 101, proyectoId: 7);
-      final archivos = carpeta.listSync().whereType<File>().toList();
-      expect(archivos, hasLength(1));
-      expect(archivos.first.path, segunda.rutaArchivo);
-      expect(archivos.first.lengthSync(), 16 * 1024);
-      expect(segunda.tamanoBytes, greaterThan(primera.tamanoBytes!));
-      // Sin temporales abandonados.
-      expect(
-        carpeta.listSync().where((e) => e.path.endsWith('.tmp')),
-        isEmpty,
-      );
-    });
-
     test(
-      'si la copia nueva falla, la foto anterior sigue intacta',
+      'repetir una foto reemplaza en su sitio, sin dejar huérfanos',
       () async {
         final primera = await fotos.registrarCaptura(
           archivoTemporal: await crearFotoEnCache('placa', kb: 8),
@@ -217,28 +183,62 @@ void main() {
           proyectoId: 7,
         );
 
-        // Intento de reemplazo con un archivo inválido (0 bytes).
-        final vacio = File('${temporal.path}/roto.jpg')..writeAsBytesSync([]);
-        await expectLater(
-          fotos.registrarCaptura(
-            archivoTemporal: vacio,
-            posteId: 101,
-            nombreFoto: 'placa',
-            proyectoId: 7,
-          ),
-          throwsA(isA<AlmacenamientoFotoException>()),
+        final segunda = await fotos.registrarCaptura(
+          archivoTemporal: await crearFotoEnCache('placa_v2', kb: 16),
+          posteId: 101,
+          nombreFoto: 'placa',
+          proyectoId: 7,
         );
 
-        // La foto buena no se tocó.
-        final enDisco = File(primera.rutaArchivo);
-        expect(enDisco.existsSync(), isTrue);
-        expect(enDisco.lengthSync(), 8 * 1024);
+        // El UUID y la fila se conservan: el slot es el mismo.
+        expect(segunda.uuid, primera.uuid);
+        expect(segunda.id, primera.id);
+        expect(await fotos.fotosDePoste(101), hasLength(1));
+
+        // Y en disco queda exactamente un archivo, el nuevo.
+        final carpeta = await almacen.carpetaDePoste(
+          posteId: 101,
+          proyectoId: 7,
+        );
+        final archivos = carpeta.listSync().whereType<File>().toList();
+        expect(archivos, hasLength(1));
+        expect(archivos.first.path, segunda.rutaArchivo);
+        expect(archivos.first.lengthSync(), 16 * 1024);
+        expect(segunda.tamanoBytes, greaterThan(primera.tamanoBytes!));
+        // Sin temporales abandonados.
         expect(
-          (await fotos.fotosDePoste(101)).first.checksum,
-          primera.checksum,
+          carpeta.listSync().where((e) => e.path.endsWith('.tmp')),
+          isEmpty,
         );
       },
     );
+
+    test('si la copia nueva falla, la foto anterior sigue intacta', () async {
+      final primera = await fotos.registrarCaptura(
+        archivoTemporal: await crearFotoEnCache('placa', kb: 8),
+        posteId: 101,
+        nombreFoto: 'placa',
+        proyectoId: 7,
+      );
+
+      // Intento de reemplazo con un archivo inválido (0 bytes).
+      final vacio = File('${temporal.path}/roto.jpg')..writeAsBytesSync([]);
+      await expectLater(
+        fotos.registrarCaptura(
+          archivoTemporal: vacio,
+          posteId: 101,
+          nombreFoto: 'placa',
+          proyectoId: 7,
+        ),
+        throwsA(isA<AlmacenamientoFotoException>()),
+      );
+
+      // La foto buena no se tocó.
+      final enDisco = File(primera.rutaArchivo);
+      expect(enDisco.existsSync(), isTrue);
+      expect(enDisco.lengthSync(), 8 * 1024);
+      expect((await fotos.fotosDePoste(101)).first.checksum, primera.checksum);
+    });
   });
 
   group('Fotografías: transiciones de estado', () {
@@ -298,7 +298,10 @@ void main() {
       () async {
         final foto = await unaFoto('placa');
         await fotos.marcarSubiendo([foto.id]);
-        expect((await fotos.fotosDePoste(101)).first.estado, EstadoSync.subiendo);
+        expect(
+          (await fotos.fotosDePoste(101)).first.estado,
+          EstadoSync.subiendo,
+        );
 
         // Reinicio de la app.
         final recuperadas = await fotos.recuperarSubidasInterrumpidas();
@@ -349,6 +352,85 @@ void main() {
       expect(await fotos.fotosDePoste(101), isEmpty);
       expect(File(ruta).existsSync(), isFalse);
     });
+
+    test(
+      'liberar espacio borra solo el original de una foto confirmada',
+      () async {
+        final foto = await unaFoto('placa');
+        final original = File(foto.rutaArchivo);
+        final optimizada = File('${original.path}_opt.jpg');
+        await original.copy(optimizada.path);
+
+        await fotos.aplicarOptimizacion(
+          id: foto.id,
+          rutaSubible: optimizada.path,
+          rutaOriginal: original.path,
+          tamanoSubible: await optimizada.length(),
+          tamanoOriginal: await original.length(),
+        );
+        await fotos.marcarSincronizada(foto.id);
+
+        final resultado = await fotos.liberarOriginalesSincronizados();
+        final tras = (await fotos.fotosDePoste(101)).single;
+
+        expect(resultado.archivos, 1);
+        expect(resultado.bytes, greaterThan(0));
+        expect(original.existsSync(), isFalse);
+        expect(optimizada.existsSync(), isTrue);
+        expect(tras.rutaArchivo, optimizada.path);
+        expect(tras.rutaOriginal, isNull);
+        expect(tras.estaSincronizada, isTrue);
+      },
+    );
+
+    test('liberar espacio nunca toca originales pendientes', () async {
+      final foto = await unaFoto('conductor');
+      final original = File(foto.rutaArchivo);
+      final optimizada = File('${original.path}_opt.jpg');
+      await original.copy(optimizada.path);
+      await fotos.aplicarOptimizacion(
+        id: foto.id,
+        rutaSubible: optimizada.path,
+        rutaOriginal: original.path,
+        tamanoSubible: await optimizada.length(),
+        tamanoOriginal: await original.length(),
+      );
+
+      final resultado = await fotos.liberarOriginalesSincronizados();
+
+      expect(resultado.archivos, 0);
+      expect(original.existsSync(), isTrue);
+      expect(optimizada.existsSync(), isTrue);
+      expect(
+        (await fotos.fotosDePoste(101)).single.rutaOriginal,
+        original.path,
+      );
+    });
+
+    test(
+      'actualizar GPS conserva la foto y vuelve a ponerla en cola',
+      () async {
+        final foto = await unaFoto('retenida');
+        await fotos.marcarSincronizada(foto.id);
+
+        final actualizada = await fotos.actualizarUbicacion(
+          id: foto.id,
+          latitud: -12.0464,
+          longitud: -77.0428,
+          precisionGps: 4.5,
+          utmEste: '277000',
+          utmNorte: '8667000',
+          zona: '18L',
+        );
+
+        expect(actualizada.rutaArchivo, foto.rutaArchivo);
+        expect(actualizada.estado, EstadoSync.pendiente);
+        expect(actualizada.estaSincronizada, isFalse);
+        expect(actualizada.precisionGps, 4.5);
+        expect(actualizada.zona, '18L');
+        expect(File(actualizada.rutaArchivo).existsSync(), isTrue);
+      },
+    );
   });
 
   group('Formulario: borrador recuperable y sin duplicados', () {
@@ -365,7 +447,11 @@ void main() {
         posteId: 101,
         datos: datos,
         rst: [
-          {'seccion': 'conductores_fase', 'atributo': 'hebras_rotas', 'fase': 'R'},
+          {
+            'seccion': 'conductores_fase',
+            'atributo': 'hebras_rotas',
+            'fase': 'R',
+          },
         ],
       );
 
@@ -399,7 +485,10 @@ void main() {
           whereArgs: [101],
         );
         expect(filas, hasLength(1));
-        expect((await borradores.obtener(101))!.datos['comentarios'], 'version 5');
+        expect(
+          (await borradores.obtener(101))!.datos['comentarios'],
+          'version 5',
+        );
       },
     );
 
@@ -420,15 +509,27 @@ void main() {
         posteId: 101,
         datos: datos,
         rst: [
-          {'seccion': 'conductores_fase', 'atributo': 'hebras_rotas', 'fase': 'R'},
-          {'seccion': 'conductores_fase', 'atributo': 'encanastillado', 'fase': 'S'},
+          {
+            'seccion': 'conductores_fase',
+            'atributo': 'hebras_rotas',
+            'fase': 'R',
+          },
+          {
+            'seccion': 'conductores_fase',
+            'atributo': 'encanastillado',
+            'fase': 'S',
+          },
         ],
       );
       await borradores.guardar(
         posteId: 101,
         datos: datos,
         rst: [
-          {'seccion': 'estado_aisladores', 'atributo': 'buen_estado', 'fase': 'T'},
+          {
+            'seccion': 'estado_aisladores',
+            'atributo': 'buen_estado',
+            'fase': 'T',
+          },
         ],
       );
 
@@ -437,26 +538,33 @@ void main() {
       expect(recuperado.rst.first['seccion'], 'estado_aisladores');
     });
 
-    test('un fallo de envío NO marca el formulario como sincronizado', () async {
-      await borradores.guardar(posteId: 101, datos: datos, rst: const []);
-      await borradores.marcarSubiendo(101);
-      await borradores.marcarFallido(101, 'El servidor respondió HTML');
+    test(
+      'un fallo de envío NO marca el formulario como sincronizado',
+      () async {
+        await borradores.guardar(posteId: 101, datos: datos, rst: const []);
+        await borradores.marcarSubiendo(101);
+        await borradores.marcarFallido(101, 'El servidor respondió HTML');
 
-      final tras = (await borradores.obtener(101))!;
-      expect(tras.estado, EstadoSync.fallido);
-      expect(tras.estaSincronizado, isFalse);
-      expect(tras.intentos, 1);
-      expect(tras.ultimoError, contains('HTML'));
-      // Y los datos siguen intactos.
-      expect(tras.datos['comentarios'], contains('Óxido'));
-    });
+        final tras = (await borradores.obtener(101))!;
+        expect(tras.estado, EstadoSync.fallido);
+        expect(tras.estaSincronizado, isFalse);
+        expect(tras.intentos, 1);
+        expect(tras.ultimoError, contains('HTML'));
+        // Y los datos siguen intactos.
+        expect(tras.datos['comentarios'], contains('Óxido'));
+      },
+    );
 
     test('solo la confirmación del servidor marca sincronizado', () async {
       await borradores.guardar(
         posteId: 101,
         datos: datos,
         rst: [
-          {'seccion': 'conductores_fase', 'atributo': 'hebras_rotas', 'fase': 'R'},
+          {
+            'seccion': 'conductores_fase',
+            'atributo': 'hebras_rotas',
+            'fase': 'R',
+          },
         ],
       );
       await borradores.marcarSincronizado(101, idRemoto: 'srv-55');
@@ -511,7 +619,8 @@ void main() {
       expect(
         alAbrirDeNuevo.estaSincronizado,
         isTrue,
-        reason: 'La pantalla debe poder avisar que se está editando algo '
+        reason:
+            'La pantalla debe poder avisar que se está editando algo '
             'ya sincronizado.',
       );
     });

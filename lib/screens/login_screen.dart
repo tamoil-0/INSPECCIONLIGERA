@@ -346,7 +346,10 @@ class _LoginScreenState extends State<LoginScreen> {
       children: [
         Text(
           'Versión 1.1.0',
-          style: const TextStyle(fontSize: 12.5, color: ColoresEcoing.textoTenue),
+          style: const TextStyle(
+            fontSize: 12.5,
+            color: ColoresEcoing.textoTenue,
+          ),
         ),
         if (entorno != null) ...[
           const SizedBox(height: Espacio.xs),

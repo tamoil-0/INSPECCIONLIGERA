@@ -37,8 +37,7 @@ class BorradorFormulario {
   /// Claves del tablero RST en el formato `seccion|atributo|fase` que usa
   /// `FormularioModal.seleccionados`.
   Map<String, bool> get seleccionadosRst => {
-    for (final r in rst)
-      '${r['seccion']}|${r['atributo']}|${r['fase']}': true,
+    for (final r in rst) '${r['seccion']}|${r['atributo']}|${r['fase']}': true,
   };
 }
 
@@ -59,8 +58,8 @@ class BorradoresRepositorio {
   final Uuid _uuid;
 
   BorradoresRepositorio({DatabaseHelper? db})
-      : _db = db ?? DatabaseHelper(),
-        _uuid = const Uuid();
+    : _db = db ?? DatabaseHelper(),
+      _uuid = const Uuid();
 
   /// Guarda (o actualiza) el borrador del poste junto con su tablero RST.
   ///
@@ -84,7 +83,8 @@ class BorradoresRepositorio {
         limit: 1,
       );
 
-      final uuid = existente.isNotEmpty &&
+      final uuid =
+          existente.isNotEmpty &&
               (existente.first['uuid'] as String?)?.isNotEmpty == true
           ? existente.first['uuid'] as String
           : _uuid.v4();
@@ -102,29 +102,35 @@ class BorradoresRepositorio {
       if (existente.isEmpty) {
         valores['creado_en'] = ahora;
         valores['intentos'] = 0;
-        await txn.insert('formularios_pendientes', valores,
-            conflictAlgorithm: ConflictAlgorithm.replace);
+        await txn.insert(
+          'formularios_pendientes',
+          valores,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
       } else {
-        await txn.update('formularios_pendientes', valores,
-            where: 'id = ?', whereArgs: [existente.first['id']]);
+        await txn.update(
+          'formularios_pendientes',
+          valores,
+          where: 'id = ?',
+          whereArgs: [existente.first['id']],
+        );
       }
 
       // El tablero RST se reemplaza completo: es la foto exacta de lo que el
       // inspector tiene marcado ahora mismo.
-      await txn.delete('poste_secciones_rst',
-          where: 'poste_id = ?', whereArgs: [posteId]);
+      await txn.delete(
+        'poste_secciones_rst',
+        where: 'poste_id = ?',
+        whereArgs: [posteId],
+      );
       for (final registro in rst) {
-        await txn.insert(
-          'poste_secciones_rst',
-          {
-            'poste_id': posteId,
-            'seccion': registro['seccion'],
-            'atributo': registro['atributo'],
-            'fase': registro['fase'],
-            'sincronizado': 0,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+        await txn.insert('poste_secciones_rst', {
+          'poste_id': posteId,
+          'seccion': registro['seccion'],
+          'atributo': registro['atributo'],
+          'fase': registro['fase'],
+          'sincronizado': 0,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
       }
     });
 
@@ -215,13 +221,16 @@ class BorradoresRepositorio {
 
   Future<void> marcarFallido(int posteId, String error) async {
     final db = await _db.database;
-    final actual = await db.query('formularios_pendientes',
-        columns: ['intentos'],
-        where: 'poste_id = ?',
-        whereArgs: [posteId],
-        limit: 1);
-    final intentos =
-        actual.isEmpty ? 0 : (actual.first['intentos'] as int?) ?? 0;
+    final actual = await db.query(
+      'formularios_pendientes',
+      columns: ['intentos'],
+      where: 'poste_id = ?',
+      whereArgs: [posteId],
+      limit: 1,
+    );
+    final intentos = actual.isEmpty
+        ? 0
+        : (actual.first['intentos'] as int?) ?? 0;
 
     await db.update(
       'formularios_pendientes',
@@ -229,8 +238,9 @@ class BorradoresRepositorio {
         'estado': EstadoSync.fallido,
         'enviado': 0,
         'intentos': intentos + 1,
-        'ultimo_error':
-            error.length <= 500 ? error : '${error.substring(0, 500)}…',
+        'ultimo_error': error.length <= 500
+            ? error
+            : '${error.substring(0, 500)}…',
         'fecha_ultimo_intento': DateTime.now().toIso8601String(),
       },
       where: 'poste_id = ?',
@@ -299,7 +309,9 @@ class BorradoresRepositorio {
       limit: 1,
     );
     if (filas.isEmpty) return null;
-    return DateTime.tryParse((filas.first['fecha_ultimo_intento'] ?? '').toString());
+    return DateTime.tryParse(
+      (filas.first['fecha_ultimo_intento'] ?? '').toString(),
+    );
   }
 
   Future<Map<String, int>> resumenPorEstado({int? proyectoId}) async {
@@ -308,9 +320,9 @@ class BorradoresRepositorio {
       proyectoId == null
           ? 'SELECT estado, COUNT(*) AS n FROM formularios_pendientes GROUP BY estado'
           : 'SELECT f.estado AS estado, COUNT(*) AS n '
-              'FROM formularios_pendientes f '
-              'JOIN postes p ON p.id = f.poste_id '
-              'WHERE p.proyecto_id = ? GROUP BY f.estado',
+                'FROM formularios_pendientes f '
+                'JOIN postes p ON p.id = f.poste_id '
+                'WHERE p.proyecto_id = ? GROUP BY f.estado',
       proyectoId == null ? null : [proyectoId],
     );
     return {

@@ -93,7 +93,9 @@ class _BuscarLineaScreenState extends State<BuscarLineaScreen> {
       final red = await _conectividad.comprobar();
       if (red.conectado) {
         try {
-          final postes = await _posteService.listarPorProyecto(widget.proyectoId);
+          final postes = await _posteService.listarPorProyecto(
+            widget.proyectoId,
+          );
           await _db.insertOrUpdatePostes(postes);
           lineas = await _leerLineasLocales();
         } on ErrorApi catch (e) {
@@ -230,7 +232,8 @@ class _BuscarLineaScreenState extends State<BuscarLineaScreen> {
     if (_todas.isEmpty) {
       return VistaEstado.error(
         titulo: 'No hay líneas para este proyecto',
-        detalle: _error ??
+        detalle:
+            _error ??
             'Puede que el proyecto no tenga estructuras con línea asignada.',
         alPulsar: _cargarLineas,
       );

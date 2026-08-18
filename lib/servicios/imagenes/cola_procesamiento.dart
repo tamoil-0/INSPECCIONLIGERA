@@ -24,7 +24,7 @@ class ColaProcesamiento {
   bool _cancelada = false;
 
   ColaProcesamiento({this.concurrencia = 1})
-      : assert(concurrencia >= 1, 'La concurrencia mínima es 1');
+    : assert(concurrencia >= 1, 'La concurrencia mínima es 1');
 
   int get pendientes => _pendientes.length;
   int get activas => _activas;
@@ -49,9 +49,7 @@ class ColaProcesamiento {
     Iterable<Future<T> Function()> tareas,
   ) async {
     final futuros = tareas
-        .map(
-          (t) => encolar(t).then<T?>((v) => v).catchError((_) => null),
-        )
+        .map((t) => encolar(t).then<T?>((v) => v).catchError((_) => null))
         .toList();
     return Future.wait(futuros);
   }

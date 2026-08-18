@@ -34,9 +34,7 @@ Widget buildDropdown({
       initialValue: value,
       validator: isRequired
           ? (v) {
-              if (v == null ||
-                  v.isEmpty ||
-                  v == FormularioModal.noRevisado) {
+              if (v == null || v.isEmpty || v == FormularioModal.noRevisado) {
                 return 'Este campo es obligatorio';
               }
               return null;
@@ -68,7 +66,9 @@ Widget buildDropdown({
                     ),
                   ),
                 Icon(
-                  sinRevisar ? Icons.radio_button_unchecked : Icons.check_circle,
+                  sinRevisar
+                      ? Icons.radio_button_unchecked
+                      : Icons.check_circle,
                   size: 17,
                   color: colorEstado,
                 ),
