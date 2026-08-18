@@ -211,7 +211,7 @@ class _AjustesScreenState extends State<AjustesScreen> {
                 _titulo('Aplicación'),
                 const ListTile(
                   leading: Icon(Icons.info_outline),
-                  title: Text('App-Ecoing 1.1.0 (2)'),
+                  title: Text('Ecoing IP 26 1.2.2 (5)'),
                   subtitle: Text(
                     'Entorno: ${Entorno.nombre}\nAPI: ${Entorno.apiBaseUrl}',
                   ),

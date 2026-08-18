@@ -37,7 +37,7 @@ void main() {
       await tester.pumpWidget(const MyApp(initialRoute: '/login'));
       await tester.pump();
 
-      expect(find.text('App-Ecoing'), findsOneWidget);
+      expect(find.text('Ecoing IP 26'), findsOneWidget);
       expect(find.text('Iniciar sesión'), findsOneWidget);
       expect(find.byType(TextFormField), findsNWidgets(2));
     });

@@ -105,7 +105,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'App-Ecoing',
+      title: 'Ecoing IP 26',
       debugShowCheckedModeBanner: !Entorno.esProduccion,
       navigatorKey: navegadorApp,
       theme: TemaEcoing.claro(),

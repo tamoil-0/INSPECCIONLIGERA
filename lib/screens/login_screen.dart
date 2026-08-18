@@ -227,7 +227,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: Espacio.l),
         const Text(
-          'App-Ecoing',
+          'Ecoing IP 26',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
