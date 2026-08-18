@@ -45,5 +45,20 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- ==== Permisos requeridos por iOS ====
+	     Sin estas claves iOS MATA la app en el momento de pedir cámara o
+	     ubicación. Faltaban las tres, así que la app nunca pudo funcionar en
+	     iPhone. Los textos se muestran literalmente al usuario en el diálogo
+	     del sistema, así que explican para qué se usa cada permiso. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Se usa la cámara para fotografiar las estructuras durante la inspección.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Se usa la ubicación para georreferenciar cada fotografía con sus coordenadas UTM.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Se accede a las fotos para poder adjuntar una imagen ya tomada a la inspección.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Se guardan copias de las fotografías de la inspección para exportarlas.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>No se graba audio. El sistema solicita esta clave junto con la cámara.</string>
 </dict>
 </plist>

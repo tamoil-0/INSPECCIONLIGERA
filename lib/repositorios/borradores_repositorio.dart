@@ -253,6 +253,55 @@ class BorradoresRepositorio {
     );
   }
 
+  /// Borradores pendientes de enviar, con filtro por ámbito.
+  Future<List<BorradorFormulario>> pendientes({
+    int? proyectoId,
+    String? linea,
+  }) async {
+    final db = await _db.database;
+    final condiciones = <String>[
+      'f.estado IN (${List.filled(EstadoSync.enviables.length, '?').join(',')})',
+    ];
+    final args = <Object?>[...EstadoSync.enviables];
+
+    if (proyectoId != null) {
+      condiciones.add('p.proyecto_id = ?');
+      args.add(proyectoId);
+    }
+    if (linea != null) {
+      condiciones.add('p.linea = ?');
+      args.add(linea);
+    }
+
+    final filas = await db.rawQuery('''
+      SELECT f.poste_id FROM formularios_pendientes f
+      JOIN postes p ON p.id = f.poste_id
+      WHERE ${condiciones.join(' AND ')}
+      ORDER BY f.intentos ASC, f.id ASC
+    ''', args);
+
+    final resultado = <BorradorFormulario>[];
+    for (final fila in filas) {
+      final borrador = await obtener(fila['poste_id'] as int);
+      if (borrador != null) resultado.add(borrador);
+    }
+    return resultado;
+  }
+
+  /// Fecha del último intento, para calcular el backoff.
+  Future<DateTime?> ultimoIntentoDe(int posteId) async {
+    final db = await _db.database;
+    final filas = await db.query(
+      'formularios_pendientes',
+      columns: ['fecha_ultimo_intento'],
+      where: 'poste_id = ?',
+      whereArgs: [posteId],
+      limit: 1,
+    );
+    if (filas.isEmpty) return null;
+    return DateTime.tryParse((filas.first['fecha_ultimo_intento'] ?? '').toString());
+  }
+
   Future<Map<String, int>> resumenPorEstado({int? proyectoId}) async {
     final db = await _db.database;
     final filas = await db.rawQuery(

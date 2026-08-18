@@ -1,24 +1,59 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Red -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+
+    <!--
+      Ubicación: se usa para georreferenciar cada fotografía en el momento de
+      tomarla, con la app en primer plano.
+
+      RETIRADO: ACCESS_BACKGROUND_LOCATION. La app no hace nada con la ubicación
+      en segundo plano; era un permiso de alto riesgo que Google Play audita
+      expresamente y que habría que justificar en la ficha de la tienda.
+    -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
 
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+    <!-- Cámara: la declara image_picker, se explicita para que quede claro. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
-        tools:ignore="ScopedStorage"/>
+    <!--
+      Almacenamiento: NO se pide ninguno.
+
+      Las fotografías viven en el directorio privado de la app
+      (context.getFilesDir) y la exportación usa el directorio externo propio
+      (Android/data/<paquete>/files), que no requiere permiso en ninguna versión.
+
+      RETIRADOS:
+        · READ_EXTERNAL_STORAGE / WRITE_EXTERNAL_STORAGE
+            Obsoletos desde Android 13; ya no concedían nada útil.
+        · MANAGE_EXTERNAL_STORAGE (estaba declarado dos veces)
+            Permiso de máximo alcance y motivo de rechazo en Google Play salvo
+            justificación excepcional. La app nunca necesitó acceso a todo el
+            almacenamiento del teléfono.
+        · requestLegacyExternalStorage / preserveLegacyExternalStorage
+            Sin efecto desde Android 11.
+    -->
+
     <application
-        android:requestLegacyExternalStorage="true"
-        android:preserveLegacyExternalStorage="true"
-        android:usesCleartextTraffic="true"
         android:label="Ecoing"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/reglas_extraccion_datos">
+        <!--
+          allowBackup="false": la base local contiene inspecciones sin sincronizar
+          y el almacén seguro guarda el token de sesión. Permitir la copia de
+          seguridad automática de Android sacaría ambos del teléfono.
+
+          usesCleartextTraffic RETIRADO: obligaba a permitir HTTP sin cifrar en
+          toda la app. La API es HTTPS. Para desarrollo contra un servidor local
+          por HTTP, usar la variante de depuración (ver
+          android/app/src/debug/AndroidManifest.xml).
+        -->
 
         <activity
             android:name=".MainActivity"
@@ -29,10 +64,7 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
+            <!-- Tema visible mientras arranca el motor de Flutter. -->
             <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
@@ -42,17 +74,13 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Don't delete the meta-data below.
-             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+
+        <!-- No borrar: lo usa el tool de Flutter para GeneratedPluginRegistrant. -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
-    <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
 
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>

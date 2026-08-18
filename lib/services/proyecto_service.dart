@@ -1,42 +1,45 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../api/api_config.dart';
+import '../data/remoto/cliente_api.dart';
 
+/// Consultas de proyectos contra el servidor.
 class ProyectoService {
-  Future<Map<String, dynamic>> listarProyectos({String? estado, String? busqueda}) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+  ProyectoService({ClienteApi? api}) : _api = api ?? ClienteApi();
 
-    if (token == null) {
-      return {'success': false, 'error': 'No hay token de autenticación'};
-    }
+  final ClienteApi _api;
 
-    final url = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.proyectosLista}').replace(
-      queryParameters: {
+  /// Devuelve la lista de proyectos, o lanza [ErrorApi] con el motivo.
+  Future<List<Map<String, dynamic>>> listar({
+    String? estado,
+    String? busqueda,
+  }) async {
+    final respuesta = await _api.get(
+      ApiConfig.proyectosLista,
+      parametros: {
         if (estado != null) 'estado': estado,
         if (busqueda != null) 'busqueda': busqueda,
       },
     );
 
-    try {
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
+    if (!respuesta.exito) {
+      throw ErrorApi(
+        TipoErrorApi.respuestaInesperada,
+        codigoHttp: respuesta.codigoHttp,
+        detalle: respuesta.mensajeServidor ?? 'El servidor no devolvió éxito.',
       );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200) {
-        return {'success': true, 'data': data['data']};
-      } else {
-        return {'success': false, 'error': data['error']};
-      }
-    } catch (e) {
-      return {'success': false, 'error': 'Error de conexión: $e'};
     }
+
+    final datos = respuesta.datos;
+    if (datos == null) return const [];
+    if (datos is! List) {
+      throw ErrorApi(
+        TipoErrorApi.respuestaInesperada,
+        codigoHttp: respuesta.codigoHttp,
+        detalle: 'Se esperaba una lista en "data".',
+      );
+    }
+    return datos
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
   }
 }

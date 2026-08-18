@@ -1,293 +1,335 @@
 import 'package:flutter/material.dart';
+
+import '../core/normalizar.dart';
+import '../core/preferencias_app.dart';
+import '../data/remoto/cliente_api.dart';
+import '../database/database_helper.dart';
+import '../presentacion/comunes/componentes.dart';
+import '../presentacion/diseno/tema_ecoing.dart';
+import '../servicios/conectividad/servicio_conectividad.dart';
 import '../services/poste_service.dart';
 import 'detalle_proyecto_screen.dart';
-import '../database/database_helper.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+/// Líneas eléctricas de un proyecto.
+///
+/// ## Cambios respecto a la versión anterior
+///
+/// * `_ubicacionesPorLinea` estaba declarada **a nivel de archivo**, fuera de
+///   la clase `State`: se compartía entre instancias y entre proyectos, de modo
+///   que las ubicaciones de un proyecto aparecían en otro. Ahora es un campo de
+///   estado.
+/// * **Búsqueda tolerante** a acentos y mayúsculas, y **orden natural** de las
+///   líneas (antes salían en el orden arbitrario que devolvía SQLite).
+/// * Se muestra **cuántas estructuras** tiene cada línea.
+/// * El texto del buscador decía "Buscar líssea".
 class BuscarLineaScreen extends StatefulWidget {
   final int proyectoId;
   final String proyectoNombre;
 
   const BuscarLineaScreen({
-    Key? key,
+    super.key,
     required this.proyectoId,
     required this.proyectoNombre,
-  }) : super(key: key);
+  });
 
   @override
   State<BuscarLineaScreen> createState() => _BuscarLineaScreenState();
 }
-Map<String, String> _ubicacionesPorLinea = {};
 
+/// Una línea con lo que se sabe de ella en local.
+class _Linea {
+  final String nombre;
+  final String ubicacion;
+  final int estructuras;
+
+  const _Linea({
+    required this.nombre,
+    required this.ubicacion,
+    required this.estructuras,
+  });
+}
 
 class _BuscarLineaScreenState extends State<BuscarLineaScreen> {
-  final TextEditingController _lineaController = TextEditingController();
-  final PosteService _posteService = PosteService();
+  final _busquedaCtrl = TextEditingController();
+  final _posteService = PosteService();
+  final _db = DatabaseHelper();
+  final _conectividad = ServicioConectividad.instancia;
 
-  List<String> _todasLasLineas = [];
-  List<String> _lineasFiltradas = [];
-
-  bool _isLoading = false;
+  List<_Linea> _todas = [];
+  List<_Linea> _filtradas = [];
+  bool _cargando = true;
   bool _modoOffline = false;
-  bool _hayInternet = false;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _inicializarPantalla();
+    _inicializar();
   }
 
-  Future<void> _inicializarPantalla() async {
-    setState(() => _isLoading = true);
+  @override
+  void dispose() {
+    _busquedaCtrl.dispose();
+    super.dispose();
+  }
 
-    final prefs = await SharedPreferences.getInstance();
-    _modoOffline = prefs.getBool('modo_offline') ?? false;
-
-    await _verificarInternet();
+  Future<void> _inicializar() async {
+    final prefs = await PreferenciasApp.instancia();
+    if (!mounted) return;
+    setState(() => _modoOffline = prefs.modoOffline);
     await _cargarLineas();
-
-    setState(() => _isLoading = false);
-  }
-
-  Future<void> _verificarInternet() async {
-    final result = await Connectivity().checkConnectivity();
-    _hayInternet = result != ConnectivityResult.none;
   }
 
   Future<void> _cargarLineas() async {
-    final db = DatabaseHelper();
-    final lineasLocales = await db.obtenerLineasPorProyectoLocal(widget.proyectoId);
+    setState(() {
+      _cargando = true;
+      _error = null;
+    });
 
-    if (lineasLocales.isNotEmpty) {
-      final postesLocales = await db.obtenerPostesPorProyecto(widget.proyectoId);
+    var lineas = await _leerLineasLocales();
 
-      final Set<String> lineasSet = {};
-      final Map<String, String> ubicaciones = {};
-
-      for (final poste in postesLocales) {
-        final linea = poste['linea']?.toString() ?? '';
-        final ubicacion = poste['ubicaciones']?.toString() ?? '';
-
-        if (linea.isNotEmpty) {
-          lineasSet.add(linea);
-          if (!ubicaciones.containsKey(linea)) {
-            ubicaciones[linea] = ubicacion;
-          }
-
-          print(
-              '📦 Poste local: ID=${poste['id']}, '
-                  'Código=${poste['codigo']}, '
-                  'Línea=$linea, '
-                  'Estructura=${poste['estructura']}, '
-                  'Ubicación=$ubicacion'
-          );
+    // Si no hay nada en local, se intenta traer del servidor.
+    if (lineas.isEmpty && !_modoOffline) {
+      final red = await _conectividad.comprobar();
+      if (red.conectado) {
+        try {
+          final postes = await _posteService.listarPorProyecto(widget.proyectoId);
+          await _db.insertOrUpdatePostes(postes);
+          lineas = await _leerLineasLocales();
+        } on ErrorApi catch (e) {
+          _error = e.mensajeUsuario;
+        } catch (e) {
+          _error = 'No se pudieron descargar las líneas: $e';
         }
+      } else {
+        _error = 'Sin conexión y sin líneas guardadas en este teléfono.';
       }
-
-      setState(() {
-        _todasLasLineas = lineasSet.toList();
-        _lineasFiltradas = lineasSet.toList();
-        _ubicacionesPorLinea = ubicaciones;
-      });
-
-      return;
     }
 
-    // Si no hay datos locales y se puede, intenta servidor
-    if (!_modoOffline && _hayInternet) {
-      await _actualizarLineasDesdeServidor();
-    } else {
-      setState(() {
-        _todasLasLineas = [];
-        _lineasFiltradas = [];
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _todas = lineas;
+      _cargando = false;
+    });
+    _filtrar();
   }
 
+  /// Lee las líneas de la base local, con su ubicación y su número de
+  /// estructuras, en una sola consulta.
+  Future<List<_Linea>> _leerLineasLocales() async {
+    final postes = await _db.obtenerPostesPorProyecto(widget.proyectoId);
 
-  Future<void> _actualizarLineasDesdeServidor() async {
-    try {
-      final response = await _posteService.listarPostesPorProyecto(widget.proyectoId);
-      if (response['success']) {
-        final postes = response['data'];
-        final Set<String> lineasSet = {};
-        final Map<String, String> ubicaciones = {};
+    final conteo = <String, int>{};
+    final ubicaciones = <String, String>{};
 
-        for (final poste in postes) {
-          print(
-              '📥 Poste recibido: '
-                  'ID=${poste['id']}, '
-                  'Código=${poste['codigo']}, '
-                  'Línea=${poste['linea']}, '
-                  'Estructura=${poste['estructura']}, '
-                  'Ubicación=${poste['ubicaciones']}, '
-                  'Fecha Inspección=${poste['fecha_inspeccion']}, '
-                  'Coordenadas UTM=${poste['coordenadas_utm']}, '
-                  'Formulario=${poste['formulario_subido']}, '
-                  'Imágenes=${poste['imagenes_subidas']}'
-          );
-// 👈 Agrega esto
-          final linea = poste['linea']?.toString() ?? '';
-          final ubicacion = poste['ubicaciones']?.toString() ?? '';
-
-          if (linea.isNotEmpty) {
-            lineasSet.add(linea);
-            if (!ubicaciones.containsKey(linea)) {
-              ubicaciones[linea] = ubicacion;
-            }
-          }
-        }
-
-        final db = DatabaseHelper();
-        await db.insertOrUpdatePostes(postes);
-
-        setState(() {
-          _todasLasLineas = lineasSet.toList();
-          _lineasFiltradas = lineasSet.toList();
-          _ubicacionesPorLinea = ubicaciones;
-        });
+    for (final poste in postes) {
+      final linea = (poste['linea'] ?? '').toString().trim();
+      if (linea.isEmpty) continue;
+      conteo[linea] = (conteo[linea] ?? 0) + 1;
+      final ubicacion = (poste['ubicaciones'] ?? '').toString().trim();
+      if (ubicacion.isNotEmpty && !ubicaciones.containsKey(linea)) {
+        ubicaciones[linea] = ubicacion;
       }
-    } catch (e) {
-      print("❌ Error al cargar desde servidor: $e");
     }
+
+    final lista = conteo.entries
+        .map(
+          (e) => _Linea(
+            nombre: e.key,
+            ubicacion: ubicaciones[e.key] ?? 'Ubicación no registrada',
+            estructuras: e.value,
+          ),
+        )
+        .toList();
+
+    // Orden natural: L-2 antes de L-10.
+    lista.sort((a, b) => Normalizar.compararNatural(a.nombre, b.nombre));
+    return lista;
   }
 
-
-  void _filtrarLineas(String query) {
-    final resultado = _todasLasLineas.where(
-          (linea) => linea.toLowerCase().contains(query.toLowerCase()),
-    ).toList();
-
-    setState(() => _lineasFiltradas = resultado);
-  }
-
-  Widget _iconoModoOffline() {
-    return Tooltip(
-      message: _modoOffline ? 'Modo offline ACTIVADO' : 'Modo offline DESACTIVADO',
-      child: Icon(
-        _modoOffline ? Icons.cloud_off : Icons.cloud_done,
-        color: _modoOffline ? Colors.yellow : Colors.white,
-      ),
-    );
-  }
-
-  Widget _iconoInternet() {
-    return Tooltip(
-      message: _hayInternet ? 'Conectado a Internet' : 'Sin conexión',
-      child: Icon(
-        _hayInternet ? Icons.wifi : Icons.wifi_off,
-        color: _hayInternet ? Colors.greenAccent : Colors.grey[300],
-      ),
-    );
+  void _filtrar() {
+    final texto = _busquedaCtrl.text;
+    setState(() {
+      _filtradas = _todas
+          .where(
+            (l) =>
+                Normalizar.contiene(l.nombre, texto) ||
+                Normalizar.contiene(l.ubicacion, texto),
+          )
+          .toList();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final red = _conectividad.estado.value;
     return Scaffold(
-      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          'Buscar Línea - ${widget.proyectoNombre}',
-          style: const TextStyle(color: Colors.white),
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pushReplacementNamed(context, '/proyectos'),
-        ),
+        title: Text(widget.proyectoNombre, overflow: TextOverflow.ellipsis),
         actions: [
-          _iconoModoOffline(),
-          const SizedBox(width: 12),
-          _iconoInternet(),
-          const SizedBox(width: 16),
+          IndicadorConexion(
+            hayInternet: red.conectado,
+            modoOffline: _modoOffline,
+            descripcionRed: red.descripcion,
+          ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFB71C1C), Color(0xFF0D47A1)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Colors.white))
-              : Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: TextField(
-                    controller: _lineaController,
-                    decoration: InputDecoration(
-                      labelText: 'Buscar líssea',
-                      labelStyle: const TextStyle(color: Colors.black87),
-                      prefixIcon: const Icon(Icons.search, color: Colors.black54),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
+      body: Column(
+        children: [
+          Container(
+            color: ColoresEcoing.superficie,
+            padding: const EdgeInsets.all(Espacio.l),
+            child: TextField(
+              controller: _busquedaCtrl,
+              onChanged: (_) => _filtrar(),
+              decoration: InputDecoration(
+                hintText: 'Buscar línea o ubicación',
+                prefixIcon: const Icon(Icons.search),
+                isDense: true,
+                suffixIcon: _busquedaCtrl.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () {
+                          _busquedaCtrl.clear();
+                          _filtrar();
+                        },
                       ),
-                    ),
-                    style: const TextStyle(color: Colors.black87),
-                    onChanged: _filtrarLineas,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: _lineasFiltradas.isEmpty
-                      ? const Center(
-                    child: Text('No se encontraron líneas', style: TextStyle(color: Colors.white)),
-                  )
-                      : ListView.builder(
-                    itemCount: _lineasFiltradas.length,
-                    itemBuilder: (context, index) {
-                      final linea = _lineasFiltradas[index];
-                      return Card(
-                          elevation: 4,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          child: ListTile(
-                            title: Text(
-                              linea,
-                              style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Text(
-                              'Ubicación: ${_ubicacionesPorLinea[linea] ?? "No disponible"}',
-                              style: const TextStyle(color: Colors.black54),
-                            ),
-                            trailing: const Icon(Icons.arrow_forward, color: Colors.black54),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => DetalleProyectoScreen(
-                                    proyectoId: widget.proyectoId,
-                                    proyectoNombre: widget.proyectoNombre,
-                                    lineaSeleccionada: linea,
-                                  ),
-                                ),
-                              );
-                            },
-                          )
-
-                      );
-                    },
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
+          if (_todas.isNotEmpty)
+            Container(
+              width: double.infinity,
+              color: ColoresEcoing.superficie,
+              padding: const EdgeInsets.fromLTRB(
+                Espacio.l,
+                0,
+                Espacio.l,
+                Espacio.m,
+              ),
+              child: Text(
+                '${_todas.length} línea(s) · '
+                '${_todas.fold<int>(0, (a, l) => a + l.estructuras)} estructuras',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: ColoresEcoing.textoSuave,
+                ),
+              ),
+            ),
+          Expanded(child: _cuerpo()),
+        ],
+      ),
+    );
+  }
+
+  Widget _cuerpo() {
+    if (_cargando) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_todas.isEmpty) {
+      return VistaEstado.error(
+        titulo: 'No hay líneas para este proyecto',
+        detalle: _error ??
+            'Puede que el proyecto no tenga estructuras con línea asignada.',
+        alPulsar: _cargarLineas,
+      );
+    }
+    if (_filtradas.isEmpty) {
+      return VistaEstado.vacio(
+        titulo: 'Ninguna línea coincide',
+        detalle: 'Prueba con otro texto.',
+        textoAccion: 'Limpiar búsqueda',
+        alPulsar: () {
+          _busquedaCtrl.clear();
+          _filtrar();
+        },
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _cargarLineas,
+      child: ListView.builder(
+        padding: const EdgeInsets.only(bottom: Espacio.xl),
+        itemCount: _filtradas.length,
+        itemBuilder: (context, i) {
+          final linea = _filtradas[i];
+          return Card(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(Espacio.radioGrande),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DetalleProyectoScreen(
+                    proyectoId: widget.proyectoId,
+                    proyectoNombre: widget.proyectoNombre,
+                    lineaSeleccionada: linea.nombre,
+                  ),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(Espacio.l),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.alt_route_rounded,
+                      color: ColoresEcoing.azul,
+                      size: 26,
+                    ),
+                    const SizedBox(width: Espacio.m),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            linea.nombre,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: Espacio.xs),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.place_outlined,
+                                size: 14,
+                                color: ColoresEcoing.textoTenue,
+                              ),
+                              const SizedBox(width: Espacio.xs),
+                              Expanded(
+                                child: Text(
+                                  linea.ubicacion,
+                                  style: const TextStyle(
+                                    fontSize: 13.5,
+                                    color: ColoresEcoing.textoSuave,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: Espacio.xs),
+                          Text(
+                            '${linea.estructuras} estructura(s)',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: ColoresEcoing.azul,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: ColoresEcoing.textoTenue,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

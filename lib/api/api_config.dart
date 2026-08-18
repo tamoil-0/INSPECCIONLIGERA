@@ -1,17 +1,28 @@
+import '../core/entorno.dart';
 
+/// Rutas de la API.
+///
+/// La URL base ya no está escrita aquí: viene de [Entorno], que la toma de
+/// `--dart-define` en el momento de compilar. Ver `.env.example`.
 class ApiConfig {
-  // static const String baseUrl = 'http://10.0.2.2/api';
-  // static const String baseUrl = 'http://192.168.0.101/api';
-  static const String baseUrl = 'https://virrgoecoing.com/api';
+  const ApiConfig._();
 
+  /// URL base, sin barra final. Configurable por entorno.
+  static String get baseUrl => Entorno.apiBaseUrl;
+
+  // --- Sesión -------------------------------------------------------------
   static const String login = '/usuarios/login.php';
+
+  // --- Proyectos ----------------------------------------------------------
   static const String proyectosLista = '/proyectos/listar.php';
-  static const String postes = '/postes';
+
+  // --- Postes -------------------------------------------------------------
+  static const String posteListarPorProyecto = '/postes/listar.php';
   static const String posteBuscarEstructura = '/postes/buscar_estructura.php';
+  static const String buscarLinea = '/postes/buscar_por_linea.php';
   static const String posteActualizarDatos = '/postes/actualiza-datos.php';
   static const String posteAgregarRST = '/postes/agregar-seccion-rst.php';
-  static const String PosteImagenes ="/postes/imagenes-poste.php";
-  static const String posteListarPorProyecto = '/postes/listar.php';
-  static const String Estado ="/postes/sincronizacion_estado.php";
-  static const String BuscarLinea ="/postes/buscar_por_linea.php";
+  static const String posteImagenes = '/postes/imagenes-poste.php';
+  static const String estadoSincronizacion =
+      '/postes/sincronizacion_estado.php';
 }

@@ -1,123 +1,65 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../api/api_config.dart';
+import '../data/remoto/cliente_api.dart';
 
+/// Consultas de postes contra el servidor.
+///
+/// Cada método devuelve la lista, o lanza [ErrorApi] con el motivo clasificado.
+/// Antes devolvían `Map<String, dynamic>` con `success` y `error` como cadenas,
+/// y quien llamaba no podía distinguir "sin red" de "sesión vencida".
 class PosteService {
-  /// 🔍 Buscar postes por estructura
-  Future<Map<String, dynamic>> buscarPostesPorEstructura(String estructura) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+  PosteService({ClienteApi? api}) : _api = api ?? ClienteApi();
 
-    if (token == null) {
-      return {
-        'success': false,
-        'error': 'Token no encontrado. Por favor inicia sesión nuevamente.',
-        'token': null,
-      };
-    }
+  final ClienteApi _api;
 
-    final url = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.posteBuscarEstructura}?estructura=$estructura');
-
-    try {
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        return {
-          'success': false,
-          'error': jsonDecode(response.body)['error'] ?? 'Error desconocido',
-          'token': token,
-        };
-      }
-    } catch (e) {
-      return {
-        'success': false,
-        'error': 'Error al conectar con el servidor: $e',
-        'token': token,
-      };
-    }
+  /// 📥 Todos los postes de un proyecto.
+  Future<List<Map<String, dynamic>>> listarPorProyecto(int proyectoId) async {
+    final respuesta = await _api.get(
+      ApiConfig.posteListarPorProyecto,
+      parametros: {'proyecto_id': proyectoId},
+    );
+    return _lista(respuesta);
   }
 
-  /// 📥 Descargar todos los postes de un proyecto
-  Future<Map<String, dynamic>> listarPostesPorProyecto(int proyectoId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-
-    if (token == null) {
-      return {
-        'success': false,
-        'error': 'Token no encontrado. Por favor inicia sesión nuevamente.',
-      };
-    }
-
-    final url = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.posteListarPorProyecto}?proyecto_id=$proyectoId');
-
-    try {
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return {'success': true, 'data': data['data']};
-      } else {
-        final error = jsonDecode(response.body)['error'] ?? 'Error desconocido';
-        return {'success': false, 'error': error};
-      }
-    } catch (e) {
-      return {
-        'success': false,
-        'error': 'Error de conexión: $e',
-      };
-    }
+  /// 🔍 Postes de una línea.
+  Future<List<Map<String, dynamic>>> buscarPorLinea(String linea) async {
+    final respuesta = await _api.get(
+      ApiConfig.buscarLinea,
+      parametros: {'linea': linea},
+    );
+    return _lista(respuesta);
   }
 
-  /// 🔍 Buscar postes por línea (nuevo método)
-  Future<Map<String, dynamic>> buscarPostesPorLinea(String linea) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+  /// 🔍 Postes por número de estructura.
+  Future<List<Map<String, dynamic>>> buscarPorEstructura(
+    String estructura,
+  ) async {
+    final respuesta = await _api.get(
+      ApiConfig.posteBuscarEstructura,
+      parametros: {'estructura': estructura},
+    );
+    return _lista(respuesta);
+  }
 
-    final url = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.BuscarLinea}?linea=$linea');
-
-    try {
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
+  List<Map<String, dynamic>> _lista(RespuestaApi respuesta) {
+    if (!respuesta.exito) {
+      throw ErrorApi(
+        TipoErrorApi.respuestaInesperada,
+        codigoHttp: respuesta.codigoHttp,
+        detalle: respuesta.mensajeServidor ?? 'El servidor no devolvió éxito.',
       );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && data['success'] == true) {
-        return {
-          'success': true,
-          'data': data['data'],
-        };
-      } else {
-        return {
-          'success': false,
-          'error': data['error'] ?? 'Error al consultar línea',
-        };
-      }
-    } catch (e) {
-      return {
-        'success': false,
-        'error': 'Error de conexión: $e',
-      };
     }
+    final datos = respuesta.datos;
+    if (datos == null) return const [];
+    if (datos is! List) {
+      throw ErrorApi(
+        TipoErrorApi.respuestaInesperada,
+        codigoHttp: respuesta.codigoHttp,
+        detalle: 'Se esperaba una lista en "data".',
+      );
+    }
+    return datos
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
   }
 }

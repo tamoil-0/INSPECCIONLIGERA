@@ -1,100 +1,69 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../api/api_config.dart';
+import '../data/remoto/cliente_api.dart';
 
+/// Envío de los datos del formulario técnico y del tablero RST.
+///
+/// Los métodos devuelven `true` solo cuando el servidor **confirma**, y lanzan
+/// [ErrorApi] con el motivo clasificado cuando algo falla. La versión anterior
+/// devolvía `false` para todo (sin red, sesión vencida, error del servidor) y
+/// se comía la causa en un `print`.
 class PosteDatosService {
-  final http.Client _client;
-  PosteDatosService({http.Client? client}) : _client = client ?? http.Client();
+  PosteDatosService({ClienteApi? api}) : _api = api ?? ClienteApi();
 
+  final ClienteApi _api;
+
+  /// Actualiza los datos del formulario de un poste.
   Future<bool> actualizarDatosPoste({
     required int posteId,
     required String token,
     required Map<String, dynamic> datos,
   }) async {
-    final url = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.posteActualizarDatos}?poste_id=$posteId');
-
-    try {
-      final response = await _client.put(
-        url,
-        headers: _buildHeaders(token),
-        body: jsonEncode(datos),
-      );
-
-      final data = jsonDecode(response.body);
-      return data['success'] == true;
-    } catch (e) {
-      print('❌ Error actualizarDatosPoste: $e');
-      return false;
-    }
+    final respuesta = await _api.put(
+      ApiConfig.posteActualizarDatos,
+      parametros: {'poste_id': posteId},
+      cuerpo: datos,
+    );
+    return respuesta.exito;
   }
 
+  /// Envía las marcas del tablero RST.
   Future<bool> agregarSeccionRST({
     required int posteId,
     required String token,
     required Map<String, dynamic> datos,
   }) async {
-    final url = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.posteAgregarRST}?poste_id=$posteId');
-
-    try {
-      final response = await _client.post(
-        url,
-        headers: _buildHeaders(token),
-        body: jsonEncode(datos),
-      );
-      print('📥 Respuesta bruta del servidor: ${response.body}');
-      final data = jsonDecode(response.body);
-      return data['success'] == true;
-    } catch (e) {
-      print('❌ Error agregarSeccionRST: $e');
-      return false;
-    }
+    final respuesta = await _api.post(
+      ApiConfig.posteAgregarRST,
+      parametros: {'poste_id': posteId},
+      cuerpo: datos,
+    );
+    return respuesta.exito;
   }
 
-  Future<bool> verificarConexion() async {
-    try {
-      final url = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.postes}');
-      final response = await _client.get(url);
-      return response.statusCode < 500;
-    } catch (e) {
-      print('❌ Error de conectividad: $e');
-      return false;
-    }
-  }
-  Future<Map<String, bool>> obtenerEstadoSincronizacion({
+  /// Consulta si el servidor ya tiene formulario e imágenes de un poste.
+  ///
+  /// Se usa para la tabla comparativa local/servidor. Si la consulta falla se
+  /// propaga el error: antes devolvía `false, false` en silencio, lo que se
+  /// mostraba como "el servidor no lo tiene" cuando en realidad no se había
+  /// podido preguntar.
+  Future<({bool formulario, bool imagenes})> obtenerEstadoSincronizacion({
     required int posteId,
     required String token,
   }) async {
-    final url = Uri.parse('${ApiConfig.baseUrl}/postes/sincronizacion_estado.php?poste_id=$posteId');
-
-    try {
-      final response = await _client.get(
-        url,
-        headers: _buildHeaders(token),
+    final respuesta = await _api.get(
+      ApiConfig.estadoSincronizacion,
+      parametros: {'poste_id': posteId},
+    );
+    if (!respuesta.exito) {
+      throw ErrorApi(
+        TipoErrorApi.respuestaInesperada,
+        codigoHttp: respuesta.codigoHttp,
+        detalle: respuesta.mensajeServidor ?? 'Sin éxito en la respuesta.',
       );
-
-      final data = jsonDecode(response.body);
-      if (data['success'] == true) {
-        return {
-          'formulario_subido': data['formulario_subido'] == true,
-          'imagenes_subidas': data['imagenes_subidas'] == true,
-        };
-      }
-    } catch (e) {
-      print("❌ Error al consultar estado servidor: $e");
     }
-
-    return {
-      'formulario_subido': false,
-      'imagenes_subidas': false,
-    };
-  }
-
-
-  Map<String, String> _buildHeaders(String token) {
-    return {
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-      "Authorization": "Bearer $token",
-    };
+    return (
+      formulario: respuesta.cuerpo['formulario_subido'] == true,
+      imagenes: respuesta.cuerpo['imagenes_subidas'] == true,
+    );
   }
 }

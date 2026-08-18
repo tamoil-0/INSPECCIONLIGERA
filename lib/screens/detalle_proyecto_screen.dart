@@ -1,404 +1,695 @@
 import 'package:flutter/material.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../services/poste_service.dart';
-import 'formulario_screen.dart';
+
+import '../core/estados_sync.dart';
+import '../core/normalizar.dart';
+import '../core/preferencias_app.dart';
+import '../data/remoto/cliente_api.dart';
 import '../database/database_helper.dart';
-import 'dart:convert';
+import '../presentacion/comunes/componentes.dart';
+import '../presentacion/diseno/tema_ecoing.dart';
+import '../repositorios/borradores_repositorio.dart';
+import '../repositorios/fotos_repositorio.dart';
+import '../servicios/conectividad/servicio_conectividad.dart';
+import '../servicios/sincronizacion/servicio_sincronizacion.dart';
+import '../services/poste_service.dart';
 import '../utils/formatos.dart';
+import 'formulario_screen.dart';
 import 'imagenesPoste_screen.dart';
 
+/// Estado de una estructura, combinando lo local y lo del servidor.
+enum EstadoEstructura {
+  sinIniciar,
+  borrador,
+  completaLocal,
+  pendiente,
+  sincronizada,
+  conError,
+}
+
+extension EstadoEstructuraTexto on EstadoEstructura {
+  String get etiqueta {
+    switch (this) {
+      case EstadoEstructura.sinIniciar:
+        return 'Sin iniciar';
+      case EstadoEstructura.borrador:
+        return 'Borrador';
+      case EstadoEstructura.completaLocal:
+        return 'Completa en el teléfono';
+      case EstadoEstructura.pendiente:
+        return 'Por enviar';
+      case EstadoEstructura.sincronizada:
+        return 'Sincronizada';
+      case EstadoEstructura.conError:
+        return 'Con error';
+    }
+  }
+
+  String get estadoSync {
+    switch (this) {
+      case EstadoEstructura.sincronizada:
+        return EstadoSync.sincronizado;
+      case EstadoEstructura.conError:
+        return EstadoSync.fallido;
+      case EstadoEstructura.pendiente:
+      case EstadoEstructura.completaLocal:
+        return EstadoSync.pendiente;
+      default:
+        return EstadoSync.local;
+    }
+  }
+}
+
+/// Una estructura con todo lo que la pantalla necesita saber de ella.
+class _Estructura {
+  final int posteId;
+  final String codigo;
+  final String estructura;
+  final String? fechaInspeccion;
+  final int fotos;
+  final int fotosSincronizadas;
+  final int fotosConError;
+  final bool tieneBorrador;
+  final bool formularioSincronizado;
+  final bool formularioConError;
+
+  const _Estructura({
+    required this.posteId,
+    required this.codigo,
+    required this.estructura,
+    this.fechaInspeccion,
+    this.fotos = 0,
+    this.fotosSincronizadas = 0,
+    this.fotosConError = 0,
+    this.tieneBorrador = false,
+    this.formularioSincronizado = false,
+    this.formularioConError = false,
+  });
+
+  /// Las 22 vistas obligatorias del catálogo de fotografías.
+  static const int fotosObligatorias = 22;
+
+  bool get fotosCompletas => fotos >= fotosObligatorias;
+  bool get todoSincronizado =>
+      formularioSincronizado && fotos > 0 && fotosSincronizadas == fotos;
+
+  EstadoEstructura get estado {
+    if (formularioConError || fotosConError > 0) return EstadoEstructura.conError;
+    if (todoSincronizado) return EstadoEstructura.sincronizada;
+    if (!tieneBorrador && fotos == 0) return EstadoEstructura.sinIniciar;
+    if (tieneBorrador && fotosCompletas) return EstadoEstructura.pendiente;
+    if (tieneBorrador || fotos > 0) return EstadoEstructura.borrador;
+    return EstadoEstructura.sinIniciar;
+  }
+}
+
+/// Estructuras de una línea, con búsqueda tolerante y estado por estructura.
+///
+/// ## Cambios respecto a la versión anterior
+///
+/// * **Se listan todas las estructuras de la línea**, ordenadas de forma
+///   natural. Antes había que escribir el número exacto y la lista no aparecía
+///   hasta acertar.
+/// * **La búsqueda tolera ceros a la izquierda, espacios, guiones y mayúsculas**
+///   (`0025` = `25` = `25-A` → `25a`). Antes era `==` sobre la cadena cruda.
+/// * **Estado real por estructura**, calculado a partir de los borradores y las
+///   fotografías guardadas, en lugar de un "Ya inventariado / Sin inventariar"
+///   deducido solo de la fecha.
+/// * El aviso "Estructuras disponibles: desde X hasta Y" **solo se calculaba en
+///   la rama offline**, así que con conexión nunca aparecía. Ahora el rango se
+///   muestra siempre.
+/// * `buscarPorLinea` traía postes de cualquier proyecto que compartiera nombre
+///   de línea y los insertaba en local sin filtrar. Ahora se filtra por
+///   proyecto.
 class DetalleProyectoScreen extends StatefulWidget {
   final int proyectoId;
   final String proyectoNombre;
   final String lineaSeleccionada;
 
   const DetalleProyectoScreen({
-    Key? key,
+    super.key,
     required this.proyectoId,
     required this.proyectoNombre,
     required this.lineaSeleccionada,
-  }) : super(key: key);
+  });
 
   @override
-  _DetalleProyectoScreenState createState() => _DetalleProyectoScreenState();
+  State<DetalleProyectoScreen> createState() => _DetalleProyectoScreenState();
 }
 
 class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
-  final PosteService _posteService = PosteService();
-  final TextEditingController _estructuraController = TextEditingController();
+  final _busquedaCtrl = TextEditingController();
+  final _posteService = PosteService();
+  final _db = DatabaseHelper();
+  final _fotos = FotosRepositorio();
+  final _borradores = BorradoresRepositorio();
+  final _sync = ServicioSincronizacion.instancia;
+  final _conectividad = ServicioConectividad.instancia;
 
-  bool _isLoading = false;
-  String? _errorMessage;
-  bool _hayInternet = false;
+  List<_Estructura> _todas = [];
+  List<_Estructura> _filtradas = [];
+  bool _cargando = true;
+  bool _sincronizando = false;
   bool _modoOffline = false;
+  String? _error;
+  EstadoEstructura? _filtroEstado;
 
-  List<Map<String, dynamic>> _postesPorLinea = [];
-  List<Map<String, dynamic>> _postesFiltrados = [];
-  String? _estructuraMin;
-  String? _estructuraMax;
   @override
   void initState() {
     super.initState();
     _inicializar();
   }
 
-  Future<void> _inicializar() async {
-    final prefs = await SharedPreferences.getInstance();
-    _modoOffline = prefs.getBool('modo_offline') ?? false;
-
-    final connectivityResult = await Connectivity().checkConnectivity();
-    _hayInternet = connectivityResult != ConnectivityResult.none;
-
-    await _cargarPostesDeLinea();
+  @override
+  void dispose() {
+    _busquedaCtrl.dispose();
+    super.dispose();
   }
 
-  Future<void> _cargarPostesDeLinea() async {
+  Future<void> _inicializar() async {
+    final prefs = await PreferenciasApp.instancia();
+    if (!mounted) return;
+    setState(() => _modoOffline = prefs.modoOffline);
+    await _cargar(actualizarDesdeServidor: true);
+  }
+
+  Future<void> _cargar({bool actualizarDesdeServidor = false}) async {
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _cargando = true;
+      _error = null;
     });
 
-    final db = DatabaseHelper();
-
-    if (!_modoOffline && _hayInternet) {
-      try {
-        final response = await _posteService.buscarPostesPorLinea(widget.lineaSeleccionada);
-        if (response['success']) {
-          _postesPorLinea = List<Map<String, dynamic>>.from(response['data']);
-          await db.insertOrUpdatePostes(_postesPorLinea);
-        } else {
-          _errorMessage = response['error'] ?? "Error al obtener postes del servidor.";
-          _postesPorLinea = await db.buscarPostesPorLineaLocal(widget.proyectoId, widget.lineaSeleccionada);
+    if (actualizarDesdeServidor && !_modoOffline) {
+      final red = await _conectividad.comprobar();
+      if (red.conectado) {
+        try {
+          final remotos = await _posteService.buscarPorLinea(
+            widget.lineaSeleccionada,
+          );
+          // Filtro por proyecto: el endpoint devuelve por nombre de línea y dos
+          // proyectos pueden compartirlo.
+          final delProyecto = remotos.where((p) {
+            final pid = int.tryParse((p['proyecto_id'] ?? '').toString());
+            return pid == null || pid == widget.proyectoId;
+          }).toList();
+          await _db.insertOrUpdatePostes(delProyecto);
+        } on ErrorApi catch (e) {
+          _error = 'No se pudo actualizar desde el servidor: '
+              '${e.mensajeUsuario}';
+        } catch (e) {
+          _error = 'No se pudo actualizar desde el servidor: $e';
         }
-      } catch (e) {
-        _errorMessage = "Error de red: $e";
-        _postesPorLinea = await db.buscarPostesPorLineaLocal(widget.proyectoId, widget.lineaSeleccionada);
-      }
-    } else {
-      _postesPorLinea = await db.buscarPostesPorLineaLocal(widget.proyectoId, widget.lineaSeleccionada);
-      if (_postesPorLinea.isNotEmpty) {
-        final estructuras = _postesPorLinea.map((p) => int.tryParse(p['estructura'].toString()) ?? 0).toList();
-        estructuras.sort();
-        _estructuraMin = estructuras.first.toString();
-        _estructuraMax = estructuras.last.toString();
-      }
-
-      if (_postesPorLinea.isEmpty) {
-        _errorMessage = 'No se encontraron datos locales en modo offline.';
       }
     }
 
+    final estructuras = await _leerEstructuras();
+    if (!mounted) return;
     setState(() {
-      _isLoading = false;
+      _todas = estructuras;
+      _cargando = false;
+    });
+    _filtrar();
+  }
+
+  Future<List<_Estructura>> _leerEstructuras() async {
+    final postes = await _db.buscarPostesPorLineaLocal(
+      widget.proyectoId,
+      widget.lineaSeleccionada,
+    );
+
+    final resultado = <_Estructura>[];
+    for (final poste in postes) {
+      final posteId = int.tryParse((poste['id'] ?? '').toString());
+      if (posteId == null) continue;
+
+      final fotos = await _fotos.fotosDePoste(posteId);
+      final borrador = await _borradores.obtener(posteId);
+
+      resultado.add(
+        _Estructura(
+          posteId: posteId,
+          codigo: (poste['codigo'] ?? '').toString(),
+          estructura: (poste['estructura'] ?? '').toString(),
+          fechaInspeccion:
+              borrador?.datos['fecha_inspeccion']?.toString() ??
+              poste['fecha_inspeccion']?.toString(),
+          fotos: fotos.length,
+          fotosSincronizadas: fotos.where((f) => f.estaSincronizada).length,
+          fotosConError:
+              fotos.where((f) => f.estado == EstadoSync.fallido).length,
+          tieneBorrador: borrador != null && borrador.datos.isNotEmpty,
+          formularioSincronizado: borrador?.estaSincronizado ?? false,
+          formularioConError: borrador?.estado == EstadoSync.fallido,
+        ),
+      );
+    }
+
+    resultado.sort(
+      (a, b) => Normalizar.compararNatural(a.estructura, b.estructura),
+    );
+    return resultado;
+  }
+
+  void _filtrar() {
+    final texto = _busquedaCtrl.text.trim();
+    setState(() {
+      _filtradas = _todas.where((e) {
+        if (_filtroEstado != null && e.estado != _filtroEstado) return false;
+        if (texto.isEmpty) return true;
+        // Coincidencia exacta normalizada, o parcial por si escribe de más.
+        return Normalizar.mismaEstructura(e.estructura, texto) ||
+            Normalizar.estructura(e.estructura)
+                .contains(Normalizar.estructura(texto)) ||
+            Normalizar.contiene(e.codigo, texto);
+      }).toList();
     });
   }
 
-  int _idDe(Map<String, dynamic> poste) =>
-      int.parse(poste['id'].toString());
-
-  Future<void> _abrirFotos(Map<String, dynamic> poste) async {
+  Future<void> _abrirFotos(_Estructura e) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ImagenesPosteScreen(
-          posteId: _idDe(poste),
-          numeroEstructura: poste['estructura']?.toString() ?? '',
+          posteId: e.posteId,
+          numeroEstructura: e.estructura,
           proyectoId: widget.proyectoId,
           proyectoNombre: widget.proyectoNombre,
           linea: widget.lineaSeleccionada,
         ),
       ),
     );
-    // Al volver, la tarjeta se repinta con el estado real de la base.
-    if (mounted) setState(() {});
+    if (mounted) await _cargar();
   }
 
-  Future<void> _abrirFormulario(Map<String, dynamic> poste) async {
+  Future<void> _abrirFormulario(_Estructura e) async {
+    // Editar algo ya sincronizado se confirma: es la única vía por la que el
+    // inspector podría sobrescribir una inspección cerrada.
+    if (e.formularioSincronizado) {
+      final seguir = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Esta inspección ya está sincronizada'),
+          content: Text(
+            'La estructura ${e.estructura} ya fue enviada y confirmada por el '
+            'servidor.\n\nSe abrirá con los datos anteriores cargados. Si la '
+            'guardas, se volverá a enviar y reemplazará lo que hay en el '
+            'servidor.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Abrir para editar'),
+            ),
+          ],
+        ),
+      );
+      if (seguir != true) return;
+    }
+
+    if (!mounted) return;
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => FormularioPostePage(
-          estructura: poste['estructura']?.toString() ?? '',
+          estructura: e.estructura,
           proyectoNombre: widget.proyectoNombre,
           proyectoId: widget.proyectoId,
-          posteId: _idDe(poste),
+          posteId: e.posteId,
         ),
       ),
     );
-    if (mounted) setState(() {});
+    if (mounted) await _cargar();
   }
 
-  void _filtrarPostes() {
-    final estructuraBuscada = _estructuraController.text.trim();
-    if (estructuraBuscada.isEmpty) return;
-
-    setState(() {
-      _postesFiltrados = _postesPorLinea
-          .where((poste) => poste['estructura'].toString() == estructuraBuscada)
-          .toList();
-
-      _errorMessage = _postesFiltrados.isEmpty
-          ? 'No se encontraron postes con estructura $estructuraBuscada'
-          : null;
-    });
-  }
-
-  Widget _iconoModoOffline() {
-    return Tooltip(
-      message: _modoOffline ? 'Modo offline ACTIVADO' : 'Modo offline DESACTIVADO',
-      child: Icon(
-        _modoOffline ? Icons.cloud_off : Icons.cloud_done,
-        color: _modoOffline ? Colors.yellow : Colors.white,
+  Future<void> _sincronizarLinea() async {
+    if (_sincronizando) return;
+    setState(() => _sincronizando = true);
+    final resultado = await _sync.sincronizarLinea(
+      widget.proyectoId,
+      widget.lineaSeleccionada,
+    );
+    if (!mounted) return;
+    setState(() => _sincronizando = false);
+    await _cargar();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 6),
+        backgroundColor: resultado.todoConfirmado
+            ? ColoresEcoing.exito
+            : (resultado.pudoEmpezar
+                  ? ColoresEcoing.pendiente
+                  : ColoresEcoing.inactivo),
+        content: Text(resultado.mensaje),
       ),
     );
   }
 
-  Widget _iconoInternet() {
-    return Tooltip(
-      message: _hayInternet ? 'Conectado a Internet' : 'Sin conexión',
-      child: Icon(
-        _hayInternet ? Icons.wifi : Icons.wifi_off,
-        color: _hayInternet ? Colors.greenAccent : Colors.grey[300],
-      ),
-    );
-  }
+  int _contar(EstadoEstructura estado) =>
+      _todas.where((e) => e.estado == estado).length;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text('Proyecto: ${widget.proyectoNombre}', style: const TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
-        actions: [
-          _iconoModoOffline(),
-          const SizedBox(width: 12),
-          _iconoInternet(),
-          const SizedBox(width: 16),
-        ],
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFB71C1C), Color(0xFF0D47A1)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+    final red = _conectividad.estado.value;
+    final pendientes =
+        _contar(EstadoEstructura.pendiente) + _contar(EstadoEstructura.borrador);
+
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            title: Text(
+              'Línea ${widget.lineaSeleccionada}',
+              overflow: TextOverflow.ellipsis,
+            ),
+            actions: [
+              IndicadorConexion(
+                hayInternet: red.conectado,
+                modoOffline: _modoOffline,
+                descripcionRed: red.descripcion,
+              ),
+            ],
+          ),
+          body: Column(
+            children: [
+              _cabecera(pendientes),
+              _buscador(),
+              Expanded(child: _cuerpo()),
+            ],
           ),
         ),
-        child: SafeArea(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Colors.white))
-              : Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Text(
-                  'Línea: ${widget.lineaSeleccionada}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        if (_sincronizando)
+          CapaCargando(
+            mensaje: 'Enviando lo pendiente de la línea…\n'
+                'Puedes detenerlo: nada se pierde.',
+            alCancelar: _sync.cancelar,
+          ),
+      ],
+    );
+  }
+
+  Widget _cabecera(int pendientes) {
+    final rango = _rangoEstructuras();
+    return Container(
+      width: double.infinity,
+      color: ColoresEcoing.superficie,
+      padding: const EdgeInsets.all(Espacio.l),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.proyectoNombre,
+            style: const TextStyle(
+              fontSize: 14,
+              color: ColoresEcoing.textoSuave,
+            ),
+          ),
+          const SizedBox(height: Espacio.s),
+          BarraProgreso(
+            hechas: _contar(EstadoEstructura.sincronizada),
+            total: _todas.length,
+            etiqueta: 'Estructuras sincronizadas',
+          ),
+          const SizedBox(height: Espacio.m),
+          ResumenEstados(
+            completas: _contar(EstadoEstructura.sincronizada),
+            pendientes: pendientes,
+            conError: _contar(EstadoEstructura.conError),
+            sinIniciar: _contar(EstadoEstructura.sinIniciar),
+          ),
+          if (rango != null) ...[
+            const SizedBox(height: Espacio.s),
+            Text(
+              'Estructuras disponibles: $rango',
+              style: const TextStyle(
+                fontSize: 13,
+                color: ColoresEcoing.textoTenue,
+              ),
+            ),
+          ],
+          if (pendientes > 0 || _contar(EstadoEstructura.conError) > 0) ...[
+            const SizedBox(height: Espacio.m),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _modoOffline ? null : _sincronizarLinea,
+                icon: const Icon(Icons.sync),
+                label: Text(
+                  _modoOffline
+                      ? 'Modo offline activado'
+                      : 'Sincronizar esta línea',
                 ),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: TextField(
-                    controller: _estructuraController,
-                    onSubmitted: (_) => _filtrarPostes(),
-                    style: const TextStyle(
-                      color: Color(0xFF3A3A3A),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Ingrese el numero de estructura',
-                      labelStyle: const TextStyle(
-                        color: Color(0xFF7986CB),
-                        fontWeight: FontWeight.bold,
-                      ),
-                      floatingLabelStyle: const TextStyle(
-                        backgroundColor: Color(0xFF0D47A1),
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      prefixIcon: const Icon(Icons.search, color: Color(0xFF0D47A1)),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: Color(0xFFB0BEC5)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: Color(0xFFB0BEC5)),
-                      ),
-                      focusedBorder: const OutlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFF0D47A1), width: 2),
-                      ),
-                    ),
-                  ),
-                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
-                if (_estructuraMin != null && _estructuraMax != null)
-                  Container(
-                    margin: const EdgeInsets.symmetric(vertical: 10),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white70),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.info_outline, color: Colors.amberAccent, size: 28),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Estructuras disponibles:\nDesde $_estructuraMin hasta $_estructuraMax',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+  String? _rangoEstructuras() {
+    if (_todas.isEmpty) return null;
+    final ordenadas = _todas.map((e) => e.estructura).toList()
+      ..sort(Normalizar.compararNatural);
+    if (ordenadas.length == 1) return ordenadas.first;
+    return 'de ${ordenadas.first} a ${ordenadas.last}';
+  }
 
-
-                const SizedBox(height: 12),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFBC02D),
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  ),
-                  onPressed: _isLoading ? null : _filtrarPostes,
-                  child: const Text('Buscar estructura'),
-                ),
-                const SizedBox(height: 12),
-                if (_errorMessage != null)
-                  Text(_errorMessage!, style: const TextStyle(color: Colors.white)),
-                if (_postesFiltrados.isNotEmpty)
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: _postesFiltrados.length,
-                      itemBuilder: (context, index) {
-                        final poste = _postesFiltrados[index];
-                        return FutureBuilder<Map<String, dynamic>?>(
-                          future: DatabaseHelper().getFormularioPorPoste(poste['id']),
-                          builder: (context, snapshot) {
-                            String? fechaLocal;
-                            if (snapshot.hasData && snapshot.data != null) {
-                              final datos = jsonDecode(snapshot.data!['datos_json'] ?? '{}');
-                              fechaLocal = datos['fecha_inspeccion']?.toString();
-                            }
-                            final fechaMostrar = fechaLocal ?? (poste['fecha_inspeccion'] ?? null);
-
-                            // EXISTE fecha inspección
-                            final inventariado = fechaMostrar != null &&
-                                fechaMostrar != "" &&
-                                fechaMostrar != "null" &&
-                                fechaMostrar != "N/A";
-
-                            return Card(
-                              elevation: 4,
-                              margin: const EdgeInsets.symmetric(vertical: 8),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(10.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Texto arriba del ListTile
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                                      decoration: BoxDecoration(
-                                        color: inventariado ? Colors.green[100] : Colors.red[100],
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        inventariado ? 'Ya inventariado' : 'Sin inventariar',
-                                        style: TextStyle(
-                                          color: inventariado ? Colors.green[900] : Colors.red[800],
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    ListTile(
-                                      title: Text('Código: ${poste['codigo']}', style: const TextStyle(color: Colors.black87)),
-                                      subtitle: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text('Línea: ${poste['linea']}', style: const TextStyle(color: Colors.black87)),
-                                          Text('Estructura: ${poste['estructura']}', style: const TextStyle(color: Colors.black87)),
-                                          Text(
-                                            'Fecha inspección: ${formatearFechaHoraBonita(fechaMostrar)}',
-                                            style: const TextStyle(color: Colors.black87),
-                                          ),
-                                        ],
-                                      ),
-                                      // ANTES: un solo botón abría las fotos y,
-                                      // en el `.then()`, empujaba el formulario
-                                      // SIEMPRE — incluso si el inspector solo
-                                      // había retrocedido sin tomar nada, y sin
-                                      // comprobar `mounted`. Ahora cada destino
-                                      // es una decisión explícita suya.
-                                      trailing: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          TextButton.icon(
-                                            style: TextButton.styleFrom(
-                                              foregroundColor: const Color(0xFF0D47A1),
-                                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                                              minimumSize: const Size(0, 44),
-                                            ),
-                                            icon: const Icon(Icons.photo_camera, size: 20),
-                                            label: const Text('Fotos'),
-                                            onPressed: () => _abrirFotos(poste),
-                                          ),
-                                          TextButton.icon(
-                                            style: TextButton.styleFrom(
-                                              foregroundColor: inventariado
-                                                  ? const Color(0xFFEF6C00)
-                                                  : const Color(0xFFB71C1C),
-                                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                                              minimumSize: const Size(0, 44),
-                                            ),
-                                            icon: Icon(
-                                              inventariado ? Icons.edit_note : Icons.assignment,
-                                              size: 20,
-                                            ),
-                                            label: Text(
-                                              inventariado ? 'Editar' : 'Formulario',
-                                            ),
-                                            onPressed: () => _abrirFormulario(poste),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        );
+  Widget _buscador() {
+    return Container(
+      color: ColoresEcoing.superficie,
+      padding: const EdgeInsets.fromLTRB(
+        Espacio.l,
+        0,
+        Espacio.l,
+        Espacio.m,
+      ),
+      child: Column(
+        children: [
+          TextField(
+            controller: _busquedaCtrl,
+            keyboardType: TextInputType.text,
+            onChanged: (_) => _filtrar(),
+            decoration: InputDecoration(
+              hintText: 'Nº de estructura o código (ej. 25, 0025, 25-A)',
+              prefixIcon: const Icon(Icons.search),
+              isDense: true,
+              suffixIcon: _busquedaCtrl.text.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        _busquedaCtrl.clear();
+                        _filtrar();
                       },
-
-
                     ),
-                  ),
+            ),
+          ),
+          const SizedBox(height: Espacio.s),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _chipFiltro(null, 'Todas', _todas.length),
+                ...EstadoEstructura.values.map(
+                  (e) => _chipFiltro(e, e.etiqueta, _contar(e)),
+                ),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chipFiltro(EstadoEstructura? estado, String etiqueta, int cuantas) {
+    if (cuantas == 0 && estado != null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(right: Espacio.s),
+      child: FilterChip(
+        label: Text('$etiqueta ($cuantas)'),
+        selected: _filtroEstado == estado,
+        onSelected: (_) {
+          setState(() => _filtroEstado = estado);
+          _filtrar();
+        },
+        selectedColor: ColoresEcoing.azulClaro,
+        checkmarkColor: ColoresEcoing.azul,
+      ),
+    );
+  }
+
+  Widget _cuerpo() {
+    if (_cargando) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_todas.isEmpty) {
+      return VistaEstado.error(
+        titulo: 'No hay estructuras en esta línea',
+        detalle: _error ?? 'No se encontraron datos locales para esta línea.',
+        alPulsar: () => _cargar(actualizarDesdeServidor: true),
+      );
+    }
+    if (_filtradas.isEmpty) {
+      return VistaEstado.vacio(
+        titulo: 'Ninguna estructura coincide',
+        detalle: 'La búsqueda admite ceros a la izquierda, espacios y guiones.',
+        textoAccion: 'Ver todas',
+        alPulsar: () {
+          _busquedaCtrl.clear();
+          setState(() => _filtroEstado = null);
+          _filtrar();
+        },
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => _cargar(actualizarDesdeServidor: true),
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: Espacio.xl),
+        children: [
+          if (_error != null) Aviso(icono: Icons.cloud_off, texto: _error!),
+          ..._filtradas.map(_tarjeta),
+        ],
+      ),
+    );
+  }
+
+  Widget _tarjeta(_Estructura e) {
+    final estado = e.estado;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(Espacio.l),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Estructura ${e.estructura}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (e.codigo.isNotEmpty)
+                        Text(
+                          'Código ${e.codigo}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: ColoresEcoing.textoSuave,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                ChipEstado(
+                  estado: estado.estadoSync,
+                  textoPersonalizado: estado.etiqueta,
+                ),
+              ],
+            ),
+            const SizedBox(height: Espacio.m),
+            Row(
+              children: [
+                _dato(
+                  Icons.photo_camera_outlined,
+                  '${e.fotos}/${_Estructura.fotosObligatorias} fotos',
+                  e.fotosCompletas
+                      ? ColoresEcoing.exito
+                      : (e.fotos == 0
+                            ? ColoresEcoing.textoTenue
+                            : ColoresEcoing.pendiente),
+                ),
+                const SizedBox(width: Espacio.l),
+                _dato(
+                  Icons.assignment_outlined,
+                  e.tieneBorrador ? 'Formulario' : 'Sin formulario',
+                  e.formularioSincronizado
+                      ? ColoresEcoing.exito
+                      : (e.tieneBorrador
+                            ? ColoresEcoing.pendiente
+                            : ColoresEcoing.textoTenue),
+                ),
+              ],
+            ),
+            if (e.fechaInspeccion != null &&
+                e.fechaInspeccion!.isNotEmpty &&
+                e.fechaInspeccion != 'null') ...[
+              const SizedBox(height: Espacio.s),
+              Text(
+                'Inspección: ${formatearFechaHoraBonita(e.fechaInspeccion)}',
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: ColoresEcoing.textoSuave,
+                ),
+              ),
+            ],
+            if (e.fotosConError > 0 || e.formularioConError) ...[
+              const SizedBox(height: Espacio.s),
+              Text(
+                e.formularioConError
+                    ? 'El formulario no se pudo enviar. Sigue guardado.'
+                    : '${e.fotosConError} fotografía(s) no se pudieron enviar. '
+                          'Siguen guardadas.',
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: ColoresEcoing.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            const SizedBox(height: Espacio.m),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _abrirFotos(e),
+                    icon: const Icon(Icons.photo_camera, size: 20),
+                    label: Text(e.fotos == 0 ? 'Tomar fotos' : 'Ver fotos'),
+                  ),
+                ),
+                const SizedBox(width: Espacio.m),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => _abrirFormulario(e),
+                    icon: Icon(
+                      e.tieneBorrador ? Icons.edit_note : Icons.assignment,
+                      size: 20,
+                    ),
+                    label: Text(e.tieneBorrador ? 'Editar' : 'Formulario'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _dato(IconData icono, String texto, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icono, size: 16, color: color),
+        const SizedBox(width: Espacio.xs),
+        Text(
+          texto,
+          style: TextStyle(
+            fontSize: 13.5,
+            color: color,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

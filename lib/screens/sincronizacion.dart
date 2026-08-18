@@ -1,338 +1,350 @@
 import 'package:flutter/material.dart';
+
+import '../core/normalizar.dart';
+import '../core/preferencias_app.dart';
 import '../database/database_helper.dart';
+import '../presentacion/comunes/componentes.dart';
+import '../presentacion/diseno/tema_ecoing.dart';
+import '../servicios/sincronizacion/servicio_sincronizacion.dart';
 import 'detalle_linea_screen.dart';
 
+/// Centro de sincronización: proyectos, líneas y estado global.
+///
+/// ## Cambios respecto a la versión anterior
+///
+/// * Se puede **sincronizar todo, o un proyecto completo**, sin bajar a la
+///   línea y luego a la página. Antes solo existía "sincronizar esta página" de
+///   10 postes.
+/// * El proyecto se elige en la propia pantalla, no en un diálogo con el título
+///   "Seleccionar Proyectoss".
+/// * Se muestra cuánto hay pendiente por proyecto, para saber dónde ir.
 class SincronizacionScreen extends StatefulWidget {
-  const SincronizacionScreen({Key? key}) : super(key: key);
+  const SincronizacionScreen({super.key});
 
   @override
   State<SincronizacionScreen> createState() => _SincronizacionScreenState();
 }
 
 class _SincronizacionScreenState extends State<SincronizacionScreen> {
-  final DatabaseHelper _db = DatabaseHelper();
+  final _db = DatabaseHelper();
+  final _sync = ServicioSincronizacion.instancia;
 
   List<Map<String, dynamic>> _proyectos = [];
-  int? _proyectoSeleccionadoId;
-  String _proyectoSeleccionadoNombre = '';
-  List<Map<String, String>> _lineasDelProyecto = [];
+  Map<int, int> _pendientesPorProyecto = {};
+  List<Map<String, String>> _lineas = [];
+  int? _proyectoId;
+  String _proyectoNombre = '';
 
   bool _cargando = true;
+  bool _sincronizando = false;
+  bool _modoOffline = false;
 
   @override
   void initState() {
     super.initState();
-    _cargarProyectos();
+    _sync.progreso.addListener(_alCambiarProgreso);
+    _inicializar();
   }
 
-  Future<void> _cargarProyectos() async {
-    setState(() => _cargando = true);
+  @override
+  void dispose() {
+    _sync.progreso.removeListener(_alCambiarProgreso);
+    super.dispose();
+  }
+
+  void _alCambiarProgreso() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _inicializar() async {
+    final prefs = await PreferenciasApp.instancia();
     final proyectos = await _db.getProyectos();
+
+    final pendientes = <int, int>{};
+    for (final p in proyectos) {
+      final id = int.tryParse((p['id'] ?? '').toString());
+      if (id == null) continue;
+      final resumen = await _sync.resumenGlobal(proyectoId: id);
+      pendientes[id] = resumen.entries
+          .where((e) => e.key != 'synced')
+          .fold(0, (a, e) => a + e.value);
+    }
+
+    if (!mounted) return;
     setState(() {
+      _modoOffline = prefs.modoOffline;
       _proyectos = proyectos;
+      _pendientesPorProyecto = pendientes;
       _cargando = false;
     });
   }
 
-  Future<void> _cargarLineasDeProyecto(int proyectoId, String nombreProyecto) async {
+  Future<void> _elegirProyecto(Map<String, dynamic> proyecto) async {
+    final id = int.tryParse((proyecto['id'] ?? '').toString());
+    if (id == null) return;
+
     setState(() {
       _cargando = true;
-      _proyectoSeleccionadoId = proyectoId;
-      _proyectoSeleccionadoNombre = nombreProyecto;
-      _lineasDelProyecto = [];
+      _proyectoId = id;
+      _proyectoNombre = (proyecto['nombre_proyecto'] ?? 'Proyecto $id').toString();
+      _lineas = [];
     });
 
-    // ✅ Usamos directamente la nueva función optimizada en la base de datos
-    final lineas = await _db.obtenerLineasConUbicacion(proyectoId);
+    final lineas = await _db.obtenerLineasConUbicacion(id);
+    lineas.sort((a, b) => Normalizar.compararNatural(a['linea'], b['linea']));
 
+    if (!mounted) return;
     setState(() {
-      _lineasDelProyecto = List<Map<String, String>>.from(lineas);
+      _lineas = lineas;
       _cargando = false;
     });
   }
 
+  Future<void> _sincronizar({int? proyectoId}) async {
+    if (_sincronizando) return;
+    setState(() => _sincronizando = true);
 
+    final resultado = proyectoId == null
+        ? await _sync.sincronizarTodo()
+        : await _sync.sincronizarProyecto(proyectoId);
+
+    if (!mounted) return;
+    setState(() => _sincronizando = false);
+    await _inicializar();
+    if (_proyectoId != null) {
+      final p = _proyectos.firstWhere(
+        (e) => int.tryParse((e['id'] ?? '').toString()) == _proyectoId,
+        orElse: () => <String, dynamic>{},
+      );
+      if (p.isNotEmpty) await _elegirProyecto(p);
+    }
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 7),
+        backgroundColor: resultado.todoConfirmado
+            ? ColoresEcoing.exito
+            : (resultado.pudoEmpezar
+                  ? ColoresEcoing.pendiente
+                  : ColoresEcoing.inactivo),
+        content: Text(resultado.mensaje),
+      ),
+    );
+  }
+
+  int get _totalPendiente =>
+      _pendientesPorProyecto.values.fold(0, (a, b) => a + b);
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Sincronización", style: TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF8B0000), Color(0xFF0D47A1)],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
+    final progreso = _sync.progreso.value;
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(title: const Text('Sincronización')),
+          body: _cargando
+              ? const Center(child: CircularProgressIndicator())
+              : ListView(
+                  padding: const EdgeInsets.only(bottom: Espacio.xl),
+                  children: [
+                    if (_modoOffline)
+                      const Aviso(
+                        icono: Icons.cloud_off,
+                        texto: 'Modo offline activado. Desactívalo desde la '
+                            'pantalla de proyectos para poder enviar.',
+                      ),
+                    _resumenGlobal(),
+                    _seccion('Proyectos'),
+                    ..._proyectos.map(_tarjetaProyecto),
+                    if (_proyectoId != null) ...[
+                      _seccion('Líneas de $_proyectoNombre'),
+                      if (_lineas.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(Espacio.l),
+                          child: Text(
+                            'Este proyecto no tiene líneas guardadas en el '
+                            'teléfono.',
+                            style: TextStyle(color: ColoresEcoing.textoSuave),
+                          ),
+                        )
+                      else
+                        ..._lineas.map(_tarjetaLinea),
+                    ],
+                  ],
+                ),
+        ),
+        if (_sincronizando)
+          CapaCargando(
+            mensaje: progreso.elementoActual == null
+                ? 'Sincronizando…\nPuedes detenerlo: nada se pierde.'
+                : 'Enviando ${progreso.elementoActual}',
+            progreso: progreso.totalElementos > 0 ? progreso.fraccion : null,
+            alCancelar: _sync.cancelar,
+          ),
+      ],
+    );
+  }
+
+  Widget _resumenGlobal() {
+    return Container(
+      margin: const EdgeInsets.all(Espacio.l),
+      padding: const EdgeInsets.all(Espacio.l),
+      decoration: BoxDecoration(
+        color: _totalPendiente > 0
+            ? ColoresEcoing.pendienteFondo
+            : ColoresEcoing.exitoFondo,
+        borderRadius: BorderRadius.circular(Espacio.radioGrande),
+        border: Border.all(
+          color: _totalPendiente > 0
+              ? ColoresEcoing.pendiente
+              : ColoresEcoing.exito,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                _totalPendiente > 0 ? Icons.cloud_upload : Icons.cloud_done,
+                color: _totalPendiente > 0
+                    ? ColoresEcoing.pendiente
+                    : ColoresEcoing.exito,
+              ),
+              const SizedBox(width: Espacio.s),
+              Expanded(
+                child: Text(
+                  _totalPendiente > 0
+                      ? '$_totalPendiente elemento(s) por enviar en total'
+                      : 'Todo confirmado por el servidor',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (_totalPendiente > 0) ...[
+            const SizedBox(height: Espacio.m),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _modoOffline || _sincronizando
+                    ? null
+                    : () => _sincronizar(),
+                icon: const Icon(Icons.sync),
+                label: const Text('Sincronizar todo'),
+              ),
             ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _seccion(String titulo) => Padding(
+    padding: const EdgeInsets.fromLTRB(
+      Espacio.l,
+      Espacio.m,
+      Espacio.l,
+      Espacio.s,
+    ),
+    child: Text(
+      titulo,
+      style: const TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.bold,
+        color: ColoresEcoing.textoSuave,
+      ),
+    ),
+  );
+
+  Widget _tarjetaProyecto(Map<String, dynamic> proyecto) {
+    final id = int.tryParse((proyecto['id'] ?? '').toString());
+    final pendientes = id == null ? 0 : (_pendientesPorProyecto[id] ?? 0);
+    final seleccionado = id != null && id == _proyectoId;
+
+    return Card(
+      color: seleccionado ? ColoresEcoing.azulClaro : null,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(Espacio.radioGrande),
+        onTap: () => _elegirProyecto(proyecto),
+        child: Padding(
+          padding: const EdgeInsets.all(Espacio.l),
+          child: Row(
+            children: [
+              Icon(
+                seleccionado ? Icons.folder_open : Icons.folder_outlined,
+                color: ColoresEcoing.azul,
+              ),
+              const SizedBox(width: Espacio.m),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      (proyecto['nombre_proyecto'] ?? 'Sin nombre').toString(),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      pendientes > 0
+                          ? '$pendientes por enviar'
+                          : 'Sin pendientes',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: pendientes > 0
+                            ? ColoresEcoing.pendiente
+                            : ColoresEcoing.textoTenue,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (pendientes > 0)
+                IconButton(
+                  tooltip: 'Sincronizar este proyecto',
+                  icon: const Icon(Icons.sync, color: ColoresEcoing.azul),
+                  onPressed: _modoOffline || _sincronizando || id == null
+                      ? null
+                      : () => _sincronizar(proyectoId: id),
+                ),
+            ],
           ),
         ),
       ),
-      backgroundColor: const Color(0xFFF3F5F9),
-      body: _cargando
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  "Seleccionar Proyecto",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.folder_open),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black87,
-                    elevation: 2,
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  label: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      _proyectoSeleccionadoNombre.isNotEmpty
-                          ? _proyectoSeleccionadoNombre
-                          : "Toca para elegir un proyecto",
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        overflow: TextOverflow.visible,
-                      ),
-                    ),
-                  ),
-                  onPressed: () async {
-                    final seleccionado = await showDialog<Map<String, dynamic>>(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return Dialog(
-                          backgroundColor: const Color(0xFFF3F5F9),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 40),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Header
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF0D47A1),
-                                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                                ),
-                                child: const Text(
-                                  "Seleccionar Proyectoss",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
+    );
+  }
 
-                              // Lista de proyectos
-                              ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxHeight: MediaQuery.of(context).size.height * 0.6,
-                                  minWidth: MediaQuery.of(context).size.width * 0.8,
-                                ),
-                                child: ListView.separated(
-                                  padding: const EdgeInsets.all(16),
-                                  itemCount: _proyectos.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                                  itemBuilder: (context, index) {
-                                    final proyecto = _proyectos[index];
-                                    return Material(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(14),
-                                      elevation: 1,
-                                      child: InkWell(
-                                        onTap: () => Navigator.of(context).pop(proyecto),
-                                        borderRadius: BorderRadius.circular(14),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(12),
-                                          child: Row(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              const Icon(Icons.work_outline, color: Color(0xFF8B0000)),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      proyecto['nombre_proyecto'],
-                                                      style: const TextStyle(
-                                                        fontSize: 16,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: Color(0xFF0D47A1),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Text(
-                                                      "ID: ${proyecto['id']}",
-                                                      style: const TextStyle(fontSize: 13, color: Colors.black54),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-
-                              const SizedBox(height: 12),
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: Text(
-                                  "${_proyectos.length} proyectos disponibles",
-                                  style: const TextStyle(color: Colors.black45, fontSize: 13),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
-
-
-                    if (seleccionado != null) {
-                      final id = seleccionado['id'];
-                      final nombre = seleccionado['nombre_proyecto'] ?? 'Proyecto $id';
-                      await _cargarLineasDeProyecto(id, nombre);
-                    }
-                  },
-                ),
-              ],
+  Widget _tarjetaLinea(Map<String, String> linea) {
+    return Card(
+      child: ListTile(
+        leading: const Icon(
+          Icons.alt_route_rounded,
+          color: ColoresEcoing.azul,
+        ),
+        title: Text(linea['linea'] ?? ''),
+        subtitle: Text(
+          (linea['ubicacion'] ?? '').isEmpty
+              ? 'Ubicación no registrada'
+              : linea['ubicacion']!,
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DetalleLineaScreen(
+              proyectoId: _proyectoId!,
+              linea: linea['linea']!,
             ),
           ),
-
-
-
-          if (_proyectoSeleccionadoId != null)
-            Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: ListTile(
-                leading: const Icon(Icons.folder_special, color: Colors.indigo),
-                title: Text(
-                  _proyectoSeleccionadoNombre,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Text("ID: $_proyectoSeleccionadoId - ${_lineasDelProyecto.length} líneas encontradas"),
-              ),
-            ),
-
-          if (_lineasDelProyecto.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "Proyecto: $_proyectoSeleccionadoNombre",
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0D47A1)),
-                ),
-              ),
-            ),
-          if (_lineasDelProyecto.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 40),
-              child: Text("Selecciona un proyecto para ver sus líneas"),
-            ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              itemCount: _lineasDelProyecto.length,
-              itemBuilder: (context, index) {
-                final linea = _lineasDelProyecto[index];
-                return Card(
-                  color: const Color(0xFFF8F9FF), // Azul muy claro de fondo
-                  elevation: 3,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.alt_route_rounded, color: Color(0xFF0D47A1)),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                "Línea: ${linea['linea']}",
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF0D47A1),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            const Icon(Icons.location_on, size: 16, color: Colors.grey),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                linea['ubicacion'] ?? '',
-                                style: const TextStyle(fontSize: 14, color: Colors.black54),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => DetalleLineaScreen(
-                                    proyectoId: _proyectoSeleccionadoId!,
-                                    linea: linea['linea']!,
-                                  ),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.open_in_new, size: 18),
-                            label: const Text(
-                              "Ver postes",
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0D47A1),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              elevation: 1,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-
-
-              },
-            ),
-          ),
-        ],
+        ).then((_) => _inicializar()),
       ),
     );
   }

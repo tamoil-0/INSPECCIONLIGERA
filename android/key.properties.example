@@ -1,0 +1,18 @@
+# Copia de este archivo a android/key.properties y rellena los valores.
+#
+# key.properties NO se versiona (está en .gitignore): contiene las contraseñas
+# de la clave de firma. La clave privada debe quedar SOLO en manos del equipo:
+# quien tenga el .jks puede publicar actualizaciones en nombre de la empresa.
+#
+# Para generar la keystore (una sola vez, y guardar copia de seguridad):
+#
+#   keytool -genkey -v -keystore ecoing-release.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias ecoing
+#
+# Si se pierde el .jks NO se pueden publicar más actualizaciones de la app en
+# Google Play: hay que crear una ficha nueva.
+
+storePassword=CAMBIAR
+keyPassword=CAMBIAR
+keyAlias=ecoing
+storeFile=/ruta/absoluta/a/ecoing-release.jks

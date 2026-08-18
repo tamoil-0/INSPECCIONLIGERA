@@ -346,6 +346,69 @@ class FotosRepositorio {
     return filas.map(FotoLocal.desdeFila).toList();
   }
 
+  /// Fotos pendientes de enviar, con filtro por ámbito.
+  ///
+  /// Se hace JOIN con `postes` en lugar de usar las columnas `proyecto_id` y
+  /// `linea` de la propia tabla porque esas se poblaron a partir de la v2: las
+  /// filas heredadas las tienen a NULL y quedarían fuera del filtro.
+  ///
+  /// [fechaLimite] permite excluir lo que todavía está en espera de backoff.
+  Future<List<FotoLocal>> pendientes({
+    int? posteId,
+    int? proyectoId,
+    String? linea,
+  }) async {
+    final db = await _db.database;
+    final condiciones = <String>[
+      'i.estado IN (${List.filled(EstadoSync.enviables.length, '?').join(',')})',
+    ];
+    final args = <Object?>[...EstadoSync.enviables];
+
+    if (posteId != null) {
+      condiciones.add('i.poste_id = ?');
+      args.add(posteId);
+    }
+    if (proyectoId != null) {
+      condiciones.add('p.proyecto_id = ?');
+      args.add(proyectoId);
+    }
+    if (linea != null) {
+      condiciones.add('p.linea = ?');
+      args.add(linea);
+    }
+
+    final filas = await db.rawQuery('''
+      SELECT i.* FROM imagenes_poste_local i
+      JOIN postes p ON p.id = i.poste_id
+      WHERE ${condiciones.join(' AND ')}
+      ORDER BY i.intentos ASC, i.id ASC
+    ''', args);
+    return filas.map(FotoLocal.desdeFila).toList();
+  }
+
+  /// Identificadores de postes con fotografías pendientes en el ámbito dado.
+  Future<List<int>> postesConFotosPendientes({
+    int? proyectoId,
+    String? linea,
+  }) async {
+    final fotos = await pendientes(proyectoId: proyectoId, linea: linea);
+    return fotos.map((f) => f.posteId).toSet().toList()..sort();
+  }
+
+  /// Fecha del último intento de una foto, para calcular el backoff.
+  Future<DateTime?> ultimoIntentoDe(int id) async {
+    final db = await _db.database;
+    final filas = await db.query(
+      'imagenes_poste_local',
+      columns: ['fecha_ultimo_intento'],
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (filas.isEmpty) return null;
+    return DateTime.tryParse((filas.first['fecha_ultimo_intento'] ?? '').toString());
+  }
+
   /// Conteo por estado para el resumen de sincronización.
   Future<Map<String, int>> resumenPorEstado({int? proyectoId}) async {
     final db = await _db.database;

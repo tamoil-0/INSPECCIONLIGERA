@@ -1,8 +1,11 @@
 import 'dart:io';
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+
 import '../api/api_config.dart';
+import '../core/entorno.dart';
+import '../data/remoto/cliente_api.dart';
 
 /// Resultado honesto de un intento de subida de fotografías.
 ///
@@ -47,23 +50,25 @@ class ResultadoSubida {
 }
 
 class ImagenesPosteService {
-  final String _url = "${ApiConfig.baseUrl}${ApiConfig.PosteImagenes}";
-  final http.Client _client;
+  ImagenesPosteService({http.Client? client, ClienteApi? api})
+      : _client = client ?? http.Client(),
+        _api = api ?? ClienteApi();
 
-  ImagenesPosteService({http.Client? client}) : _client = client ?? http.Client();
+  final http.Client _client;
+  final ClienteApi _api;
 
   /// Tiempo máximo por lote. En zonas con señal débil una petición sin timeout
   /// puede quedar colgada indefinidamente y bloquear la cola.
-  static const Duration timeoutLote = Duration(minutes: 4);
+  static Duration get timeoutLote => Entorno.timeoutSubida;
 
-  // === Headers ===
+  /// La subida es multipart, así que no pasa por `ClienteApi._enviar`, pero sí
+  /// reutiliza sus cabeceras (token del almacén seguro) y su interpretación de
+  /// respuestas, para no tener dos formas distintas de leer al mismo servidor.
   Future<Map<String, String>> _getHeaders() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token') ?? '';
-    return {
-      'Authorization': 'Bearer $token',
-      'Accept': 'application/json',
-    };
+    final cabeceras = await _api.cabeceras();
+    // El Content-Type lo pone el propio MultipartRequest con su boundary.
+    cabeceras.remove('Content-Type');
+    return cabeceras;
   }
 
   // === Subida principal ===
@@ -122,7 +127,7 @@ class ImagenesPosteService {
     Map<String, Map<String, dynamic>> metadatos,
   ) async {
     final nombres = imagenes.keys.toSet();
-    final uri = Uri.parse('$_url?poste_id=$posteId');
+    final uri = _api.uri(ApiConfig.posteImagenes, {'poste_id': posteId});
     final request = http.MultipartRequest('POST', uri);
     request.headers.addAll(await _getHeaders());
 

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Reglas de extracción de datos (Android 12+).
+
+  Se excluye TODO de la copia de seguridad y de la transferencia entre
+  dispositivos: la base local contiene inspecciones sin sincronizar y el almacén
+  seguro guarda el token de sesión. Sacarlos del teléfono en una copia
+  automática sería una fuga de datos operativos.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>

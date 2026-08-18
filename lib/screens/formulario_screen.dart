@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/preferencias_app.dart';
 import '../database/database_helper.dart';
+import '../presentacion/comunes/componentes.dart';
+import '../servicios/conectividad/servicio_conectividad.dart';
+import '../storage/almacen_seguro.dart';
 import '../models/formulario_modal.dart';
 import '../repositorios/borradores_repositorio.dart';
 import '../services/poste_datos_service.dart';
@@ -37,6 +40,7 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
 
   bool _isLoading = false;
   bool _cargandoBorrador = true;
+  bool _modoOffline = false;
   BorradorFormulario? _borrador;
 
   @override
@@ -54,6 +58,8 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
   /// defecto. La inspección original se perdía.
   Future<void> _recuperarBorrador() async {
     try {
+      final prefs = await PreferenciasApp.instancia();
+      _modoOffline = prefs.modoOffline;
       final borrador = await _borradores.obtener(widget.posteId);
       if (borrador != null && borrador.datos.isNotEmpty) {
         _modelo.cargarDesdeMap(borrador.datos);
@@ -182,8 +188,8 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
   }
 
   Future<bool> _estaModoOffline() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('modo_offline') ?? false;
+    final prefs = await PreferenciasApp.instancia();
+    return prefs.modoOffline;
   }
   bool _validarEstadoPlacas() {
     return (_modelo.estadoPlacasTorre?.isNotEmpty ?? false) &&
@@ -320,8 +326,7 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
       }
 
       // ---- 3. Intento de envío ----
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = await AlmacenSeguro().token();
       final offline = await _estaModoOffline();
 
       if (token == null || token.isEmpty) {
@@ -334,8 +339,13 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
         await _mostrarGuardadoLocal(motivo: 'Estás en modo offline.');
         return;
       }
-      if (!await _posteService.verificarConexion()) {
-        await _mostrarGuardadoLocal(motivo: 'No hay conexión en este momento.');
+      final red = await ServicioConectividad.instancia.comprobar();
+      if (!red.conectado) {
+        await _mostrarGuardadoLocal(
+          motivo: red.tipo == TipoRed.ninguna
+              ? 'No hay conexión en este momento.'
+              : 'Hay red pero sin salida a internet.',
+        );
         return;
       }
 
@@ -567,34 +577,20 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
         title: const Text("Formulario del Poste", style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          FutureBuilder<bool>(
-            future: _posteService.verificarConexion(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.done) {
-                final conectado = snapshot.data ?? false;
-                return Icon(
-                  conectado ? Icons.wifi : Icons.wifi_off,
-                  color: conectado ? Colors.greenAccent : Colors.grey[300],
-                );
-              }
-              return const SizedBox();
-            },
+          // ANTES: dos FutureBuilder, uno de ellos lanzando una petición HTTP
+          // en CADA reconstrucción del AppBar. Como el formulario se reconstruye
+          // al tocar cualquiera de los 22 desplegables, eran decenas de
+          // peticiones y lecturas de preferencias por inspección, gastando
+          // batería y datos en campo. Ahora el estado viene de un único
+          // observador central.
+          ValueListenableBuilder<EstadoRed>(
+            valueListenable: ServicioConectividad.instancia.estado,
+            builder: (context, red, _) => IndicadorConexion(
+              hayInternet: red.conectado,
+              modoOffline: _modoOffline,
+              descripcionRed: red.descripcion,
+            ),
           ),
-          const SizedBox(width: 12),
-          FutureBuilder<bool>(
-            future: _estaModoOffline(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.done) {
-                final offline = snapshot.data ?? false;
-                return Icon(
-                  offline ? Icons.cloud_off : Icons.cloud_done,
-                  color: offline ? Colors.yellow : Colors.white,
-                );
-              }
-              return const SizedBox();
-            },
-          ),
-          const SizedBox(width: 12),
           IconButton(
             icon: const Icon(Icons.bug_report, color: Colors.white),
             onPressed: () {
