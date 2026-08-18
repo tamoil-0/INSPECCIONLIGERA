@@ -69,7 +69,7 @@ recuento real: «Servidor confirmó 8 de 22 fotografías».
   el color del botón «Ir», indistinguible de un error.
 - **Cliente HTTP único** con 14 tipos de error clasificados y timeouts.
 - **Token en el almacén seguro** del sistema, con expiración comprobada.
-- **150 pruebas** donde antes `flutter test` no compilaba.
+- **156 pruebas** donde antes `flutter test` no compilaba.
 - **Captura fotográfica agrupada** por torre, aisladores y conductores, con
   selección desde galería, visor a pantalla completa con zoom y avance a la
   siguiente vista pendiente.

@@ -25,7 +25,7 @@ pierde el intento de envío, nunca el trabajo del inspector.
 ```bash
 flutter pub get
 flutter run                    # servidor de producción
-flutter test                   # 150 pruebas
+flutter test                   # 156 pruebas
 flutter analyze                # 0 errores, 0 warnings
 ```
 
