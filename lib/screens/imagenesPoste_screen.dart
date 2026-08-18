@@ -5,11 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/conversion_utm.dart';
 import '../core/estados_sync.dart';
+import '../core/preferencias_app.dart';
 import '../repositorios/fotos_repositorio.dart';
+import '../servicios/imagenes/cola_procesamiento.dart';
+import '../servicios/imagenes/optimizador_imagenes.dart';
+import '../servicios/imagenes/perfil_dispositivo.dart';
 import '../services/imagenesPoste_service.dart';
 
 /// Captura de las fotografías de una estructura.
@@ -50,8 +53,16 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
   final ImagenesPosteService _service = ImagenesPosteService();
   final FotosRepositorio _fotos = FotosRepositorio();
 
+  PerfilDispositivo _perfil = PerfilDispositivo.media;
+  OptimizadorImagenes _optimizador = const OptimizadorImagenes();
+  ColaProcesamiento _cola = ColaProcesamiento(concurrencia: 1);
+  int _espacioOcupado = 0;
+
   /// Estado de cada vista fotográfica, indexado por `nombre_foto`.
   final Map<String, FotoLocal> _registradas = {};
+
+  /// Vistas cuya optimización está en marcha o en cola.
+  final Set<String> _optimizando = {};
 
   bool _cargandoInicial = true;
   bool _enviando = false;
@@ -117,13 +128,85 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
     _inicializar();
   }
 
+  @override
+  void dispose() {
+    _cola.cancelarPendientes();
+    super.dispose();
+  }
+
   Future<void> _inicializar() async {
+    final prefs = await PreferenciasApp.instancia();
+    _perfil = prefs.perfilImagenes;
+    _optimizador = OptimizadorImagenes(
+      perfil: _perfil,
+      politica: prefs.politicaRetencion,
+    );
+    // Concurrencia adaptada al teléfono: 22 compresiones a la vez agotarían la
+    // memoria en gama baja.
+    _cola = ColaProcesamiento(concurrencia: _perfil.concurrencia);
+
     await _cargarEstadoConexion();
     await _cargarFotosGuardadas();
     // El permiso se pide después del primer fotograma para no usar el context
     // dentro de initState.
     await _pedirPermisosUbicacion();
     if (mounted) setState(() => _cargandoInicial = false);
+
+    // Reintenta la optimización de lo que quedó a medias (por ejemplo porque
+    // la app se cerró antes de que la cola llegara a esas fotos).
+    await _optimizarPendientes();
+  }
+
+  Future<void> _optimizarPendientes() async {
+    final pendientes = await _fotos.sinOptimizar(widget.posteId);
+    for (final foto in pendientes) {
+      _encolarOptimizacion(foto);
+    }
+  }
+
+  /// Encola la optimización de una foto ya guardada.
+  ///
+  /// No se espera el resultado: el inspector puede seguir tomando fotos
+  /// mientras la cola avanza por detrás. La foto ya está a salvo; optimizarla
+  /// solo mejora el peso de la subida.
+  void _encolarOptimizacion(FotoLocal foto) {
+    if (_optimizando.contains(foto.nombreFoto)) return;
+    setState(() => _optimizando.add(foto.nombreFoto));
+
+    _cola.encolar(() => _optimizador.optimizar(foto.archivo)).then(
+      (resultado) async {
+        try {
+          final actualizada = await _fotos.aplicarOptimizacion(
+            id: foto.id,
+            rutaSubible: resultado.rutaSubible,
+            rutaOriginal: resultado.rutaOriginal,
+            rutaMiniatura: resultado.rutaMiniatura,
+            tamanoSubible: resultado.tamanoSubible,
+            tamanoOriginal: resultado.tamanoOriginal,
+            ancho: resultado.ancho,
+            alto: resultado.alto,
+          );
+          if (!mounted) return;
+          setState(() {
+            _registradas[foto.nombreFoto] = actualizada;
+            _optimizando.remove(foto.nombreFoto);
+          });
+        } catch (e) {
+          debugPrint('No se pudo registrar la optimización: $e');
+          if (mounted) {
+            setState(() => _optimizando.remove(foto.nombreFoto));
+          }
+        }
+      },
+      onError: (Object e) {
+        // La foto sigue guardada y subible tal cual: la optimización es una
+        // mejora, no un requisito.
+        debugPrint('Optimización fallida de ${foto.nombreFoto}: $e');
+        if (mounted) {
+          setState(() => _optimizando.remove(foto.nombreFoto));
+        }
+      },
+    );
   }
 
   /// Recupera de la base las fotos ya tomadas de esta estructura.
@@ -133,8 +216,15 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
   Future<void> _cargarFotosGuardadas() async {
     final perdidos = await _fotos.verificarArchivos(posteId: widget.posteId);
     final guardadas = await _fotos.fotosDePoste(widget.posteId);
+    var ocupado = 0;
+    try {
+      ocupado = await _fotos.almacen.espacioOcupado();
+    } catch (_) {
+      // Un fallo al medir el espacio no debe impedir ver las fotos.
+    }
     if (!mounted) return;
     setState(() {
+      _espacioOcupado = ocupado;
       _archivosPerdidos = perdidos;
       _registradas
         ..clear()
@@ -160,12 +250,11 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
   }
 
   Future<void> _cargarEstadoConexion() async {
-    final prefs = await SharedPreferences.getInstance();
-    final modoOffline = prefs.getBool('modo_offline') ?? false;
+    final prefs = await PreferenciasApp.instancia();
     final conectado = await _verificarConexion();
     if (!mounted) return;
     setState(() {
-      _modoOffline = modoOffline;
+      _modoOffline = prefs.modoOffline;
       _hayInternet = conectado;
     });
   }
@@ -241,6 +330,9 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
         _registradas[nombreFoto] = registrada;
         _procesando = null;
       });
+
+      // La foto ya está a salvo. La optimización va por detrás, sin bloquear.
+      _encolarOptimizacion(registrada);
 
       if (posicion == null) {
         _avisar(
@@ -492,6 +584,16 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
   String _titulo(String nombreFoto) =>
       nombreFoto.replaceAll('_', ' ').toUpperCase();
 
+  String _formatoTamano(int bytes) {
+    if (bytes >= 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+    }
+    if (bytes >= 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(0)} MB';
+    }
+    return '${(bytes / 1024).toStringAsFixed(0)} KB';
+  }
+
   Widget _iconoModoOffline() => Tooltip(
     message: _modoOffline ? 'Modo offline ACTIVADO' : 'Modo offline DESACTIVADO',
     child: Icon(
@@ -636,6 +738,15 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
               style: const TextStyle(fontSize: 13, color: Color(0xFF0D47A1)),
             ),
           ],
+          if (_espacioOcupado > 0) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Fotos en el teléfono: ${_formatoTamano(_espacioOcupado)}'
+              ' · calidad ${_perfil.nombre}'
+              '${_cola.ocupada ? ' · optimizando ${_cola.pendientes + _cola.activas}' : ''}',
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
         ],
       ),
     );
@@ -665,7 +776,8 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
   Widget _buildFotoItem(String nombreFoto) {
     final foto = _registradas[nombreFoto];
     final esOpcional = _fotosOpcionales.contains(nombreFoto);
-    final estaProcesando = _procesando == nombreFoto;
+    final estaProcesando =
+        _procesando == nombreFoto || _optimizando.contains(nombreFoto);
     final archivoValido = foto != null && foto.archivo.existsSync();
 
     final (Color fondo, Color borde, String etiqueta, IconData icono) =
@@ -729,12 +841,12 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
             ? ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.file(
-                  foto.archivo,
+                  // Miniatura generada en la optimización si existe; si no, la
+                  // propia foto decodificada a tamaño reducido.
+                  foto.archivoParaMiniatura,
                   width: 55,
                   height: 55,
                   fit: BoxFit.cover,
-                  // Decodifica a tamaño de miniatura: no carga en memoria una
-                  // foto de 48 MP para pintar 55 píxeles.
                   cacheWidth: 165,
                   errorBuilder: (_, __, ___) =>
                       Icon(Icons.broken_image, size: 44, color: borde),
@@ -753,7 +865,9 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              etiqueta,
+              _optimizando.contains(nombreFoto)
+                  ? 'Guardada — optimizando…'
+                  : etiqueta,
               style: TextStyle(
                 fontSize: 12.5,
                 color: borde,
@@ -804,7 +918,10 @@ class _ImagenesPosteScreenState extends State<ImagenesPosteScreen> {
   String _detalleFoto(FotoLocal foto) {
     final partes = <String>[];
     if (foto.tamanoBytes != null) {
-      partes.add('${(foto.tamanoBytes! / (1024 * 1024)).toStringAsFixed(2)} MB');
+      partes.add('${(foto.tamanoBytes! / (1024 * 1024)).toStringAsFixed(1)} MB');
+    }
+    if (foto.ancho != null && foto.alto != null) {
+      partes.add('${foto.ancho}×${foto.alto}');
     }
     if (foto.zona != null && foto.zona!.isNotEmpty) {
       partes.add('UTM ${foto.zona}');

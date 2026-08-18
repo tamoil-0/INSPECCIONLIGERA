@@ -14,6 +14,10 @@ class FotoLocal {
   final int posteId;
   final String nombreFoto;
   final String rutaArchivo;
+  final String? rutaOriginal;
+  final String? rutaMiniatura;
+  final int? ancho;
+  final int? alto;
   final String estado;
   final int intentos;
   final String? ultimoError;
@@ -35,6 +39,10 @@ class FotoLocal {
     required this.rutaArchivo,
     required this.estado,
     required this.intentos,
+    this.rutaOriginal,
+    this.rutaMiniatura,
+    this.ancho,
+    this.alto,
     this.ultimoError,
     this.utmEste,
     this.utmNorte,
@@ -53,6 +61,10 @@ class FotoLocal {
     posteId: f['poste_id'] as int,
     nombreFoto: (f['nombre_foto'] ?? '').toString(),
     rutaArchivo: (f['ruta_archivo'] ?? '').toString(),
+    rutaOriginal: f['ruta_original'] as String?,
+    rutaMiniatura: f['ruta_miniatura'] as String?,
+    ancho: f['ancho'] as int?,
+    alto: f['alto'] as int?,
     estado: (f['estado'] ?? EstadoSync.pendiente).toString(),
     intentos: (f['intentos'] as int?) ?? 0,
     ultimoError: f['ultimo_error'] as String?,
@@ -69,6 +81,19 @@ class FotoLocal {
 
   File get archivo => File(rutaArchivo);
   bool get estaSincronizada => estado == EstadoSync.sincronizado;
+
+  /// Archivo a mostrar en listas: la miniatura si existe, y si no la propia
+  /// fotografía. Evita decodificar una imagen de 12 MP para pintar 55 píxeles.
+  File get archivoParaMiniatura {
+    final m = rutaMiniatura;
+    if (m != null && m.isNotEmpty) {
+      final f = File(m);
+      if (f.existsSync()) return f;
+    }
+    return archivo;
+  }
+
+  bool get estaOptimizada => rutaMiniatura != null && rutaMiniatura!.isNotEmpty;
 
   /// Metadatos en el formato que espera `ImagenesPosteService`.
   Map<String, dynamic> get metadatosParaSubida => {
@@ -176,6 +201,12 @@ class FotosRepositorio {
       'ultimo_error': null,
       'fecha_ultimo_intento': null,
       'id_remoto': null,
+      // La optimización de la captura anterior deja de ser válida.
+      'ruta_original': null,
+      'ruta_miniatura': null,
+      'tamano_optimizado': null,
+      'ancho': null,
+      'alto': null,
     };
 
     int id;
@@ -194,17 +225,94 @@ class FotosRepositorio {
       rethrow;
     }
 
-    // 2) Ahora sí es seguro retirar la copia antigua.
-    final rutaAnterior = anterior?['ruta_archivo']?.toString();
-    if (rutaAnterior != null &&
-        rutaAnterior.isNotEmpty &&
-        rutaAnterior != persistida.ruta) {
-      await _almacen.eliminar(rutaAnterior);
+    // 2) Ahora sí es seguro retirar la copia antigua y sus variantes
+    //    (optimizada y miniatura), que corresponden a la foto reemplazada.
+    if (anterior != null) {
+      for (final clave in ['ruta_archivo', 'ruta_original', 'ruta_miniatura']) {
+        final ruta = anterior[clave]?.toString();
+        if (ruta != null && ruta.isNotEmpty && ruta != persistida.ruta) {
+          await _almacen.eliminar(ruta);
+        }
+      }
     }
 
     final fila = await db.query('imagenes_poste_local',
         where: 'id = ?', whereArgs: [id], limit: 1);
     return FotoLocal.desdeFila(fila.first);
+  }
+
+  // ===========================================================================
+  // Optimización
+  // ===========================================================================
+
+  /// Guarda en la fila el resultado de optimizar la fotografía.
+  ///
+  /// Se llama **después** de que la foto ya esté registrada y a salvo: si la
+  /// optimización falla, la fila sigue apuntando al archivo original y la foto
+  /// se sube tal cual. La optimización nunca puede costar una fotografía.
+  ///
+  /// El checksum se **recalcula** sobre el archivo que efectivamente se va a
+  /// subir: si se enviara el checksum del original y el backend deduplicara por
+  /// él, la comparación no cuadraría nunca.
+  Future<FotoLocal> aplicarOptimizacion({
+    required int id,
+    required String rutaSubible,
+    String? rutaOriginal,
+    String? rutaMiniatura,
+    required int tamanoSubible,
+    int? tamanoOriginal,
+    int? ancho,
+    int? alto,
+  }) async {
+    final db = await _db.database;
+    final archivo = File(rutaSubible);
+    if (!await archivo.exists()) {
+      throw StateError(
+        'La optimización apunta a un archivo que no existe: $rutaSubible',
+      );
+    }
+
+    final checksum = await _almacen.calcularChecksum(archivo);
+
+    await db.update(
+      'imagenes_poste_local',
+      {
+        'ruta_archivo': rutaSubible,
+        'ruta_original': rutaOriginal,
+        'ruta_miniatura': rutaMiniatura,
+        'tamano_optimizado': tamanoSubible,
+        if (tamanoOriginal != null) 'tamano_original': tamanoOriginal,
+        'ancho': ancho,
+        'alto': alto,
+        'checksum': checksum,
+        'formato': _formatoDe(rutaSubible),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    final fila = await db.query(
+      'imagenes_poste_local',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return FotoLocal.desdeFila(fila.first);
+  }
+
+  /// Fotos de un poste que aún no tienen miniatura: son las que quedaron sin
+  /// optimizar (por ejemplo porque la app se cerró antes de que la cola llegara
+  /// a ellas). Permite reintentarlo al reabrir la estructura.
+  Future<List<FotoLocal>> sinOptimizar(int posteId) async {
+    final db = await _db.database;
+    final filas = await db.query(
+      'imagenes_poste_local',
+      where:
+          'poste_id = ? AND estado != ? AND (ruta_miniatura IS NULL OR ruta_miniatura = ?)',
+      whereArgs: [posteId, EstadoSync.sincronizado, ''],
+      orderBy: 'id ASC',
+    );
+    return filas.map(FotoLocal.desdeFila).toList();
   }
 
   // ===========================================================================
@@ -362,14 +470,21 @@ class FotosRepositorio {
     return invalidas;
   }
 
-  /// Elimina una fotografía por decisión explícita del inspector.
+  /// Elimina una fotografía por decisión explícita del inspector, con todas
+  /// sus variantes (original, optimizada y miniatura).
   Future<void> eliminar(int id) async {
     final db = await _db.database;
-    final filas = await db.query('imagenes_poste_local',
-        columns: ['ruta_archivo'], where: 'id = ?', whereArgs: [id], limit: 1);
+    final filas = await db.query(
+      'imagenes_poste_local',
+      columns: ['ruta_archivo', 'ruta_original', 'ruta_miniatura'],
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
     await db.delete('imagenes_poste_local', where: 'id = ?', whereArgs: [id]);
-    if (filas.isNotEmpty) {
-      await _almacen.eliminar(filas.first['ruta_archivo']?.toString());
+    if (filas.isEmpty) return;
+    for (final clave in ['ruta_archivo', 'ruta_original', 'ruta_miniatura']) {
+      await _almacen.eliminar(filas.first[clave]?.toString());
     }
   }
 

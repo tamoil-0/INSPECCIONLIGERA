@@ -9,27 +9,38 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  dio: ^5.4.0
-  http: ^1.1.0
-  shared_preferences: ^2.2.2
-  flutter_dotenv: ^5.1.0
   cupertino_icons: ^1.0.8
-  exif: ^3.3.0
-  location: ^5.0.0
-  image_picker: ^0.8.7+3
-  flutter_svg: ^2.0.7
-  provider: ^6.0.5
+
+  # --- Red ---
+  http: ^1.1.0
+
+  # --- Almacenamiento local ---
   sqflite: ^2.3.0
-  path_provider: ^2.1.1
-  connectivity_plus: ^4.0.2
-  jwt_decoder: ^2.0.1
   path: ^1.8.0
-  permission_handler: ^11.3.1
+  path_provider: ^2.1.1
+  shared_preferences: ^2.2.2
+  flutter_secure_storage: ^9.2.2   # token de sesión cifrado (Keystore / Keychain)
+
+  # --- Dispositivo ---
+  image_picker: ^0.8.7+3
+  flutter_image_compress: ^2.3.0   # compresión con códecs NATIVOS, fuera del hilo de UI
   geolocator: ^14.0.1
+  permission_handler: ^11.3.1
+  connectivity_plus: ^4.0.2
+
+  # --- Utilidades ---
   intl: ^0.18.1
-  # --- P0 integridad de datos (ambas ya estaban en el árbol de dependencias) ---
-  crypto: ^3.0.6   # checksum SHA-256 de cada fotografía (idempotencia + integridad)
-  uuid: ^4.5.1     # identificador local estable para fotos y borradores
+  crypto: ^3.0.6      # checksum SHA-256 por fotografía (integridad + idempotencia)
+  uuid: ^4.5.1        # identificador local estable de fotos y borradores
+  jwt_decoder: ^2.0.1 # expiración del token de sesión
+
+  # Retiradas por no usarse (reducen tamaño del APK y permisos del manifiesto):
+  #   dio            -> `http` cubre todo lo que hace la app
+  #   flutter_dotenv -> un .env dentro del APK no es un secreto; se usa --dart-define
+  #   provider       -> nunca se importó
+  #   flutter_svg    -> nunca se importó
+  #   location       -> duplicaba geolocator y añadía permisos propios
+  #   exif           -> la lectura EXIF de GPS nunca funcionó; el GPS viene de geolocator
 dev_dependencies:
   flutter_test:
     sdk: flutter
