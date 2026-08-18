@@ -94,6 +94,41 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
     });
   }
 
+  int _idDe(Map<String, dynamic> poste) =>
+      int.parse(poste['id'].toString());
+
+  Future<void> _abrirFotos(Map<String, dynamic> poste) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ImagenesPosteScreen(
+          posteId: _idDe(poste),
+          numeroEstructura: poste['estructura']?.toString() ?? '',
+          proyectoId: widget.proyectoId,
+          proyectoNombre: widget.proyectoNombre,
+          linea: widget.lineaSeleccionada,
+        ),
+      ),
+    );
+    // Al volver, la tarjeta se repinta con el estado real de la base.
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _abrirFormulario(Map<String, dynamic> poste) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FormularioPostePage(
+          estructura: poste['estructura']?.toString() ?? '',
+          proyectoNombre: widget.proyectoNombre,
+          proyectoId: widget.proyectoId,
+          posteId: _idDe(poste),
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
   void _filtrarPostes() {
     final estructuraBuscada = _estructuraController.text.trim();
     if (estructuraBuscada.isEmpty) return;
@@ -309,38 +344,43 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
                                           ),
                                         ],
                                       ),
-                                      trailing: ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: inventariado ? Colors.orange : const Color(0xFFB71C1C),
-                                          foregroundColor: Colors.white,
-                                        ),
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => ImagenesPosteScreen(
-                                                posteId: int.parse(poste['id'].toString()),
-                                                numeroEstructura: poste['estructura'] ?? '',
-                                                proyectoId: widget.proyectoId,
-                                                proyectoNombre: widget.proyectoNombre,
-                                              ),
+                                      // ANTES: un solo botón abría las fotos y,
+                                      // en el `.then()`, empujaba el formulario
+                                      // SIEMPRE — incluso si el inspector solo
+                                      // había retrocedido sin tomar nada, y sin
+                                      // comprobar `mounted`. Ahora cada destino
+                                      // es una decisión explícita suya.
+                                      trailing: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          TextButton.icon(
+                                            style: TextButton.styleFrom(
+                                              foregroundColor: const Color(0xFF0D47A1),
+                                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                                              minimumSize: const Size(0, 44),
                                             ),
-                                          ).then((_) {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) => FormularioPostePage(
-                                                  estructura: poste['estructura'] ?? '',
-                                                  proyectoNombre: widget.proyectoNombre,
-                                                  proyectoId: widget.proyectoId,
-                                                  posteId: int.parse(poste['id'].toString()),
-                                                ),
-                                              ),
-                                            );
-                                          });
-                                        },
-
-                                        child: Text(inventariado ? 'Editar' : 'Ir'),
+                                            icon: const Icon(Icons.photo_camera, size: 20),
+                                            label: const Text('Fotos'),
+                                            onPressed: () => _abrirFotos(poste),
+                                          ),
+                                          TextButton.icon(
+                                            style: TextButton.styleFrom(
+                                              foregroundColor: inventariado
+                                                  ? const Color(0xFFEF6C00)
+                                                  : const Color(0xFFB71C1C),
+                                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                                              minimumSize: const Size(0, 44),
+                                            ),
+                                            icon: Icon(
+                                              inventariado ? Icons.edit_note : Icons.assignment,
+                                              size: 20,
+                                            ),
+                                            label: Text(
+                                              inventariado ? 'Editar' : 'Formulario',
+                                            ),
+                                            onPressed: () => _abrirFormulario(poste),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
