@@ -73,7 +73,7 @@ $count = $conn->prepare('SELECT COUNT(DISTINCT nombre_foto) FROM imagenes_poste 
 $count->execute([$postId]);
 $storedCount = (int) $count->fetchColumn();
 $complete = $storedCount === count($allowedTypes);
-$conn->prepare('UPDATE postes SET imagenes_subidas = ?, sincronizado = IF(formulario_subido = 1 AND ? = 1, 1, sincronizado), fecha_subida = IF(? > 0, NOW(), fecha_subida) WHERE id = ?')
+$conn->prepare('UPDATE postes SET imagenes_subidas = ?, sincronizado = IF(formulario_subido = 1 AND ? = 1, 1, 0), fecha_subida = IF(? > 0, NOW(), fecha_subida) WHERE id = ?')
     ->execute([$complete ? 1 : 0, $complete ? 1 : 0, $uploaded, $postId]);
 
 respond([

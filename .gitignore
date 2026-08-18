@@ -10,6 +10,7 @@
 *.zip
 
 # Archivos generados o sensibles
+/data/
 /api/descargas/*
 !/api/descargas/.htaccess
 /api/estado_exportaciones/*
@@ -29,6 +30,7 @@ errores_*.txt
 log_*.txt
 
 # Dumps con datos: el esquema limpio vive en database/schema.sql
+/database/ecoing_inspeccion_con_estructuras.sql
 /*inventario*.sql
 /api/*.sql
 

@@ -62,7 +62,7 @@ $sql = 'INSERT INTO poste_datos (poste_id, ' . implode(', ', $columns) . ") VALU
 try {
     $conn->beginTransaction();
     $conn->prepare($sql)->execute(array_merge([$postId], array_values($values)));
-    $postSql = 'UPDATE postes SET formulario_subido = 1, sincronizado = 1, fecha_subida = NOW()';
+    $postSql = 'UPDATE postes SET formulario_subido = 1, sincronizado = IF(imagenes_subidas = 1, 1, 0), fecha_subida = NOW()';
     $postParams = [];
     if ($inspectionDate !== null) {
         $postSql .= ', fecha_inspeccion = ?';

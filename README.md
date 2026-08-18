@@ -2,11 +2,13 @@
 
 Aplicación local para administrar proyectos, postes, formularios de inspección, imágenes y reportes de líneas de transmisión.
 
+La configuración completa del cliente de campo está en [docs/CONEXION_Y_SINCRONIZACION_MOVIL.md](docs/CONEXION_Y_SINCRONIZACION_MOVIL.md).
+
 ## Estado local
 
 - URL web: `http://localhost/INSPEECIONLIGERAECOING/web/`
 - API: se calcula automáticamente desde la URL de la web.
-- Base de datos: `ecoing_inspeccion`, creada sin datos en MariaDB de XAMPP.
+- Base de datos: `ecoing_inspeccion`, cargada en MariaDB de XAMPP con el padrón base de 1,235 estructuras y sin inspecciones anteriores.
 - PHP requerido: 8.2 con `pdo_mysql`, `mbstring`, `gd`, `zip`, `fileinfo` y extensiones XML.
 
 ## Primera ejecución
@@ -17,6 +19,21 @@ Aplicación local para administrar proyectos, postes, formularios de inspección
 4. Inicie sesión y cree el primer proyecto.
 
 La creación inicial de administrador solo funciona desde `127.0.0.1`/`::1` y únicamente cuando la tabla `usuarios` está vacía. Los siguientes usuarios se crean mediante `api/usuarios/register.php` con un token de administrador.
+
+## Instalación completa con el padrón de estructuras
+
+El archivo local recomendado para comenzar las pruebas es `database/ecoing_inspeccion_con_estructuras.sql`. Elimina y recrea exclusivamente la base `ecoing_inspeccion`, carga el proyecto real y sus 1,235 estructuras, pero deja vacíos usuarios, formularios, comentarios, imágenes y resultados de inspecciones anteriores.
+
+Este archivo permanece solo en el equipo local y está ignorado por Git mientras el repositorio sea público, porque contiene coordenadas UTM reales. Puede versionarse cuando el repositorio se cambie a privado.
+
+En phpMyAdmin seleccione **Importar** y elija ese archivo. También puede importarlo desde PowerShell:
+
+```powershell
+Get-Content -LiteralPath database\ecoing_inspeccion_con_estructuras.sql -Raw |
+  C:\xampp82\mysql\bin\mysql.exe --host=127.0.0.1 --user=root --default-character-set=utf8mb4
+```
+
+Después de importarlo, cree el primer administrador desde la web. El proyecto y las estructuras ya aparecerán disponibles para las búsquedas del cliente móvil.
 
 ## Reinstalar el esquema vacío
 
