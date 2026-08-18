@@ -167,7 +167,7 @@ void main() {
 
     setUp(() async {
       db = await _abrirV1ConDatos();
-      await Migraciones.aplicar(db, 1, 2);
+      await Migraciones.aplicar(db, 1, Migraciones.version);
     });
 
     tearDown(() async => db.close());
@@ -295,9 +295,21 @@ void main() {
       expect(await db.query('proyectos'), hasLength(1));
     });
 
+    test('v3 registra qué campos revisó el inspector', () async {
+      final cols = await _columnas(db, 'formularios_pendientes');
+      expect(cols, containsAll(['revisados_json', 'sin_revisar']));
+      expect(await _columnas(db, 'poste_datos'), contains('revisados_json'));
+
+      // Los borradores heredados quedan a NULL: marcarlos como 'todo revisado'
+      // sería inventar un dato que nadie confirmó.
+      final heredado = await db.query('formularios_pendientes',
+          where: 'poste_id = ?', whereArgs: [101]);
+      expect(heredado.first['revisados_json'], isNull);
+    });
+
     test('es idempotente: volver a aplicarla no rompe ni duplica', () async {
-      await Migraciones.aplicar(db, 1, 2);
-      await Migraciones.aplicar(db, 1, 2);
+      await Migraciones.aplicar(db, 1, Migraciones.version);
+      await Migraciones.aplicar(db, 1, Migraciones.version);
 
       expect(
         await db.query('formularios_pendientes', where: 'poste_id = ?', whereArgs: [101]),
@@ -309,9 +321,9 @@ void main() {
   });
 
   test('instalación nueva y actualización convergen al mismo esquema', () async {
-    // Actualizada desde v1.
+    // Actualizada desde v1 (salto completo 1 -> versión actual).
     final actualizada = await _abrirV1ConDatos();
-    await Migraciones.aplicar(actualizada, 1, 2);
+    await Migraciones.aplicar(actualizada, 1, Migraciones.version);
 
     // Instalación nueva: mismo esquema base + migraciones (lo que hace
     // DatabaseHelper._onCreate).
@@ -322,7 +334,7 @@ void main() {
     for (final sql in _esquemaV1) {
       await nueva.execute(sql);
     }
-    await Migraciones.aplicar(nueva, 1, 2);
+    await Migraciones.aplicar(nueva, 1, Migraciones.version);
 
     for (final tabla in [
       'imagenes_poste_local',
@@ -339,5 +351,31 @@ void main() {
 
     await actualizada.close();
     await nueva.close();
+  });
+
+  test('un teléfono que ya estaba en v2 llega a v3 sin perder nada', () async {
+    final db = await _abrirV1ConDatos();
+    await Migraciones.aplicar(db, 1, 2);
+
+    // Estado intermedio: v2 aplicada, con sus datos.
+    expect(await _columnas(db, 'formularios_pendientes'), contains('estado'));
+    expect(
+      await _columnas(db, 'formularios_pendientes'),
+      isNot(contains('revisados_json')),
+    );
+    final antes = await db.query('formularios_pendientes');
+
+    await Migraciones.aplicar(db, 2, 3);
+
+    expect(
+      await _columnas(db, 'formularios_pendientes'),
+      contains('revisados_json'),
+    );
+    final despues = await db.query('formularios_pendientes');
+    expect(despues.length, antes.length);
+    expect(despues.first['datos_json'], antes.first['datos_json']);
+    expect(despues.first['uuid'], antes.first['uuid']);
+
+    await db.close();
   });
 }

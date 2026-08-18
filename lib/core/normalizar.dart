@@ -46,8 +46,15 @@ class Normalizar {
     var s = valor.toString().toLowerCase();
     s = s.replaceAll(RegExp(r'[\s\-_/\.]'), '');
     _acentos.forEach((con, sin) => s = s.replaceAll(con, sin));
-    // Quitar ceros a la izquierda del primer bloque de dígitos.
-    s = s.replaceFirst(RegExp(r'^0+(?=\d)'), '');
+    // Quitar los ceros a la izquierda del primer bloque de dígitos, esté al
+    // principio o detrás de un prefijo de letra: '0025' -> '25', 'T-025' -> 't25'.
+    //
+    // Se usa replaceFirstMapped y no replaceFirst: en Dart el reemplazo de
+    // `replaceFirst` es texto literal y no interpreta `$1` como retrorreferencia.
+    s = s.replaceFirstMapped(
+      RegExp(r'^(\D*)0+(?=\d)'),
+      (coincidencia) => coincidencia.group(1) ?? '',
+    );
     return s;
   }
 

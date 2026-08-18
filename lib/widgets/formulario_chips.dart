@@ -1,61 +1,98 @@
 import 'package:flutter/material.dart';
 
-/// Construye una sección de selección múltiple usando FilterChips.
-/// Ideal para listas como obstáculos en faja o elementos tipo checklist.
+import '../models/formulario_modal.dart';
+import '../presentacion/diseno/tema_ecoing.dart';
+
+/// Selección múltiple con chips (ítem 1: obstáculos en faja).
+///
+/// Se marca como sin revisar mientras el inspector no haya elegido nada ni
+/// confirmado que no aplica, en lugar de dar por bueno el silencio.
 Widget buildDropdownMultiple({
   required String label,
   required List<String> options,
   required List<String> seleccionados,
-  TextStyle? labelStyle,
-  required Function(List<String>) onChanged,
+  required ValueChanged<List<String>> onChanged,
+  bool revisado = false,
+  VoidCallback? alConfirmarVacio,
 }) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        label,
-        style: labelStyle ??
-            const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFFFD600), // Amarillo dorado institucional
-            ),
-      ),
-      const SizedBox(height: 10),
-      Wrap(
-        spacing: 10.0,
-        runSpacing: 6.0,
-        children: options.map((opcion) {
-          final seleccionado = seleccionados.contains(opcion);
-          return FilterChip(
-            label: Text(
-              opcion,
-              style: TextStyle(
-                color: seleccionado ? Colors.white : const Color(0xFF3A3A3A),
-                fontWeight: FontWeight.w500,
+  final sinRevisar = seleccionados.isEmpty && !revisado;
+  return Padding(
+    padding: const EdgeInsets.only(bottom: Espacio.l),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w600,
+                  color: ColoresEcoing.texto,
+                ),
               ),
             ),
-            selected: seleccionado,
-            selectedColor: const Color(0xFF0D47A1), // Azul profundo al seleccionar
-            backgroundColor: const Color(0xFFF5F5F5), // Gris claro de fondo
-            checkmarkColor: Colors.white,
-            onSelected: (bool selected) {
-              final nuevos = List<String>.from(seleccionados);
-              selected ? nuevos.add(opcion) : nuevos.remove(opcion);
-              onChanged(nuevos);
-            },
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: BorderSide(
-                color: seleccionado
-                    ? const Color(0xFF0D47A1)
-                    : const Color(0xFFB0BEC5), // Borde gris si no está seleccionado
-              ),
+            Icon(
+              sinRevisar ? Icons.radio_button_unchecked : Icons.check_circle,
+              size: 17,
+              color: sinRevisar ? ColoresEcoing.pendiente : ColoresEcoing.exito,
             ),
-          );
-        }).toList(),
-      ),
-      const SizedBox(height: 16),
-    ],
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          sinRevisar
+              ? 'Marca lo que corresponda, o confirma que no hay obstáculos.'
+              : '${seleccionados.length} seleccionado(s)',
+          style: TextStyle(
+            fontSize: 12.5,
+            color: sinRevisar ? ColoresEcoing.pendiente : ColoresEcoing.textoTenue,
+          ),
+        ),
+        const SizedBox(height: Espacio.s),
+        Wrap(
+          spacing: Espacio.s,
+          runSpacing: Espacio.s,
+          children: options.map((opcion) {
+            final elegido = seleccionados.contains(opcion);
+            return FilterChip(
+              label: Text(FormularioModal.etiqueta(opcion)),
+              selected: elegido,
+              onSelected: (activar) {
+                final nuevos = List<String>.from(seleccionados);
+                if (activar) {
+                  nuevos.add(opcion);
+                } else {
+                  nuevos.remove(opcion);
+                }
+                onChanged(nuevos);
+              },
+              selectedColor: ColoresEcoing.azulClaro,
+              checkmarkColor: ColoresEcoing.azul,
+              labelStyle: TextStyle(
+                fontSize: 14,
+                fontWeight: elegido ? FontWeight.w600 : FontWeight.normal,
+                color: elegido ? ColoresEcoing.azul : ColoresEcoing.texto,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(Espacio.radio),
+                side: BorderSide(
+                  color: elegido ? ColoresEcoing.azul : ColoresEcoing.borde,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        if (sinRevisar && alConfirmarVacio != null) ...[
+          const SizedBox(height: Espacio.s),
+          OutlinedButton.icon(
+            onPressed: alConfirmarVacio,
+            icon: const Icon(Icons.check, size: 18),
+            label: const Text('No hay obstáculos'),
+          ),
+        ],
+      ],
+    ),
   );
 }

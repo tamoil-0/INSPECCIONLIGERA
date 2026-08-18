@@ -373,11 +373,14 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
               ),
             ],
           ),
+          // El buscador y los filtros quedan fijos (una fila cada uno); las
+          // estadísticas van DENTRO de la lista. Como cabecera fija ocupaban
+          // altura garantizada y en una pantalla de 320x568 con el texto del
+          // sistema ampliado desbordaban.
           body: Column(
             children: [
-              _cabecera(pendientes),
               _buscador(),
-              Expanded(child: _cuerpo()),
+              Expanded(child: _cuerpo(pendientes)),
             ],
           ),
         ),
@@ -522,7 +525,7 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
     );
   }
 
-  Widget _cuerpo() {
+  Widget _cuerpo(int pendientes) {
     if (_cargando) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -552,6 +555,7 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
         padding: const EdgeInsets.only(bottom: Espacio.xl),
         children: [
           if (_error != null) Aviso(icono: Icons.cloud_off, texto: _error!),
+          _cabecera(pendientes),
           ..._filtradas.map(_tarjeta),
         ],
       ),

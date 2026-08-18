@@ -78,12 +78,17 @@ class ChipEstado extends StatelessWidget {
         children: [
           Icon(par.icono, size: compacto ? 13 : 16, color: par.frente),
           SizedBox(width: compacto ? Espacio.xs : Espacio.s - 2),
-          Text(
-            texto,
-            style: TextStyle(
-              color: par.frente,
-              fontSize: compacto ? 12 : 13.5,
-              fontWeight: FontWeight.w600,
+          // Flexible + ellipsis: con el texto del sistema al 200% una etiqueta
+          // como "Guardado en el teléfono" desbordaba la pantalla.
+          Flexible(
+            child: Text(
+              texto,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: par.frente,
+                fontSize: compacto ? 12 : 13.5,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -133,12 +138,15 @@ class IndicadorConexion extends StatelessWidget {
             children: [
               Icon(icono, size: 18, color: Colors.white),
               const SizedBox(width: Espacio.xs + 2),
-              Text(
-                texto,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
+              Flexible(
+                child: Text(
+                  texto,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],

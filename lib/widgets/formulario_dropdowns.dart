@@ -1,121 +1,173 @@
 import 'package:flutter/material.dart';
 
+import '../models/formulario_modal.dart';
+import '../presentacion/diseno/tema_ecoing.dart';
+
+/// Desplegable de un ítem del formulario.
+///
+/// ## Cambios respecto a la versión anterior
+///
+/// * **Marca visualmente lo que está sin revisar.** Un ítem en `no_revisado`
+///   sale con borde y etiqueta naranja: el inspector ve de un golpe qué le
+///   falta, en lugar de encontrarse 19 campos ya rellenos con `bueno`.
+/// * **Etiquetas legibles.** Antes mostraba las claves crudas del catálogo
+///   (`conductor_en_mal_estado`); ahora `Conductor en mal estado`.
+/// * **El mensaje de error iba en rojo sobre fondo azul oscuro**, prácticamente
+///   ilegible. Ahora usa el estilo de error del tema.
+/// * Objetivo táctil de 48 px y texto de 16 sp.
 Widget buildDropdown({
   required String label,
   required String? value,
   required List<String> options,
-  required Function(String?) onChanged,
-  TextStyle? labelStyle,
+  required ValueChanged<String?> onChanged,
   bool isRequired = false,
+  String? ayuda,
 }) {
+  final sinRevisar = value == null || value == FormularioModal.noRevisado;
+  final colorEstado = sinRevisar
+      ? ColoresEcoing.pendiente
+      : ColoresEcoing.exito;
+
   return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
+    padding: const EdgeInsets.only(bottom: Espacio.l),
     child: FormField<String>(
+      initialValue: value,
       validator: isRequired
-          ? (value) => value == null || value.isEmpty ? 'Este campo es obligatorio' : null
+          ? (v) {
+              if (v == null ||
+                  v.isEmpty ||
+                  v == FormularioModal.noRevisado) {
+                return 'Este campo es obligatorio';
+              }
+              return null;
+            }
           : null,
-      builder: (FormFieldState<String> state) {
+      builder: (estado) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            InputDecorator(
-              decoration: InputDecoration(
-                labelText: label,
-                labelStyle: labelStyle ?? const TextStyle(
-                  color: Color(0xFF7986CB),
-                  fontWeight: FontWeight.bold,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w600,
+                      color: ColoresEcoing.texto,
+                    ),
+                  ),
                 ),
-                floatingLabelStyle: const TextStyle(
-                  backgroundColor: Color(0xFF0D47A1),
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+                if (isRequired)
+                  const Text(
+                    ' *',
+                    style: TextStyle(
+                      color: ColoresEcoing.error,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                Icon(
+                  sinRevisar ? Icons.radio_button_unchecked : Icons.check_circle,
+                  size: 17,
+                  color: colorEstado,
                 ),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: Color(0xFFB0BEC5)),
+              ],
+            ),
+            if (ayuda != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                ayuda,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: ColoresEcoing.textoTenue,
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: Color(0xFFB0BEC5)),
-                ),
-                focusedBorder: const OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFF0D47A1), width: 2),
-                ),
-                errorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: Colors.red, width: 2),
-                ),
-                focusedErrorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: Colors.redAccent, width: 2),
-                ),
-                // 👇 Ocultamos el errorStyle porque lo personalizamos abajo
-                errorStyle: const TextStyle(height: 0),
               ),
-              isEmpty: value == null || value.isEmpty,
+            ],
+            const SizedBox(height: Espacio.s),
+            Container(
+              decoration: BoxDecoration(
+                color: ColoresEcoing.superficie,
+                borderRadius: BorderRadius.circular(Espacio.radio),
+                border: Border.all(
+                  color: estado.hasError
+                      ? ColoresEcoing.error
+                      : (sinRevisar
+                            ? ColoresEcoing.pendiente
+                            : ColoresEcoing.borde),
+                  width: estado.hasError || sinRevisar ? 1.6 : 1,
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: Espacio.m),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   isExpanded: true,
                   value: value,
+                  hint: const Text(
+                    'Elegir…',
+                    style: TextStyle(color: ColoresEcoing.textoTenue),
+                  ),
+                  itemHeight: Espacio.objetivoTactil,
+                  icon: const Icon(
+                    Icons.arrow_drop_down,
+                    color: ColoresEcoing.azul,
+                  ),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: ColoresEcoing.texto,
+                    fontWeight: FontWeight.w500,
+                  ),
                   items: options.map((op) {
-                    final isSelected = op == value;
+                    final esNoRevisado = op == FormularioModal.noRevisado;
                     return DropdownMenuItem(
                       value: op,
-                      child: Container(
-                        decoration: isSelected
-                            ? BoxDecoration(
-                          color: const Color(0xFFE3F2FD), // fondo celeste claro para opción seleccionada
-                          borderRadius: BorderRadius.circular(8),
-                        )
-                            : null,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        child: Text(
-                          op,
-                          style: TextStyle(
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: isSelected ? Colors.black : Colors.black87,
-                          ),
+                      child: Text(
+                        FormularioModal.etiqueta(op),
+                        style: TextStyle(
+                          color: esNoRevisado
+                              ? ColoresEcoing.pendiente
+                              : ColoresEcoing.texto,
+                          fontStyle: esNoRevisado
+                              ? FontStyle.italic
+                              : FontStyle.normal,
+                          fontWeight: op == value
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                         ),
                       ),
                     );
                   }).toList(),
-
-                  onChanged: (val) {
-                    state.didChange(val);
-                    onChanged(val);
+                  onChanged: (nuevo) {
+                    estado.didChange(nuevo);
+                    onChanged(nuevo);
                   },
-                  icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF0D47A1)),
-                  style: const TextStyle(
-                    color: Color(0xFF3A3A3A),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
                 ),
               ),
             ),
-            if (state.hasError)
-              Container(
-                margin: const EdgeInsets.only(top: 4, left: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0D47A1), // Fondo azul profundo
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  state.errorText!,
-                  style: const TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
+            if (estado.hasError) ...[
+              const SizedBox(height: Espacio.xs),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 15,
+                    color: ColoresEcoing.error,
                   ),
-                ),
+                  const SizedBox(width: Espacio.xs),
+                  Text(
+                    estado.errorText!,
+                    style: const TextStyle(
+                      color: ColoresEcoing.error,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
+            ],
           ],
         );
       },
     ),
   );
-
 }

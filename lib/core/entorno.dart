@@ -58,6 +58,27 @@ class Entorno {
     defaultValue: false,
   );
 
+  /// Enviar literalmente `no_revisado` en los campos que el inspector no
+  /// confirmó, en lugar del valor por defecto heredado.
+  ///
+  /// **Por defecto `false`, a propósito.** Es un cambio de contrato en 19 campos
+  /// del formulario y el backend se está actualizando. Con `false` la app es
+  /// compatible con el servidor actual: la interfaz sigue mostrando
+  /// «No revisado» al inspector y `campos_revisados` viaja igual, así que el
+  /// servidor ya puede distinguir lo revisado de lo que no; solo el valor del
+  /// campo mantiene el formato antiguo.
+  ///
+  /// Activar cuando el backend acepte el valor:
+  /// ```bash
+  /// flutter build apk --release --dart-define=ENVIAR_NO_REVISADO=true
+  /// ```
+  ///
+  /// Ver `BACKEND_CONTRATO.md`.
+  static const bool enviarNoRevisado = bool.fromEnvironment(
+    'ENVIAR_NO_REVISADO',
+    defaultValue: false,
+  );
+
   static bool get esProduccion => nombre == 'produccion';
 
   static Duration get timeout => Duration(seconds: timeoutSegundos);

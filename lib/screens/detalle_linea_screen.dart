@@ -342,7 +342,6 @@ class _DetalleLineaScreenState extends State<DetalleLineaScreen> {
                         icono: Icons.cloud_off,
                         texto: 'Modo offline. Desactívalo para poder enviar.',
                       ),
-                    _cabecera(),
                     _filtros(),
                     Expanded(child: _lista()),
                   ],
@@ -467,8 +466,10 @@ class _DetalleLineaScreenState extends State<DetalleLineaScreen> {
       onRefresh: _cargar,
       child: ListView.builder(
         padding: const EdgeInsets.only(bottom: Espacio.xl),
-        itemCount: visibles.length,
-        itemBuilder: (context, i) => _tarjeta(visibles[i]),
+        // La cabecera de estadísticas va dentro de la lista, no fija.
+        itemCount: visibles.length + 1,
+        itemBuilder: (context, i) =>
+            i == 0 ? _cabecera() : _tarjeta(visibles[i - 1]),
       ),
     );
   }

@@ -23,7 +23,7 @@ class Migraciones {
   const Migraciones._();
 
   /// Versión de esquema que espera esta compilación de la app.
-  static const int version = 2;
+  static const int version = 3;
 
   static const Uuid _uuid = Uuid();
 
@@ -36,6 +36,9 @@ class Migraciones {
       switch (v) {
         case 2:
           await _v2EstadosYTrazabilidad(db);
+          break;
+        case 3:
+          await _v3CamposRevisados(db);
           break;
       }
     }
@@ -173,6 +176,34 @@ class Migraciones {
     for (final sql in indices) {
       await db.execute(sql);
     }
+  }
+
+  // ===========================================================================
+  // v3 — Registro de qué campos revisó realmente el inspector
+  //
+  // Problema que resuelve:
+  //   19 de los 22 ítems del formulario llegaban precargados con valores como
+  //   'bueno', 'buen_estado', 'n_a' o 'no', y solo 3 eran obligatorios. Un
+  //   inspector podía enviar una inspección completa en dos toques y el
+  //   servidor recibía 19 respuestas que nadie había mirado, indistinguibles
+  //   de una inspección real.
+  //
+  //   Ahora los ítems arrancan en 'no_revisado' y se guarda la lista de los que
+  //   el inspector confirmó de verdad, para poder auditarlo.
+  // ===========================================================================
+  static Future<void> _v3CamposRevisados(Database db) async {
+    await _agregarColumnas(db, 'formularios_pendientes', {
+      // JSON con la lista de claves que el inspector tocó o confirmó.
+      'revisados_json': 'TEXT',
+      // Cuántos de los 23 ítems quedaron sin revisar en el último guardado.
+      'sin_revisar': 'INTEGER',
+    });
+
+    await _agregarColumnas(db, 'poste_datos', {'revisados_json': 'TEXT'});
+
+    // Los borradores anteriores a esta versión no tienen esa información. Se
+    // dejan a NULL a propósito: marcarlos como 'todo revisado' sería inventar
+    // un dato que nadie confirmó, que es justo el problema que se corrige.
   }
 
   // ===========================================================================
