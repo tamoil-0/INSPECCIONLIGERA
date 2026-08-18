@@ -206,14 +206,34 @@ void main() {
     final mapa =
         (FormularioModal()
               ..distanciaAcceso = 7.25
-              ..cantidadPat = 1)
+              ..cantidadPat = 1
+              ..distanciaPosteAnterior = 125.75
+              ..distanciaVertical = 8.5
+              ..distanciaHorizontal = 124.25)
             .toMap();
     expect(mapa['distancia_acceso'], 7.25);
     expect(mapa['cantidad_pat'], 1);
+    expect(mapa['distancia_poste_anterior'], 125.75);
+    expect(mapa['distancia_vertical'], 8.5);
+    expect(mapa['distancia_horizontal'], 124.25);
     expect(
       mapa['fecha_inspeccion'],
       matches(RegExp(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$')),
     );
+  });
+
+  test('las distancias DMS opcionales se restauran y admiten nulos', () {
+    final modelo = FormularioModal()
+      ..cargarDesdeMap({
+        'distancia_poste_anterior': '100.125',
+        'distancia_vertical': 4,
+        'distancia_horizontal': null,
+      });
+
+    expect(modelo.distanciaPosteAnterior, 100.125);
+    expect(modelo.distanciaVertical, 4.0);
+    expect(modelo.distanciaHorizontal, isNull);
+    expect(modelo.toMap()['distancia_horizontal'], isNull);
   });
 
   group('Catálogos de opciones', () {

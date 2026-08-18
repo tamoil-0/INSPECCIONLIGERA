@@ -38,6 +38,12 @@ class FormularioModal {
   /// Cantidad de puestas a tierra observadas. Opcional, nunca negativa.
   int? cantidadPat;
 
+  /// Distancias DMS en metros. Son opcionales y, cuando se informan, no
+  /// pueden ser negativas.
+  double? distanciaPosteAnterior;
+  double? distanciaVertical;
+  double? distanciaHorizontal;
+
   // === Ítem 1: selección múltiple ===
   List<String> obstaculosFaja = [];
 
@@ -307,6 +313,9 @@ class FormularioModal {
     final mapa = <String, dynamic>{
       'distancia_acceso': distanciaAcceso,
       if (cantidadPat != null) 'cantidad_pat': cantidadPat,
+      'distancia_poste_anterior': distanciaPosteAnterior,
+      'distancia_vertical': distanciaVertical,
+      'distancia_horizontal': distanciaHorizontal,
       'obstaculos_faja': obstaculosFaja,
       'comentarios': comentarios,
       'fecha_inspeccion': _fechaSql(fechaInspeccion ?? DateTime.now()),
@@ -376,6 +385,9 @@ class FormularioModal {
   void cargarDesdeMap(Map<String, dynamic> map) {
     distanciaAcceso = _leerDouble(map['distancia_acceso']);
     cantidadPat = _leerInt(map['cantidad_pat']);
+    distanciaPosteAnterior = _leerDouble(map['distancia_poste_anterior']);
+    distanciaVertical = _leerDouble(map['distancia_vertical']);
+    distanciaHorizontal = _leerDouble(map['distancia_horizontal']);
     final obstaculoRaw = map['obstaculos_faja'];
     if (obstaculoRaw is String) {
       obstaculosFaja = obstaculoRaw

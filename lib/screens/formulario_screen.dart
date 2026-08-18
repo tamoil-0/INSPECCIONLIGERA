@@ -68,6 +68,9 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
   final _comentariosCtrl = TextEditingController();
   final _distanciaAccesoCtrl = TextEditingController();
   final _cantidadPatCtrl = TextEditingController();
+  final _distanciaPosteAnteriorCtrl = TextEditingController();
+  final _distanciaVerticalCtrl = TextEditingController();
+  final _distanciaHorizontalCtrl = TextEditingController();
   final _borradores = BorradoresRepositorio();
   final _fotos = FotosRepositorio();
   final _datosService = PosteDatosService();
@@ -95,6 +98,9 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
     _comentariosCtrl.dispose();
     _distanciaAccesoCtrl.dispose();
     _cantidadPatCtrl.dispose();
+    _distanciaPosteAnteriorCtrl.dispose();
+    _distanciaVerticalCtrl.dispose();
+    _distanciaHorizontalCtrl.dispose();
     super.dispose();
   }
 
@@ -121,6 +127,11 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
 
     _distanciaAccesoCtrl.text = _modelo.distanciaAcceso?.toString() ?? '';
     _cantidadPatCtrl.text = _modelo.cantidadPat?.toString() ?? '';
+    _distanciaPosteAnteriorCtrl.text =
+        _modelo.distanciaPosteAnterior?.toString() ?? '';
+    _distanciaVerticalCtrl.text = _modelo.distanciaVertical?.toString() ?? '';
+    _distanciaHorizontalCtrl.text =
+        _modelo.distanciaHorizontal?.toString() ?? '';
 
     final fotos = await _fotos.fotosDePoste(widget.posteId);
     if (!mounted) return;
@@ -658,6 +669,38 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
     );
   }
 
+  Widget _campoDistanciaDms({
+    required TextEditingController controller,
+    required String clave,
+    required String etiqueta,
+    required void Function(double? valor) asignar,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(
+        labelText: '$etiqueta (opcional)',
+        hintText: 'Ejemplo: 12.5',
+        suffixText: 'm',
+      ),
+      validator: (valor) {
+        final texto = (valor ?? '').trim();
+        if (texto.isEmpty) return null;
+        final numero = double.tryParse(texto.replaceAll(',', '.'));
+        if (numero == null || !numero.isFinite || numero < 0) {
+          return 'Ingresa un número no negativo o deja el campo vacío.';
+        }
+        return null;
+      },
+      onChanged: (valor) => _cambio(clave, () {
+        final texto = valor.trim();
+        asignar(
+          texto.isEmpty ? null : double.tryParse(texto.replaceAll(',', '.')),
+        );
+      }),
+    );
+  }
+
   List<Widget> _camposDelPaso(int paso) {
     switch (paso) {
       case 0:
@@ -756,6 +799,41 @@ class _FormularioPostePageState extends State<FormularioPostePage> {
             onChanged: (valor) => _cambio('cantidad_pat', () {
               _modelo.cantidadPat = int.tryParse(valor.trim());
             }),
+          ),
+          const SizedBox(height: Espacio.l),
+          Text(
+            'Distancia DMS',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: ColoresEcoing.azul,
+            ),
+          ),
+          const SizedBox(height: Espacio.xs),
+          const Text(
+            'Complete solo las medidas disponibles. Los tres campos aceptan '
+            'números decimales en metros.',
+            style: TextStyle(color: ColoresEcoing.textoSuave),
+          ),
+          const SizedBox(height: Espacio.m),
+          _campoDistanciaDms(
+            controller: _distanciaPosteAnteriorCtrl,
+            clave: 'distancia_poste_anterior',
+            etiqueta: 'Distancia al poste anterior',
+            asignar: (valor) => _modelo.distanciaPosteAnterior = valor,
+          ),
+          const SizedBox(height: Espacio.m),
+          _campoDistanciaDms(
+            controller: _distanciaVerticalCtrl,
+            clave: 'distancia_vertical',
+            etiqueta: 'Distancia vertical',
+            asignar: (valor) => _modelo.distanciaVertical = valor,
+          ),
+          const SizedBox(height: Espacio.m),
+          _campoDistanciaDms(
+            controller: _distanciaHorizontalCtrl,
+            clave: 'distancia_horizontal',
+            etiqueta: 'Distancia horizontal',
+            asignar: (valor) => _modelo.distanciaHorizontal = valor,
           ),
           const SizedBox(height: Espacio.l),
           buildDropdown(

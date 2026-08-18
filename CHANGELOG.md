@@ -1,5 +1,13 @@
 # Registro de cambios
 
+## 1.2.0 — 18/08/2026
+
+- Se agregaron las mediciones opcionales de Distancia DMS: poste anterior,
+  vertical y horizontal.
+- Los tres valores admiten decimales no negativos, se conservan offline y
+  aceptan `null` para borrar una medición anterior.
+- El contrato quedó validado contra el API y la suite aumentó a 157 pruebas.
+
 ## 1.1.0 — 18/08/2026
 
 Revisión completa del aplicativo móvil. El punto de partida está documentado en

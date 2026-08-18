@@ -31,6 +31,9 @@ La fuente detallada es `../docs/CONEXION_Y_SINCRONIZACION_MOVIL.md`. Este archiv
 - Formulario: `PUT /postes/actualiza-datos.php?poste_id=N`.
 - `distancia_acceso` es obligatoria, numérica y no negativa.
 - `cantidad_pat` es opcional, entera y no negativa.
+- `distancia_poste_anterior`, `distancia_vertical` y
+  `distancia_horizontal` son mediciones DMS opcionales en metros; aceptan
+  decimales no negativos o `null` para limpiar el valor.
 - Fecha: `YYYY-MM-DD HH:mm:ss` en hora local de Lima.
 - RST: `POST /postes/agregar-seccion-rst.php?poste_id=N` con `registros`.
 - Secciones RST: `conductores_fase`, `conductores_cuellos`, `conductores_guarda` y `estado_aisladores`.
