@@ -118,10 +118,23 @@ class AlmacenamientoFotos {
       p.join(carpeta.path, '${_nombreSeguro(nombreFoto)}__$uuid$extension'),
     );
 
-    try {
-      await origen.copy(destino.path);
+    // Se escribe primero a un temporal y solo se pone en su sitio cuando la
+    // copia está verificada.
+    //
+    // Importa al repetir una foto: el nombre del archivo se deriva del UUID,
+    // que se conserva, así que la ruta de destino es la misma que la de la foto
+    // anterior. Copiar directamente encima significaría destruir una foto buena
+    // antes de saber si la nueva se copió bien; si el proceso muere a mitad, el
+    // inspector se queda sin ninguna de las dos.
+    final temporal = File('${destino.path}.tmp');
 
-      final bytesDestino = await destino.length();
+    try {
+      if (await temporal.exists()) {
+        await temporal.delete();
+      }
+      await origen.copy(temporal.path);
+
+      final bytesDestino = await temporal.length();
       if (bytesDestino != bytesOrigen) {
         throw AlmacenamientoFotoException(
           'Copia incompleta: $bytesDestino de $bytesOrigen bytes.',
@@ -129,12 +142,15 @@ class AlmacenamientoFotos {
       }
 
       final checksumOrigen = await calcularChecksum(origen);
-      final checksumDestino = await calcularChecksum(destino);
+      final checksumDestino = await calcularChecksum(temporal);
       if (checksumOrigen != checksumDestino) {
         throw const AlmacenamientoFotoException(
           'El checksum de la copia no coincide con el original.',
         );
       }
+
+      // La copia está verificada: recién ahora se reemplaza la anterior.
+      await temporal.rename(destino.path);
 
       return FotoPersistida(
         ruta: destino.path,
@@ -142,13 +158,13 @@ class AlmacenamientoFotos {
         checksum: checksumDestino,
       );
     } catch (e) {
-      // No dejar basura a medio escribir.
-      if (await destino.exists()) {
+      // No dejar basura a medio escribir. El destino definitivo no se toca:
+      // si había una foto anterior válida, sigue intacta.
+      if (await temporal.exists()) {
         try {
-          await destino.delete();
+          await temporal.delete();
         } catch (_) {
-          // Si no se puede borrar, el archivo huérfano es preferible a
-          // propagar un error distinto del real.
+          // Un temporal huérfano es preferible a enmascarar el error real.
         }
       }
       if (e is AlmacenamientoFotoException) rethrow;
