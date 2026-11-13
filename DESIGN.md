@@ -132,5 +132,5 @@ Estados obligatorios en vistas con datos: **carga** (skeleton o spinner), **vac�
 | 3 | Hex sueltos repetidos: `#fbfcfd` (×7), `#0e507f`, `#842e2e`, `#9aabb7`, `#91a0aa`, `#d99413`, `#fffaf0`, `#fdf1d8`, `#6b3fa0` | Difícil de mantener | ✅ Resuelta (quedan solo colores decorativos de un solo uso: degradados del login, puntos de estado sobre la topbar oscura y brillo del skeleton) |
 | 4 | Radios en px fuera de escala: `7px`, `9px`, `10px`, `11px`, `14px`, `16px`, `20px` | Esquinas distintas en componentes equivalentes | ✅ Resuelta (excepto logo, punto de color y marco de celular del editor, que son intencionales) |
 | 5 | Sombras sueltas en menú contextual, toast y diálogo | Profundidad inconsistente | ✅ Resuelta (`--shadow-md` en menús y toasts, `--shadow-lg` en diálogos) |
-| 6 | Alturas de controles: botones 42 px, `.button-sm` 36 px, paginación 34 px, acciones 38 px | Objetivos táctiles < 44 px en móvil | Pendiente |
+| 6 | Alturas de controles: botones 42 px, `.button-sm` 36 px, paginación 34 px, acciones 38 px | Objetivos táctiles < 44 px en móvil | ✅ Resuelta (`--touch: 44px` en ≤ 760 px) |
 | 7 | 48 tamaños de fuente distintos | Jerarquía difusa | Pendiente (se documenta la escala; se unifica al tocar cada pantalla) |

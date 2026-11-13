@@ -43,6 +43,7 @@
   --radius-lg: 18px;
   --radius-xl: 26px;
   --content: 1280px;
+  --touch: 44px;
 }
 
 * { box-sizing: border-box; }
@@ -1566,3 +1567,14 @@ tbody tr:hover { background: var(--blue-50); }
 .admin-tab-link:hover { color: var(--white); background: var(--blue-700); border-color: var(--blue-700); }
 .admin-inline-link { justify-self: start; font-size: .8rem; font-weight: 700; }
 @media (max-width: 720px) { .admin-tab-link { margin-left: 0; min-height: 40px; padding: 8px 12px; } }
+
+/* Objetivos táctiles: en pantallas táctiles pequeñas todo control mide al menos
+   --touch de alto. Va al final para ganar a los tamaños compactos de escritorio. */
+@media (max-width: 760px) {
+  .button, button, .button-sm, .nav-link, .section-nav a, .admin-tab-link,
+  .admin-tabs button, .admin-action-trigger, .admin-page-number, .admin-context-item,
+  .diag-tabs button, .password-toggle, .topbar .button-ghost { min-height: var(--touch); }
+  .admin-action-trigger, .admin-dialog-close { min-width: var(--touch); }
+  .admin-dialog-close { min-height: var(--touch); }
+  .nav-link, .section-nav a { display: inline-flex; align-items: center; }
+}
