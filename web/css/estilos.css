@@ -629,7 +629,9 @@ tbody tr:hover { background: var(--blue-50); }
   line-height: 24px;
   pointer-events: none;
 }
-.admin-filter-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+/* Las acciones siempre en la última columna: si un filtro se oculta (p. ej. Proyecto
+   en la pestaña Proyectos), no caen en su hueco de 160 px encima del select. */
+.admin-filter-actions { display: flex; grid-column: -2 / -1; grid-row: 1; align-items: center; justify-content: flex-end; gap: 6px; }
 .admin-filter-actions button { white-space: nowrap; }
 
 .admin-lista { min-width: 0; overflow: hidden; }
@@ -1144,7 +1146,7 @@ tbody tr:hover { background: var(--blue-50); }
 
 @media (max-width: 1040px) {
   .admin-filter-grid { grid-template-columns: minmax(260px, 1fr) minmax(190px, .55fr) minmax(150px, .4fr); }
-  .admin-filter-actions { grid-column: 1 / -1; justify-content: flex-end; }
+  .admin-filter-actions { grid-column: 1 / -1; grid-row: auto; justify-content: flex-end; }
 }
 
 @media (max-width: 760px) {
@@ -1154,7 +1156,7 @@ tbody tr:hover { background: var(--blue-50); }
   .admin-tabs { margin: 0 -1px; flex-wrap: nowrap; }
   .admin-tabs button { min-height: 40px; padding: 8px 12px; }
   .admin-filter-grid { grid-template-columns: 1fr; padding: 15px; }
-  .admin-filter-actions { grid-column: auto; }
+  .admin-filter-actions { grid-column: auto; grid-row: auto; }
   .admin-filter-actions button { flex: 1; }
   .admin-list-header { min-height: auto; padding: 17px; }
   .admin-table-wrap { min-height: 280px; }

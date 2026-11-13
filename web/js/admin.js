@@ -199,7 +199,7 @@ function stateBadge(active) {
 function setPanelLoading(loading) {
   state.loading = loading;
   tableRegion.setAttribute("aria-busy", String(loading));
-  byId("adminConteo").textContent = loading ? "Cargando" : state.total + " resultados";
+  byId("adminConteo").textContent = loading ? "Cargando" : state.total + (state.total === 1 ? " resultado" : " resultados");
   byId("paginaAnterior").disabled = loading || state.page <= 1;
   byId("paginaSiguiente").disabled = loading || state.page * state.limit >= state.total;
 }
@@ -529,7 +529,7 @@ function prepareSectionView() {
     ? "Mostrando las estructuras asociadas a " + state.contextLine + "."
     : meta.help;
   byId("nuevoRegistro").hidden = ["archivados", "auditoria"].includes(state.section);
-  byId("nuevoRegistro").querySelector("span:last-child").textContent = "Nueva " + meta.singular;
+  byId("nuevoRegistro").querySelector("span:last-child").textContent = (["línea", "estructura"].includes(meta.singular) ? "Nueva " : "Nuevo ") + meta.singular;
   byId("importarExcel").hidden = state.section !== "lineas"
     && !(state.section === "estructuras" && Boolean(state.contextLine));
   byId("campoProyecto").hidden = ["proyectos", "auditoria"].includes(state.section);
