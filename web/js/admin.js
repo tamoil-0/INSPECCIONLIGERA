@@ -1510,9 +1510,10 @@ async function openEditor(type, row, context) {
   });
 }
 
+activarValidacion(form);
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (form.dataset.busy === "true" || form.dataset.linesBusy === "true" || !form.reportValidity()) return;
+  if (form.dataset.busy === "true" || form.dataset.linesBusy === "true" || !validarFormulario(form)) return;
   const type = form.dataset.type;
   const id = form.dataset.id;
   const affectedProjectId = type === "lineas" ? byId("f_proyecto_id")?.value : "";

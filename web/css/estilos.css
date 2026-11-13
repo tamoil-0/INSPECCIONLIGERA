@@ -219,6 +219,10 @@ h3 { margin-bottom: 6px; font-size: 1rem; }
 .campo { display: grid; gap: 7px; }
 .campo label { color: var(--slate-800); font-size: .86rem; font-weight: 720; }
 .campo small { color: var(--slate-600); font-size: .78rem; }
+.campo .campo-error { display: flex; gap: 6px; align-items: flex-start; color: var(--red-700); font-weight: 650; }
+.campo .campo-error::before { content: "!"; display: grid; flex: 0 0 auto; width: 16px; height: 16px; margin-top: 1px; place-items: center; color: var(--white); background: var(--red-700); border-radius: 50%; font-size: .66rem; font-weight: 900; }
+input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--red-700); }
+input[aria-invalid="true"]:focus, select[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus { border-color: var(--red-700); box-shadow: 0 0 0 3px rgba(164, 58, 58, .14); }
 
 input, select, textarea {
   width: 100%;

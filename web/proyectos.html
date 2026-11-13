@@ -169,10 +169,11 @@
     document.getElementById("buscar").addEventListener("click", cargarProyectos);
     document.getElementById("estadoFiltro").addEventListener("change", cargarProyectos);
     document.getElementById("busqueda").addEventListener("keydown", (event) => { if (event.key === "Enter") cargarProyectos(); });
+    activarValidacion(document.getElementById("proyectoForm"));
     document.getElementById("proyectoForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
-      if (!form.reportValidity()) return;
+      if (!validarFormulario(form)) return;
       const button = form.querySelector("button[type='submit']");
       establecerCargando(button, true, "Guardando…");
       try {

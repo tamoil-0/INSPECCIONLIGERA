@@ -269,6 +269,71 @@ function limpiarMensaje(elemento) {
   elemento.className = "mensaje";
 }
 
+// --- Validación de formularios ------------------------------------------------
+// Usa las mismas reglas HTML (required, type, minlength, pattern…) que antes
+// validaba reportValidity(), pero muestra el error en español junto al campo,
+// valida al salir del campo y enfoca el primer error al enviar.
+function mensajeValidacion(campo) {
+  const v = campo.validity;
+  if (v.valueMissing) return campo.tagName === "SELECT" ? "Seleccione una opción." : "Complete este campo.";
+  if (v.typeMismatch && campo.type === "email") return "Ingrese un correo válido, por ejemplo nombre@empresa.com.";
+  if (v.typeMismatch) return "El formato no es válido.";
+  if (v.tooShort) return `Use al menos ${campo.minLength} caracteres (lleva ${campo.value.length}).`;
+  if (v.tooLong) return `Use como máximo ${campo.maxLength} caracteres.`;
+  if (v.rangeUnderflow) return `El valor mínimo es ${campo.min}.`;
+  if (v.rangeOverflow) return `El valor máximo es ${campo.max}.`;
+  if (v.stepMismatch || v.badInput) return "Ingrese un número válido.";
+  if (v.patternMismatch) return campo.title || "El formato no es válido.";
+  return campo.validationMessage || "Revise este campo.";
+}
+
+function marcarCampo(campo) {
+  if (!campo.willValidate) return true;
+  const contenedor = campo.closest(".campo") || campo.parentElement;
+  const errorId = `${campo.id || campo.name}-error`;
+  let error = contenedor.querySelector(`[data-campo-error="${errorId}"]`);
+  const valido = campo.checkValidity();
+  if (valido) {
+    campo.removeAttribute("aria-invalid");
+    if (error) error.remove();
+  } else {
+    if (!error) {
+      error = document.createElement("small");
+      error.className = "campo-error";
+      error.id = errorId;
+      error.dataset.campoError = errorId;
+      contenedor.appendChild(error);
+    }
+    error.textContent = mensajeValidacion(campo);
+    campo.setAttribute("aria-invalid", "true");
+  }
+  const descritos = (campo.getAttribute("aria-describedby") || "").split(/\s+/).filter((id) => id && id !== errorId);
+  if (!valido) descritos.push(errorId);
+  if (descritos.length) campo.setAttribute("aria-describedby", descritos.join(" "));
+  else campo.removeAttribute("aria-describedby");
+  return valido;
+}
+
+function validarFormulario(form) {
+  const campos = [...form.elements].filter((el) => el.willValidate && !el.disabled && !el.closest("[hidden]"));
+  const invalidos = campos.filter((campo) => !marcarCampo(campo));
+  if (invalidos.length) invalidos[0].focus();
+  return invalidos.length === 0;
+}
+
+function activarValidacion(form) {
+  if (!form || form.dataset.validacion === "activa") return;
+  form.dataset.validacion = "activa";
+  form.noValidate = true;
+  form.addEventListener("focusout", (event) => {
+    const campo = event.target;
+    if (campo.willValidate && (campo.value !== "" || campo.getAttribute("aria-invalid") === "true")) marcarCampo(campo);
+  });
+  form.addEventListener("input", (event) => {
+    if (event.target.getAttribute("aria-invalid") === "true") marcarCampo(event.target);
+  });
+}
+
 function establecerCargando(button, cargando, texto = "Procesando…") {
   if (!button) return;
   if (cargando) {

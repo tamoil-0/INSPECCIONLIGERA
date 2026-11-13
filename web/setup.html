@@ -67,12 +67,13 @@
 
   <script src="js/app.js"></script>
   <script>
+    activarValidacion(document.getElementById("setupForm"));
     document.getElementById("setupForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
       const message = document.getElementById("mensaje");
       const button = form.querySelector("button[type='submit']");
-      if (!form.reportValidity()) return;
+      if (!validarFormulario(form)) return;
       limpiarMensaje(message);
       establecerCargando(button, true, "Creando cuenta…");
       try {

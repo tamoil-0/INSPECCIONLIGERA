@@ -66,12 +66,13 @@
   <script>
     if (obtenerToken()) window.location.replace("proyectos.html");
 
+    activarValidacion(document.getElementById("loginForm"));
     document.getElementById("loginForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
       const message = document.getElementById("mensaje");
       const button = form.querySelector("button[type='submit']");
-      if (!form.reportValidity()) return;
+      if (!validarFormulario(form)) return;
       limpiarMensaje(message);
       establecerCargando(button, true, "Verificando…");
       try {
