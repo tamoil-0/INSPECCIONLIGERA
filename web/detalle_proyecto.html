@@ -34,7 +34,7 @@
       <article class="metric-card"><span class="metric-label">Líneas</span><strong class="metric-value" id="totalLineas">—</strong><span class="metric-helper">Circuitos registrados</span></article>
       <article class="metric-card"><span class="metric-label">Estructuras</span><strong class="metric-value" id="totalPostes">—</strong><span class="metric-helper">Padrón del proyecto</span></article>
       <article class="metric-card" data-tone="success"><span class="metric-label">Formularios</span><strong class="metric-value" id="totalFormularios">—</strong><span class="metric-helper">Confirmados en servidor</span></article>
-      <article class="metric-card" data-tone="warning"><span class="metric-label">Evidencia completa</span><strong class="metric-value" id="totalImagenes">—</strong><span class="metric-helper">Postes con 28 imágenes</span></article>
+      <article class="metric-card" data-tone="warning"><span class="metric-label">Sincronizadas</span><strong class="metric-value" id="totalImagenes">—</strong><span class="metric-helper">Finalizadas y confirmadas</span></article>
     </section>
 
     <section class="section-block" aria-labelledby="datosProyectoTitulo">
@@ -76,7 +76,7 @@
         document.getElementById("totalLineas").textContent = lines.size;
         document.getElementById("totalPostes").textContent = posts.count;
         document.getElementById("totalFormularios").textContent = posts.data.filter((post) => Number(post.formulario_subido) === 1).length;
-        document.getElementById("totalImagenes").textContent = posts.data.filter((post) => Number(post.imagenes_subidas) === 1).length;
+        document.getElementById("totalImagenes").textContent = posts.data.filter((post) => Number(post.sincronizado) === 1).length;
         const status = document.getElementById("estadoProyecto");
         status.replaceWith(insigniaEstado(project.data.estado));
         const detail = document.getElementById("detalle");

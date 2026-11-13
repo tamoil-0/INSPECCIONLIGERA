@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#071827">
+  <title>Administración | ECOING</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body class="app-body">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand-link" href="proyectos.html">
+        <span class="logo-mark">EC</span>
+        <span class="brand-copy"><strong>ECOING</strong><span>Operaciones de campo</span></span>
+      </a>
+      <nav class="topbar-center" aria-label="Navegación principal">
+        <a class="nav-link" href="proyectos.html">Proyectos</a>
+        <a class="nav-link activo" href="admin.html" aria-current="page">Administración</a>
+        <a class="nav-link" href="plantillas.html">Plantillas</a>
+      </nav>
+      <div class="topbar-actions">
+        <span class="conexion" data-api-status data-state="checking"><span>Verificando API</span></span>
+        <div class="usuario-compacto">
+          <span class="usuario-avatar" data-user-initials>EC</span>
+          <span class="usuario-meta"><strong data-user-name>Usuario</strong><span data-user-role>Administrador</span></span>
+        </div>
+        <button class="button-ghost button-sm" type="button" onclick="cerrarSesion()">Salir</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main admin-shell">
+    <nav class="breadcrumbs" aria-label="Ruta de navegación">
+      <a href="proyectos.html">Panel</a>
+      <span class="separador" aria-hidden="true">/</span>
+      <span>Administración</span>
+      <span class="separador" aria-hidden="true">/</span>
+      <strong id="adminBreadcrumbActual">Proyectos</strong>
+    </nav>
+
+    <section class="page-heading admin-page-heading">
+      <div class="page-heading-copy">
+        <p class="eyebrow">Panel administrativo</p>
+        <h1>Datos maestros</h1>
+        <p>Administre proyectos, líneas y estructuras sin alterar la información histórica de campo.</p>
+      </div>
+      <div class="page-actions">
+        <button id="importarExcel" class="button-secondary" type="button" hidden>
+          <span class="button-icon" aria-hidden="true">⇧</span>
+          <span>Importar Excel</span>
+        </button>
+        <button id="nuevoRegistro" class="button-primary" type="button">
+          <span class="button-icon" aria-hidden="true">＋</span>
+          <span>Nuevo registro</span>
+        </button>
+      </div>
+    </section>
+
+    <p id="adminMensaje" class="mensaje" aria-live="polite"></p>
+
+    <nav class="admin-tabs" aria-label="Secciones administrativas" role="tablist">
+      <button data-section="proyectos" class="activo" type="button" role="tab" aria-selected="true">
+        <span aria-hidden="true">▦</span><span>Proyectos</span>
+      </button>
+      <button data-section="lineas" type="button" role="tab" aria-selected="false">
+        <span aria-hidden="true">⌁</span><span>Líneas</span>
+      </button>
+      <button data-section="estructuras" type="button" role="tab" aria-selected="false">
+        <span aria-hidden="true">⌖</span><span>Estructuras</span>
+      </button>
+      <button data-section="archivados" type="button" role="tab" aria-selected="false">
+        <span aria-hidden="true">▣</span><span>Archivados</span>
+      </button>
+      <button data-section="auditoria" type="button" role="tab" aria-selected="false">
+        <span aria-hidden="true">◷</span><span>Historial</span>
+      </button>
+      <a class="admin-tab-link" href="plantillas.html">
+        <span aria-hidden="true">▤</span><span>Plantillas de inspección</span><span aria-hidden="true">↗</span>
+      </a>
+    </nav>
+
+    <section class="surface admin-toolbar" aria-label="Filtros">
+      <form id="adminFiltros" class="admin-filter-grid">
+        <div class="campo admin-search-field">
+          <label for="adminBuscar">Búsqueda rápida</label>
+          <span class="admin-input-icon" aria-hidden="true">⌕</span>
+          <input id="adminBuscar" type="search" placeholder="Nombre, línea, código o ubicación" autocomplete="off">
+        </div>
+        <div class="campo" id="campoProyecto">
+          <label for="adminProyecto">Proyecto</label>
+          <select id="adminProyecto"><option value="">Todos los proyectos</option></select>
+        </div>
+        <div class="campo" id="campoEstado">
+          <label for="adminEstado">Estado</label>
+          <select id="adminEstado">
+            <option value="">Todos los estados</option>
+            <option value="activo">Activos</option>
+            <option value="inactivo">Inactivos</option>
+          </select>
+        </div>
+        <div class="admin-filter-actions">
+          <button id="adminLimpiarFiltros" class="button-ghost" type="button">Limpiar</button>
+          <button id="adminAplicar" class="button-secondary" type="submit">
+            <span aria-hidden="true">≡</span><span>Aplicar filtros</span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section class="surface admin-lista" id="adminTableRegion" aria-busy="true">
+      <div class="surface-header admin-list-header">
+        <div>
+          <p class="eyebrow">Gestión de registros</p>
+          <h2 id="adminTitulo">Proyectos</h2>
+          <p id="adminAyuda">Proyectos y disponibilidad del padrón.</p>
+        </div>
+        <span id="adminConteo" class="status-badge status-neutral">Cargando</span>
+      </div>
+      <div class="tabla-scroll tabla-responsive admin-table-wrap">
+        <table aria-describedby="adminAyuda">
+          <thead id="adminHead"></thead>
+          <tbody id="adminBody"></tbody>
+        </table>
+      </div>
+      <nav class="admin-paginacion" aria-label="Paginación de resultados">
+        <p id="paginacionResumen">Mostrando 0 de 0</p>
+        <div class="admin-page-controls">
+          <button id="paginaAnterior" class="button-secondary button-sm" type="button" aria-label="Página anterior">
+            <span aria-hidden="true">‹</span><span class="pagination-label">Anterior</span>
+          </button>
+          <div id="paginaNumeros" class="admin-page-numbers" aria-label="Páginas"></div>
+          <span id="paginaTexto" class="sr-only" aria-live="polite">Página 1</span>
+          <button id="paginaSiguiente" class="button-secondary button-sm" type="button" aria-label="Página siguiente">
+            <span class="pagination-label">Siguiente</span><span aria-hidden="true">›</span>
+          </button>
+        </div>
+      </nav>
+    </section>
+  </main>
+
+  <dialog id="adminDialog" class="admin-dialog" aria-labelledby="dialogTitulo">
+    <form id="adminForm">
+      <header class="admin-dialog-header">
+        <div class="admin-dialog-heading">
+          <span id="dialogIcono" class="admin-dialog-icon" aria-hidden="true">✎</span>
+          <div>
+            <p class="eyebrow">Administración</p>
+            <h2 id="dialogTitulo">Editar registro</h2>
+            <p id="dialogDescripcion">Actualice los datos maestros del registro.</p>
+          </div>
+        </div>
+        <button class="button-ghost admin-dialog-close" type="button" data-modal-close="adminDialog" aria-label="Cerrar ventana">×</button>
+      </header>
+      <div class="admin-dialog-body">
+        <div id="dialogCampos" class="admin-form-sections"></div>
+        <p id="dialogMensaje" class="mensaje" aria-live="polite"></p>
+      </div>
+      <footer class="admin-dialog-footer">
+        <button class="button-secondary" type="button" data-modal-close="adminDialog">Cancelar</button>
+        <button id="dialogGuardar" class="button-primary" type="submit">
+          <span class="button-label">Guardar cambios</span>
+        </button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="importDialog" class="admin-dialog admin-import-dialog" aria-labelledby="importTitulo">
+    <form id="importForm">
+      <header class="admin-dialog-header">
+        <div class="admin-dialog-heading">
+          <span class="admin-dialog-icon" aria-hidden="true">⇧</span>
+          <div>
+            <p class="eyebrow">Importación masiva</p>
+            <h2 id="importTitulo">Importar estructuras desde Excel</h2>
+            <p>Actualice el padrón maestro sin alterar inspecciones, fotografías, RST ni sincronización.</p>
+          </div>
+        </div>
+        <button class="button-ghost admin-dialog-close" type="button" data-modal-close="importDialog" aria-label="Cerrar importación">×</button>
+      </header>
+      <div class="admin-dialog-body admin-import-body">
+        <section class="admin-import-destination" aria-label="Destino de la importación">
+          <span>Proyecto destino</span>
+          <strong id="importProyecto">—</strong>
+          <small id="importContextoLinea"></small>
+        </section>
+
+        <section id="importDropZone" class="admin-import-dropzone" role="button" tabindex="0" aria-controls="importArchivo">
+          <span class="admin-import-drop-icon" aria-hidden="true">⇧</span>
+          <strong>Arrastra tu archivo aquí</strong>
+          <span>o</span>
+          <label class="button-secondary" for="importArchivo">Seleccionar Excel</label>
+          <small>Solo .xlsx · máximo 5 MB · hasta 2000 estructuras</small>
+          <input id="importArchivo" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+        </section>
+
+        <div class="admin-import-tools">
+          <p id="importArchivoNombre">Ningún archivo seleccionado.</p>
+          <button id="descargarPlantilla" class="button-ghost button-sm" type="button">Descargar plantilla</button>
+        </div>
+        <progress id="importProgress" class="admin-import-progress" max="100" hidden>Procesando</progress>
+
+        <section id="importResultados" class="admin-import-results" hidden>
+          <div id="importResumen" class="admin-import-summary" aria-label="Resumen de validación"></div>
+          <div class="admin-import-lines">
+            <div>
+              <h3>Líneas detectadas</h3>
+              <ul id="importLineas"></ul>
+            </div>
+            <div id="importFaltantes" class="admin-import-missing" hidden>
+              <h3>Líneas por crear</h3>
+              <ul id="importLineasFaltantes"></ul>
+              <label>
+                <input id="importCrearLineas" type="checkbox">
+                <span>Confirmo crear estas líneas en el proyecto destino.</span>
+              </label>
+            </div>
+          </div>
+          <ul id="importErroresArchivo" class="admin-import-file-errors" hidden></ul>
+          <div class="tabla-scroll admin-import-preview-wrap">
+            <table class="admin-import-preview">
+              <thead>
+                <tr>
+                  <th>Fila</th><th>Línea</th><th>Torre</th><th>Código</th><th>X</th><th>Y</th><th>Ubicación</th><th>Zona</th><th>Resultado</th><th>Cambios maestros / autorización</th>
+                </tr>
+              </thead>
+              <tbody id="importPreviewBody"></tbody>
+            </table>
+          </div>
+          <p id="importConfirmacionTexto" class="admin-import-confirmation"></p>
+        </section>
+        <p id="importMensaje" class="mensaje" aria-live="polite"></p>
+      </div>
+      <footer class="admin-dialog-footer">
+        <button class="button-secondary" type="button" data-modal-close="importDialog">Cancelar</button>
+        <button id="importConfirmar" class="button-primary" type="submit" disabled>
+          <span class="button-label">Importar padrón</span>
+        </button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="confirmDialog" class="admin-dialog admin-dialog-sm" aria-labelledby="confirmTitulo">
+    <form id="confirmForm">
+      <header class="admin-dialog-header">
+        <div class="admin-dialog-heading">
+          <span id="confirmIcono" class="admin-dialog-icon admin-dialog-icon-warning" aria-hidden="true">!</span>
+          <div>
+            <p class="eyebrow">Confirmación requerida</p>
+            <h2 id="confirmTitulo">Confirmar acción</h2>
+          </div>
+        </div>
+        <button class="button-ghost admin-dialog-close" type="button" data-modal-close="confirmDialog" aria-label="Cancelar y cerrar">×</button>
+      </header>
+      <div class="admin-dialog-body">
+        <p id="confirmTexto" class="admin-confirm-copy"></p>
+        <div id="confirmAviso" class="admin-confirm-notice" hidden>
+          <span aria-hidden="true">i</span>
+          <p>Los datos maestros se conservarán. La acción se registra en el historial administrativo.</p>
+        </div>
+        <div class="campo admin-confirm-field" id="confirmCampo" hidden>
+          <label for="confirmValor">Escriba <strong id="confirmReferencia"></strong> para continuar</label>
+          <input id="confirmValor" autocomplete="off" spellcheck="false">
+          <small>La coincidencia debe ser exacta.</small>
+        </div>
+        <ul id="confirmDetalle" class="admin-confirm-changes" hidden></ul>
+        <p id="confirmMensaje" class="mensaje" aria-live="polite"></p>
+      </div>
+      <footer class="admin-dialog-footer">
+        <button class="button-secondary" type="button" data-modal-close="confirmDialog">Cancelar</button>
+        <button id="confirmAceptar" class="button-danger" type="submit">
+          <span class="button-label">Confirmar</span>
+        </button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="formDialog" class="admin-dialog admin-form-dialog" aria-labelledby="formTitulo">
+    <form id="formEditor">
+      <header class="admin-dialog-header">
+        <div class="admin-dialog-heading">
+          <span class="admin-dialog-icon" aria-hidden="true">▤</span>
+          <div>
+            <p class="eyebrow">Formulario de inspección</p>
+            <h2 id="formTitulo">Editar formulario</h2>
+            <p id="formDescripcion">Se guardarán únicamente los campos que modifique.</p>
+          </div>
+        </div>
+        <button class="button-ghost admin-dialog-close" type="button" data-modal-close="formDialog" aria-label="Cerrar ventana">×</button>
+      </header>
+      <div class="admin-dialog-body">
+        <div id="formCampos" class="admin-form-sections"></div>
+        <p id="formMensaje" class="mensaje" aria-live="polite"></p>
+      </div>
+      <footer class="admin-dialog-footer">
+        <p id="formContador" class="admin-form-counter" aria-live="polite">Sin cambios</p>
+        <button class="button-secondary" type="button" data-modal-close="formDialog">Cancelar</button>
+        <button id="formGuardar" class="button-primary" type="submit" disabled>
+          <span class="button-label">Revisar y guardar</span>
+        </button>
+      </footer>
+    </form>
+  </dialog>
+
+  <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <footer class="app-footer">
+    <p>ECOING · Administración segura</p>
+    <p>Los datos maestros no se eliminan · <span data-current-year></span></p>
+  </footer>
+  <script src="js/app.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

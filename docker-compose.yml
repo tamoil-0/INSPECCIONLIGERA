@@ -1,0 +1,187 @@
+# ECOING - Inspección Ligera · pila de producción para QNAP TS-932PX
+# ===================================================================
+#
+# Dos servicios en una red interna privada:
+#
+#   ecoing-app  Apache 2.4 + PHP 8.2  (publicado en la LAN, por defecto :8082)
+#   ecoing-db   MariaDB 10.11         (NO publicado: solo accesible por la red
+#                                      interna de Docker, desde ecoing-app)
+#
+# ARM64
+# -----
+# Las dos imágenes base son multiarquitectura con `linux/arm64/v8`:
+#   · php:8.2-apache-bookworm  (base de la imagen local, ver Dockerfile)
+#   · mariadb:10.11            (LTS; el mismo linaje que el MariaDB de XAMPP,
+#                               así que los dumps existentes importan sin
+#                               sorpresas de sintaxis)
+#
+# CONFIGURACIÓN
+# -------------
+# Los valores de la aplicación viven en `docker/.env` (copiar desde
+# `docker/.env.example`). Ese archivo se pasa a los contenedores con `env_file`
+# y NO se versiona.
+#
+# Las rutas del NAS y el puerto se ajustan con variables del propio shell o
+# editando los valores por defecto de abajo. Se eligieron nombres con prefijo
+# `ECOING_` a propósito, para que la interpolación de Compose nunca choque con
+# el `.env` de XAMPP que hay en la raíz del repositorio.
+#
+# ARRANQUE
+#   docker compose up -d --build
+#
+# Ver `docs/DESPLIEGUE_QNAP_DOCKER.md` para el procedimiento completo.
+
+# `version` está obsoleto en Docker Compose v2 y provoca un aviso al ejecutar.
+# Se mantiene a propósito: las versiones antiguas de Container Station usan
+# docker-compose v1, que sí lo exige y falla sin él. El aviso es inofensivo.
+version: "3.8"
+
+services:
+  # =========================================================================
+  ecoing-app:
+  # =========================================================================
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${ECOING_IMAGE:-ecoing-app:1.0.0}
+    container_name: ecoing-app
+    restart: unless-stopped
+
+    # Apache escucha en el 80 dentro del contenedor. Solo se publica el puerto
+    # de la LAN; no hay nada expuesto a Internet.
+    ports:
+      - "${ECOING_HTTP_PORT:-8082}:80"
+
+    # Si Compose dice «env file ./docker/.env not found», falta el primer paso:
+    #   cp docker/.env.example docker/.env
+    # Es a propósito que sea obligatorio: arrancar sin JWT_SECRET ni contraseña
+    # de base daría un error mucho más confuso, ya en marcha.
+    env_file:
+      - ./docker/.env
+
+    environment:
+      # Rutas internas. El código PHP solo conoce estas; la ruta real del NAS
+      # la resuelve el bind mount de más abajo.
+      IMAGE_STORAGE_PATH: /data/imagenes
+      PDF_STORAGE_PATH: /data/pdf
+      BACKUP_STORAGE_PATH: /data/backups
+      # El respaldo de las inspecciones es su propio share del NAS, no una
+      # carpeta de la aplicación: se monta aparte y en solo lectura.
+      MOBILE_BACKUP_ROOT: /data/elpu
+      ADMIN_ARCHIVE_STORAGE_PATH: /data/backups/archivo_admin
+      LOG_STORAGE_PATH: /data/logs
+      EXPORT_STORAGE_PATH: /data/exports
+      # Logos de las plantillas y selección de fotos por estructura. Antes no
+      # tenía volumen: vivía dentro del contenedor y se perdía al reconstruir.
+      REPORT_CONFIG_STORAGE_PATH: /data/report_config
+      # Identidad del proceso web. Vacío = no se remapea nada (www-data sigue
+      # siendo uid 33). Si el arranque avisa de que no puede escribir en
+      # /data/imagenes, es porque el share del QNAP pertenece a otro usuario:
+      # averiguar su uid/gid con `id admin` en el NAS y ponerlos en
+      # ECOING_PUID / ECOING_PGID.
+      PUID: ${ECOING_PUID:-}
+      PGID: ${ECOING_PGID:-}
+
+    volumes:
+      # --- Almacenamiento persistente del NAS ------------------------------
+      # Cada carpeta se monta por separado, no el share completo: así el
+      # contenedor no ve nada del NAS que no necesite.
+      - ${ECOING_DATA_ROOT:-/share/CACHEDEV1_DATA/InspeccionLigera}/imagenes:/data/imagenes
+      - ${ECOING_DATA_ROOT:-/share/CACHEDEV1_DATA/InspeccionLigera}/pdf:/data/pdf
+      - ${ECOING_DATA_ROOT:-/share/CACHEDEV1_DATA/InspeccionLigera}/backups:/data/backups
+      # Respaldo de las inspecciones (Linea_<linea>/Estructura_<estructura>).
+      # `ro`: la aplicación lo lee para generar reportes y no escribe nunca.
+      - ${ECOING_ELPU_ROOT:-/share/CACHEDEV1_DATA/ELPU}:/data/elpu:ro
+      - ${ECOING_DATA_ROOT:-/share/CACHEDEV1_DATA/InspeccionLigera}/app-data/logs:/data/logs
+      - ${ECOING_DATA_ROOT:-/share/CACHEDEV1_DATA/InspeccionLigera}/app-data/exports:/data/exports
+      - ${ECOING_DATA_ROOT:-/share/CACHEDEV1_DATA/InspeccionLigera}/app-data/report_config:/data/report_config
+
+    depends_on:
+      ecoing-db:
+        condition: service_healthy
+
+    networks:
+      - ecoing-red
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1/api/health.php || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # =========================================================================
+  ecoing-db:
+  # =========================================================================
+    image: ${ECOING_DB_IMAGE:-mariadb:10.11}
+    container_name: ecoing-db
+    restart: unless-stopped
+
+    # Si Compose dice «env file ./docker/.env not found», falta el primer paso:
+    #   cp docker/.env.example docker/.env
+    # Es a propósito que sea obligatorio: arrancar sin JWT_SECRET ni contraseña
+    # de base daría un error mucho más confuso, ya en marcha.
+    env_file:
+      - ./docker/.env
+
+    # NO se publica el 3306. La base solo se alcanza por el nombre de servicio
+    # `ecoing-db` desde la red interna de Docker (por eso DB_HOST=ecoing-db y
+    # nunca localhost). Si alguna vez hiciera falta phpMyAdmin o HeidiSQL desde
+    # un PC de la oficina, descomentar y atarlo SOLO a la IP del NAS:
+    # ports:
+    #   - "192.168.1.3:3307:3306"
+
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # Los dumps traen sentencias largas y hay BLOBs de ninguna clase, pero un
+      # mysqldump de la base completa sí necesita margen.
+      - --max-allowed-packet=64M
+      # Sin esto, MariaDB hace una resolución DNS inversa por cada conexión
+      # nueva desde el contenedor de la app: milisegundos que se notan cuando
+      # entran 10 subidas de fotografías seguidas.
+      - --skip-name-resolve
+      # Ajustado a un NAS de 4 GB. Subir a 1G si el TS-932PX tiene 16 GB.
+      - --innodb-buffer-pool-size=256M
+      - --innodb-log-file-size=128M
+      - --max-connections=100
+
+    volumes:
+      # --- Persistencia real: los datos viven en el NAS, no en el contenedor.
+      # Recrear, actualizar o borrar el contenedor NO toca esta carpeta.
+      - ${ECOING_DATA_ROOT:-/share/CACHEDEV1_DATA/InspeccionLigera}/app-data/mariadb:/var/lib/mysql
+      # --- Inicialización: SOLO se ejecuta cuando el datadir está vacío.
+      # Crea el esquema en una instalación nueva y nunca vuelve a tocarlo.
+      # El dump de producción se importa a mano (ver docs/MIGRACION_...).
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+      # --- Destino de los backups, para poder lanzar mysqldump dentro del
+      # contenedor y que el archivo aterrice directamente en el share.
+      - ${ECOING_DATA_ROOT:-/share/CACHEDEV1_DATA/InspeccionLigera}/backups:/data/backups
+
+    networks:
+      - ecoing-red
+
+    healthcheck:
+      # healthcheck.sh viene en la imagen oficial y no necesita credenciales.
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 15s
+      timeout: 5s
+      start_period: 90s
+      retries: 10
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  ecoing-red:
+    driver: bridge
+    name: ecoing-red

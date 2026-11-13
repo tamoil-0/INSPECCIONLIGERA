@@ -159,7 +159,7 @@ Respuesta relevante:
 {
   "success": true,
   "token": "eyJ...",
-  "token_ttl": 604800,
+  "token_ttl": 31536000,
   "usuario": {
     "id": 2,
     "nombre_usuario": "tecnico01",

@@ -33,7 +33,12 @@ foreach ($records as $index => $record) {
     }
 }
 
-$exists = $conn->prepare('SELECT 1 FROM postes WHERE id = ?');
+$exists = $conn->prepare(
+    "SELECT 1 FROM postes p
+     INNER JOIN proyectos pr ON pr.id=p.proyecto_id AND pr.estado='activo'
+     LEFT JOIN lineas l ON l.proyecto_id=p.proyecto_id AND l.nombre=p.linea
+     WHERE p.id=? AND p.activo=1 AND COALESCE(l.activa,1)=1"
+);
 $exists->execute([$postId]);
 if (!$exists->fetchColumn()) {
     respond(['success' => false, 'error' => 'Poste no encontrado.'], 404);
@@ -42,13 +47,16 @@ if (!$exists->fetchColumn()) {
 try {
     $conn->beginTransaction();
     $statement = $conn->prepare(
-        'INSERT INTO poste_secciones_rst (poste_id, seccion, atributo, fase) VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE atributo = VALUES(atributo)'
+        'INSERT INTO poste_secciones_rst (poste_id, seccion, atributo, fase, activo) VALUES (?, ?, ?, ?, 1)
+         ON DUPLICATE KEY UPDATE atributo = VALUES(atributo), activo = 1, archivado_en = NULL'
     );
     foreach ($records as $record) {
         $statement->execute([$postId, $record['seccion'], $record['atributo'], $record['fase']]);
     }
     $conn->commit();
+    // Las secciones RST se dibujan en el formulario del PDF: al cambiarlas, el
+    // reporte cacheado queda obsoleto.
+    invalidatePostPdfCache($postId);
     respond(['success' => true, 'message' => 'Registros RST guardados.', 'procesados' => count($records)]);
 } catch (PDOException $exception) {
     if ($conn->inTransaction()) {

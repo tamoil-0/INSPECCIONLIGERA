@@ -5,6 +5,30 @@ Aplicación local para administrar proyectos, postes, formularios de inspección
 La configuración completa del cliente de campo está en [docs/CONEXION_Y_SINCRONIZACION_MOVIL.md](docs/CONEXION_Y_SINCRONIZACION_MOVIL.md).
 La publicación en hosting/VPS y compilación final de la app están en [docs/DESPLIEGUE_SERVIDOR_Y_APP_MOVIL.md](docs/DESPLIEGUE_SERVIDOR_Y_APP_MOVIL.md).
 
+## Despliegue en el NAS de la oficina (QNAP TS-932PX)
+
+El sistema puede correr íntegramente dentro del NAS con Container Station, en la
+LAN de la oficina y sin exponer nada a Internet:
+
+| Documento | Para qué |
+|---|---|
+| [docs/DESPLIEGUE_QNAP_DOCKER.md](docs/DESPLIEGUE_QNAP_DOCKER.md) | Arquitectura, imágenes ARM64, comandos exactos de desarrollo y de producción, respaldos, logs y diagnóstico. |
+| [docs/MIGRACION_XAMPP_A_QNAP.md](docs/MIGRACION_XAMPP_A_QNAP.md) | Los 15 pasos para migrar sin apagar XAMPP, y la marcha atrás. |
+| [docs/CHECKLIST_PRUEBAS_QNAP.md](docs/CHECKLIST_PRUEBAS_QNAP.md) | Lista de verificación antes de retirar XAMPP. |
+| [docs/PRUEBA_END_TO_END_MOVIL.md](docs/PRUEBA_END_TO_END_MOVIL.md) | Prueba oficina → campo → oficina con un celular físico contra el NAS. |
+
+Arranque rápido en el NAS:
+
+```bash
+cp docker/.env.example docker/.env      # editar contraseñas, JWT_SECRET y APP_URL
+docker compose up -d --build
+curl -s http://127.0.0.1:8082/api/health.php
+```
+
+Piezas de infraestructura: `Dockerfile`, `docker-compose.yml`,
+`docker-compose.dev.yml`, `docker/` (Apache, PHP, entrypoint),
+`database/init/`, `scripts/backup-db.sh`, `scripts/import-dump.sh`.
+
 ## Estado local
 
 - URL web: `http://localhost/INSPEECIONLIGERAECOING/web/`
@@ -55,7 +79,18 @@ La configuración se lee desde `.env`. El archivo local ya apunta al MariaDB de 
 - Orígenes CORS permitidos.
 - Host, puerto, base y credenciales de MariaDB.
 - Clave y duración de JWT.
+- Rutas de almacenamiento (`IMAGE_STORAGE_PATH`, `PDF_STORAGE_PATH`, `LOG_STORAGE_PATH`, `BACKUP_STORAGE_PATH`, `EXPORT_STORAGE_PATH`). Si se omiten, se usan las rutas históricas dentro de `storage/`, así que una instalación XAMPP existente no necesita cambiar nada.
+- Procesamiento de imágenes (`IMAGE_MAX_DIMENSION`, `IMAGE_REENCODE_MODE`, `IMAGE_JPEG_QUALITY`).
+- Caché de reportes (`PDF_CACHE_ENABLED`) y métricas (`UPLOAD_METRICS_ENABLED`).
 - Nombres/CIP opcionales para firmas del PDF.
+
+Cuando el sistema corre en contenedores, esas mismas variables llegan como
+variables de entorno desde `docker/.env` y no hace falta ningún archivo `.env`
+dentro de la imagen. Ver `docker/.env.example`.
+
+Las rutas de las fotografías se guardan en la base **siempre relativas** a
+`IMAGE_STORAGE_PATH` (`proyecto_1/linea_L-6021/poste_452/placa_ab12.jpg`), nunca
+absolutas: mover el almacén de sitio no obliga a reescribir ninguna fila.
 
 No coloque credenciales de producción en el repositorio. Genere un `JWT_SECRET` distinto para cada instalación productiva.
 
@@ -87,7 +122,7 @@ Todas las rutas protegidas reciben `Authorization: Bearer <token>`; los tokens n
 - `GET api/exportar_excel_linea.php?proyecto_id=ID&linea=LINEA`
 - `GET api/exportar_linea_pdf.php?proyecto_id=ID&linea=LINEA`
 
-Las imágenes se verifican por MIME/contenido, se redimensionan, se normalizan a JPEG y se guardan en `storage/images`. El indicador `imagenes_subidas` solo pasa a verdadero cuando existen los 28 tipos requeridos.
+Las imágenes se verifican por MIME/contenido, se redimensionan, se normalizan a JPEG y se guardan en `storage/images`. El indicador `imagenes_subidas` pasa a verdadero cuando todas las fotos realmente capturadas fueron confirmadas; no exige una cantidad fija.
 
 ## Respaldo
 

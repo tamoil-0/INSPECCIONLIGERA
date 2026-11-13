@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#071827">
   <title>Estructuras de la línea | ECOING</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/estilos.css">
+  <link rel="stylesheet" href="css/estilos.css?v=20260902">
 </head>
 <body class="app-body">
   <header class="topbar">
@@ -27,7 +27,7 @@
       <div class="page-heading-copy"><p class="eyebrow">Control de campo</p><h1>Estructuras de la línea <span id="lineaTexto"></span></h1><p>Revise el estado de cada estructura y genere los entregables de la línea.</p></div>
       <div class="page-actions">
         <button id="exportarExcel" class="button-secondary" type="button">Descargar Excel</button>
-        <button id="exportarPdf" class="button-primary" type="button">Descargar reportes ZIP</button>
+        <button id="exportarPdf" class="button-primary" type="button">Descargar ZIP</button>
       </div>
     </section>
 
@@ -35,7 +35,7 @@
 
     <section class="metric-grid" aria-label="Resumen de estructuras">
       <article class="metric-card"><span class="metric-label">Estructuras</span><strong class="metric-value" id="metricaTotal">—</strong><span class="metric-helper">En esta línea</span></article>
-      <article class="metric-card" data-tone="success"><span class="metric-label">Completas</span><strong class="metric-value" id="metricaCompletas">—</strong><span class="metric-helper">Formulario + imágenes</span></article>
+      <article class="metric-card" data-tone="success"><span class="metric-label">Sincronizadas</span><strong class="metric-value" id="metricaCompletas">—</strong><span class="metric-helper">Finalizadas y confirmadas</span></article>
       <article class="metric-card" data-tone="warning"><span class="metric-label">En proceso</span><strong class="metric-value" id="metricaProceso">—</strong><span class="metric-helper">Con avance parcial</span></article>
       <article class="metric-card" data-tone="danger"><span class="metric-label">Pendientes</span><strong class="metric-value" id="metricaPendientes">—</strong><span class="metric-helper">Sin información cargada</span></article>
     </section>
@@ -48,10 +48,12 @@
       <div class="toolbar toolbar-compact">
         <div class="campo"><label for="buscarPoste">Buscar estructura</label><input id="buscarPoste" type="search" placeholder="Ej. L-6311-01, 01 o Juliaca"></div>
         <div class="campo"><label for="filtroAvance">Estado de avance</label><select id="filtroAvance"><option value="">Todos</option><option value="completo">Completos</option><option value="proceso">En proceso</option><option value="pendiente">Pendientes</option></select></div>
+        <div class="campo"><label for="fuenteFotosLista">Fuente de información</label><select id="fuenteFotosLista"><option value="current">NAS</option><option value="backup">Backup</option></select></div>
       </div>
+      <p id="ayudaFuenteFotos" class="imgcfg-help">NAS muestra la información sincronizada actualmente. Backup muestra la información encontrada en el respaldo móvil.</p>
       <div class="tabla-scroll tabla-responsive">
         <table>
-          <thead><tr><th>Estructura</th><th>Tramo</th><th>UTM Este (X)</th><th>UTM Norte (Y)</th><th>Zona</th><th>Formulario</th><th>28 imágenes</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Estructura</th><th>Tramo</th><th>UTM Este (X)</th><th>UTM Norte (Y)</th><th>Zona</th><th>Formulario</th><th>Fotos</th><th>Estado</th><th>Acciones</th></tr></thead>
           <tbody id="tablaPostes"></tbody>
         </table>
       </div>
@@ -60,7 +62,8 @@
 
   <footer class="app-footer"><p>ECOING · Gestión de inspecciones</p><p>Entorno local seguro · <span data-current-year></span></p></footer>
 
-  <script src="js/app.js"></script>
+  <script src="js/app.js?v=20260902"></script>
+  <script src="js/reporte_fotos.js?v=20260902"></script>
   <script>
     verificarSesion();
     const params = new URLSearchParams(location.search);
@@ -72,19 +75,38 @@
     document.getElementById("volverLineas").href = `detalle_linea.html?id=${proyectoId}`;
     document.title = `${linea} · Estructuras | ECOING`;
     let postes = [];
+    let respaldoPorPoste = new Map();
+    let respaldoCargado = false;
+
+    function fuenteSeleccionada() {
+      return document.getElementById("fuenteFotosLista").value;
+    }
+
+    function respaldoDe(post) {
+      return respaldoPorPoste.get(Number(post.id)) || null;
+    }
 
     function estadoPoste(post) {
-      const form = Number(post.formulario_subido) === 1;
-      const images = Number(post.imagenes_subidas) === 1;
-      if (form && images) return "completo";
-      if (form || images || post.fecha_inspeccion) return "proceso";
+      if (fuenteSeleccionada() === "backup") {
+        const estado = respaldoDe(post)?.estado;
+        if (estado === "sincronizada") return "completo";
+        if (estado === "en_proceso") return "proceso";
+        return "pendiente";
+      }
+      if (Number(post.sincronizado) === 1) return "completo";
+      if (Number(post.formulario_subido) === 1 || Number(post.fotos_capturadas) > 0 || post.fecha_inspeccion) return "proceso";
       return "pendiente";
     }
 
     function actualizarMetricas() {
       const complete = postes.filter((post) => estadoPoste(post) === "completo").length;
       const process = postes.filter((post) => estadoPoste(post) === "proceso").length;
-      const withUtm = postes.filter((post) => post.utm_x !== null && post.utm_x !== "" && post.utm_y !== null && post.utm_y !== "").length;
+      const backup = fuenteSeleccionada() === "backup";
+      const withUtm = postes.filter((post) => {
+        const data = backup ? respaldoDe(post)?.coordenadas : post;
+        return data?.utm_x !== null && data?.utm_x !== ""
+          && data?.utm_y !== null && data?.utm_y !== "";
+      }).length;
       document.getElementById("metricaTotal").textContent = postes.length;
       document.getElementById("metricaCompletas").textContent = complete;
       document.getElementById("metricaProceso").textContent = process;
@@ -94,10 +116,12 @@
 
     function renderPostes() {
       const tbody = document.getElementById("tablaPostes");
+      const backup = fuenteSeleccionada() === "backup";
       const query = document.getElementById("buscarPoste").value.trim().toLocaleLowerCase("es");
       const filter = document.getElementById("filtroAvance").value;
       const filtered = postes.filter((post) => {
-        const haystack = `${post.codigo} ${post.estructura} ${post.ubicaciones || ""} ${post.utm_x || ""} ${post.utm_y || ""}`.toLocaleLowerCase("es");
+        const coordinates = backup ? respaldoDe(post)?.coordenadas : post;
+        const haystack = `${post.codigo} ${post.estructura} ${post.ubicaciones || ""} ${coordinates?.utm_x || ""} ${coordinates?.utm_y || ""}`.toLocaleLowerCase("es");
         return (!query || haystack.includes(query)) && (!filter || estadoPoste(post) === filter);
       });
       document.getElementById("conteoPostes").textContent = `${filtered.length} de ${postes.length}`;
@@ -105,20 +129,54 @@
       if (!filtered.length) return filaVacia(tbody, 9, "No hay estructuras que coincidan con los filtros.");
       filtered.forEach((post) => {
         const state = estadoPoste(post);
+        const respaldo = backup ? respaldoDe(post) : null;
+        const coordinates = backup
+          ? (respaldo?.coordenadas || { utm_x: null, utm_y: null, zona: null })
+          : post;
         const row = document.createElement("tr");
         row.append(celdaCompuesta(post.codigo, `Estructura ${post.estructura}`, "Estructura"));
         row.append(celda(post.ubicaciones || "—", "Tramo"));
         row.append(
-          celda(formatearCoordenada(post.utm_x), "UTM Este (X)"),
-          celda(formatearCoordenada(post.utm_y), "UTM Norte (Y)"),
-          celda(post.zona || "Sin dato", "Zona")
+          celda(formatearCoordenada(coordinates.utm_x), "UTM Este (X)"),
+          celda(formatearCoordenada(coordinates.utm_y), "UTM Norte (Y)"),
+          celda(coordinates.zona || "Sin dato", "Zona")
         );
         const formCell = celda("", "Formulario");
-        formCell.appendChild(insigniaBooleano(Number(post.formulario_subido) === 1, "Recibido", "Pendiente"));
-        const imageCell = celda("", "28 imágenes");
-        imageCell.appendChild(insigniaBooleano(Number(post.imagenes_subidas) === 1, "Completas", "Pendientes"));
+        if (backup) {
+          const formLabels = {
+            FORMULARIO_AUSENTE: "Sin formulario",
+            FORMULARIO_ILEGIBLE: "No válido",
+            FORMULARIO_SIN_DATOS: "Sin datos",
+            FORMULARIO_DE_OTRA_ESTRUCTURA: "Otra estructura"
+          };
+          const form = respaldo?.formulario;
+          formCell.appendChild(insigniaBooleano(
+            form?.valido === true,
+            "Válido",
+            respaldo?.backup_presente ? (formLabels[form?.estado] || "No válido") : "Sin respaldo"
+          ));
+        } else {
+          formCell.appendChild(insigniaBooleano(Number(post.formulario_subido) === 1, "Recibido", "Pendiente"));
+        }
+        const imageCell = backup
+          ? celdaCompuesta(
+              `Fotos físicas: ${Number(respaldo?.fotos?.archivos) || 0}`,
+              `Mapeadas: ${Number(respaldo?.fotos?.cantidad) || 0} · Sin mapear: ${Number(respaldo?.fotos?.sin_mapear) || 0}`,
+              "Fotos"
+            )
+          : celdaCompuesta(
+              `Fotos registradas: ${Number(post.fotos_capturadas) || 0}`,
+              `Sincronizadas: ${Number(post.fotos_sincronizadas) || 0}`,
+              "Fotos"
+            );
         const stateCell = celda("", "Estado");
-        const labels = { completo: ["Completo", "success"], proceso: ["En proceso", "warning"], pendiente: ["Pendiente", "danger"] };
+        const labels = backup
+          ? {
+              completo: ["Sincronizada", "success"],
+              proceso: ["En proceso", "warning"],
+              pendiente: [respaldo?.backup_presente ? "Pendiente" : "Sin respaldo", "danger"]
+            }
+          : { completo: ["Sincronizada", "success"], proceso: ["Pendiente", "warning"], pendiente: ["Pendiente", "danger"] };
         stateCell.appendChild(crearInsignia(...labels[state]));
         row.append(formCell, imageCell, stateCell);
         const action = celda("", "Acciones");
@@ -131,10 +189,29 @@
         const print = document.createElement("button");
         print.type = "button";
         print.className = "button-secondary button-sm";
-        print.textContent = "PDF";
+        print.textContent = "Ver PDF";
         print.addEventListener("click", async () => {
+          const fuente = selectorFuenteLista.value;
           establecerCargando(print, true, "Abriendo…");
-          try { await abrirPdfConToken(`ver_pdf_poste.php?poste_id=${post.id}&proyecto_id=${proyectoId}`); }
+          try {
+            // Sólo la fuente. Qué fotografías entran lo decide la configuración
+            // guardada en el panel admin para esa estructura y esa fuente.
+            const result = await abrirPdfConToken(
+              `ver_pdf_poste.php?poste_id=${post.id}&proyecto_id=${proyectoId}`
+                + fuenteFotoComoQuery(fuente)
+            );
+            // Sin fotografías en la fuente elegida se dice; no se cae a la otra.
+            const avisoForm = avisoFormularioRespaldo(result);
+            if (avisoForm) {
+              mostrarMensaje(document.getElementById("mensaje"), avisoForm);
+            } else if (result.includedPhotos === 0) {
+              mostrarMensaje(document.getElementById("mensaje"), fuente === "backup"
+                ? `No hay fotografías de Backup disponibles para ${post.codigo}.`
+                : `No hay fotografías en el NAS para ${post.codigo}.`);
+            } else {
+              limpiarMensaje(document.getElementById("mensaje"));
+            }
+          }
           catch (error) { mostrarMensaje(document.getElementById("mensaje"), error.message); }
           finally { establecerCargando(print, false); }
         });
@@ -145,6 +222,50 @@
       });
     }
 
+    async function aplicarFuenteSeleccionada() {
+      if (fuenteSeleccionada() !== "backup") {
+        actualizarMetricas();
+        renderPostes();
+        limpiarMensaje(document.getElementById("mensaje"));
+        return;
+      }
+
+      const tbody = document.getElementById("tablaPostes");
+      if (!respaldoCargado) {
+        filaCargando(tbody, 9, "Recorriendo el respaldo móvil…");
+        try {
+          const endpoint = `proyectos/avance_respaldo.php?proyecto_id=${proyectoId}&linea=${encodeURIComponent(linea)}`;
+          const response = await leerRespuesta(await fetchConToken(endpoint, { timeoutMs: 300000 }));
+          respaldoPorPoste = new Map(
+            response.data.estructuras.map((item) => [Number(item.poste_id), item])
+          );
+          respaldoCargado = true;
+          if (response.data.indice_truncado) {
+            mostrarMensaje(
+              document.getElementById("mensaje"),
+              "El inventario del Backup alcanzó el límite de carpetas; los resultados pueden estar incompletos."
+            );
+          } else {
+            limpiarMensaje(document.getElementById("mensaje"));
+          }
+        } catch (error) {
+          respaldoPorPoste = new Map();
+          respaldoCargado = false;
+          document.getElementById("metricaTotal").textContent = postes.length;
+          ["metricaCompletas", "metricaProceso", "metricaPendientes"].forEach((id) => {
+            document.getElementById(id).textContent = "—";
+          });
+          document.getElementById("conteoUtm").textContent = "Backup no disponible";
+          document.getElementById("conteoPostes").textContent = "Sin datos";
+          filaVacia(tbody, 9, "No se pudo leer el Backup. No se muestran datos NAS en su lugar.");
+          mostrarMensaje(document.getElementById("mensaje"), error.message);
+          return;
+        }
+      }
+      actualizarMetricas();
+      renderPostes();
+    }
+
     async function cargarPostes() {
       const tbody = document.getElementById("tablaPostes");
       filaCargando(tbody, 9, "Cargando padrón de estructuras…");
@@ -152,20 +273,21 @@
         const endpoint = `postes/buscar_por_linea.php?linea=${encodeURIComponent(linea)}&proyecto_id=${proyectoId}`;
         const data = await leerRespuesta(await fetchConToken(endpoint));
         postes = data.data;
-        actualizarMetricas();
-        renderPostes();
+        await aplicarFuenteSeleccionada();
       } catch (error) {
         filaVacia(tbody, 9, "No se pudieron cargar las estructuras.");
         mostrarMensaje(document.getElementById("mensaje"), error.message);
       }
     }
 
-    async function ejecutarDescarga(button, endpoint, fallback) {
+    async function ejecutarDescarga(button, endpoint, fallback, opciones = {}) {
       const message = document.getElementById("mensaje");
       establecerCargando(button, true, "Generando…");
-      mostrarMensaje(message, "Preparando el archivo. Esto puede tardar unos minutos.", "info");
+      mostrarMensaje(message, button.id === "exportarPdf"
+        ? "Preparando los PDF y el ZIP. En líneas grandes puede tardar bastante. Mantenga esta pestaña abierta."
+        : "Preparando el archivo. Esto puede tardar unos minutos.", "info");
       try {
-        await descargarConToken(endpoint, fallback);
+        await descargarConToken(endpoint, fallback, opciones);
         mostrarMensaje(message, "Descarga completada correctamente.", "ok");
       } catch (error) {
         mostrarMensaje(message, error.message);
@@ -174,9 +296,27 @@
       }
     }
 
+    /* Se recuerda la fuente elegida en esta pestaña, como en el resto de las
+       pantallas que generan reportes. */
+    const selectorFuenteLista = document.getElementById("fuenteFotosLista");
+    selectorFuenteLista.value = recordarFuenteFoto();
+    selectorFuenteLista.addEventListener("change", () => {
+      recordarFuenteFoto(selectorFuenteLista.value);
+      aplicarFuenteSeleccionada();
+    });
+
     document.getElementById("buscarPoste").addEventListener("input", renderPostes);
     document.getElementById("filtroAvance").addEventListener("change", renderPostes);
-    document.getElementById("exportarPdf").addEventListener("click", (event) => ejecutarDescarga(event.currentTarget, `exportar_linea_pdf.php?proyecto_id=${proyectoId}&linea=${encodeURIComponent(linea)}`, `linea_${linea}.zip`));
+    /* El ZIP usa el mismo endpoint y el mismo renderPostReport() que el PDF
+       individual: sólo se le pasa la fuente, y cada estructura aplica su propia
+       configuración de imágenes guardada. */
+    document.getElementById("exportarPdf").addEventListener("click", (event) => ejecutarDescarga(
+      event.currentTarget,
+      `exportar_linea_pdf.php?proyecto_id=${proyectoId}&linea=${encodeURIComponent(linea)}`
+        + fuenteFotoComoQuery(selectorFuenteLista.value),
+      `linea_${linea}_${selectorFuenteLista.value}.zip`,
+      { timeoutMs: 7500000 }
+    ));
     document.getElementById("exportarExcel").addEventListener("click", (event) => ejecutarDescarga(event.currentTarget, `exportar_excel_linea.php?proyecto_id=${proyectoId}&linea=${encodeURIComponent(linea)}`, `linea_${linea}.xlsx`));
     cargarPostes();
   </script>

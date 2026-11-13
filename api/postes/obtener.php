@@ -19,7 +19,7 @@ if (!$post) {
 }
 $details = $conn->prepare('SELECT * FROM poste_datos WHERE poste_id = ?');
 $details->execute([$postId]);
-$rst = $conn->prepare('SELECT seccion, fase, atributo FROM poste_secciones_rst WHERE poste_id = ? ORDER BY seccion, fase');
+$rst = $conn->prepare('SELECT seccion, fase, atributo FROM poste_secciones_rst WHERE poste_id = ? AND activo = 1 ORDER BY seccion, fase');
 $rst->execute([$postId]);
 $sections = [];
 foreach ($rst->fetchAll() as $row) {

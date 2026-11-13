@@ -1,5 +1,26 @@
 <?php
 require_once __DIR__ . '/optimizador_imagenes.php';
+// `storagePath()`, `pathIsInside()` y `resolveStoredImagePath()` se usan aquí
+// abajo; funcionaban porque el endpoint cargaba la configuración antes, no
+// porque este archivo la pidiera.
+require_once __DIR__ . '/../config/storage.php';
+
+function reportImagePath(array $image): ?string {
+    $resolved = $image['ruta_resuelta'] ?? null;
+    if (is_string($resolved) && is_file($resolved)) {
+        $allowedRoots = [
+            storagePath('images'),
+            storagePath('mobile_backups'),
+            projectPath(),
+        ];
+        foreach ($allowedRoots as $root) {
+            if (is_dir($root) && pathIsInside($resolved, $root)) {
+                return realpath($resolved) ?: null;
+            }
+        }
+    }
+    return resolveStoredImagePath($image['ruta_archivo'] ?? null);
+}
 
 function agregarImagenesPoste($pdf, $imagenes) {
     $fotosEsperadas = [
@@ -15,10 +36,14 @@ function agregarImagenesPoste($pdf, $imagenes) {
     ];
 
     $imagenesMap = [];
+    // Los datos de cada foto (fecha de captura y UTM propios) viajan aparte
+    // porque el sello los necesita por celda, no los de la estructura.
+    $datosMap = [];
     foreach ($imagenes as $img) {
-        $ruta = resolveStoredImagePath($img['ruta_archivo'] ?? null);
-        if (file_exists($ruta) && @getimagesize($ruta)) {
+        $ruta = reportImagePath($img);
+        if ($ruta !== null && @getimagesize($ruta)) {
             $imagenesMap[$img['nombre_foto']] = $ruta;
+            $datosMap[$img['nombre_foto']] = $img;
         }
     }
 
@@ -45,10 +70,13 @@ function agregarImagenesPoste($pdf, $imagenes) {
         $pdf->Rect($xActual, $yActual, $anchoCelda, $altoImagen + $altoTexto);
 
         $ruta = $imagenesMap[$fotoNombre] ?? null;
+        // Una foto que no se puede leer cae en la rama "No tiene foto", igual
+        // que si faltara: nunca debe interrumpir el reporte completo.
+        $rutaReducida = $ruta !== null ? redimensionarImagenTemporal($ruta) : null;
 
-        if ($ruta) {
-           $rutaReducida = redimensionarImagenTemporal($ruta);
+        if ($rutaReducida) {
 $pdf->Image($rutaReducida, $xActual + 1, $yActual + 1, $anchoCelda - 2, $altoImagen - 2);
+$pdf->selloGeoFoto($xActual + 1, $yActual + 1, $anchoCelda - 2, $altoImagen - 2, $datosMap[$fotoNombre] ?? null);
 if ($rutaReducida !== $ruta && file_exists($rutaReducida)) {
     unlink($rutaReducida);
 }
@@ -106,10 +134,12 @@ function agregarPanelAisladores($pdf, $imagenes) {
     ];
 
     $imagenesMap = [];
+    $datosMap = [];
     foreach ($imagenes as $img) {
-        $ruta = resolveStoredImagePath($img['ruta_archivo'] ?? null);
+        $ruta = reportImagePath($img);
         if ($ruta && file_exists($ruta) && @getimagesize($ruta)) {
             $imagenesMap[$img['nombre_foto']] = $ruta;
+            $datosMap[$img['nombre_foto']] = $img;
         }
     }
 
@@ -141,11 +171,12 @@ function agregarPanelAisladores($pdf, $imagenes) {
         }
 
         $ruta = $imagenesMap[$fotoNombre] ?? null;
+        $rutaReducida = $ruta !== null ? redimensionarImagenTemporal($ruta) : null;
         $pdf->Rect($xActual, $yActual, $anchoCelda, $altoImagen + $altoTexto);
 
-        if ($ruta) {
-          $rutaReducida = redimensionarImagenTemporal($ruta);
+        if ($rutaReducida) {
           $pdf->Image($rutaReducida, $xActual + 1, $yActual + 1, $anchoCelda - 2, $altoImagen - 2);
+          $pdf->selloGeoFoto($xActual + 1, $yActual + 1, $anchoCelda - 2, $altoImagen - 2, $datosMap[$fotoNombre] ?? null);
 if ($rutaReducida !== $ruta && file_exists($rutaReducida)) {
     unlink($rutaReducida);
 }
@@ -188,10 +219,12 @@ function agregarPanelPersonalizado($pdf, $titulo, $imagenes, $fotosEsperadas, $o
     $ocultarNombres = $opciones['ocultarNombres'] ?? false;
 
     $imagenesMap = [];
+    $datosMap = [];
     foreach ($imagenes as $img) {
-        $ruta = resolveStoredImagePath($img['ruta_archivo'] ?? null);
+        $ruta = reportImagePath($img);
         if ($ruta && file_exists($ruta) && @getimagesize($ruta)) {
             $imagenesMap[$img['nombre_foto']] = $ruta;
+            $datosMap[$img['nombre_foto']] = $img;
         }
     }
 if (!isset($opciones['anchoCelda'])) {
@@ -220,6 +253,7 @@ if (!isset($opciones['anchoCelda'])) {
 
     foreach ($fotosEsperadas as $foto) {
         $ruta = $imagenesMap[$foto['nombre']] ?? null;
+        $rutaReducida = $ruta !== null ? redimensionarImagenTemporal($ruta) : null;
         $altoCelda = $altoImagen + ($tituloArriba ? $altoTexto : ($ocultarNombres ? 0 : $altoTexto));
 
         // Dibujar borde del recuadro
@@ -237,9 +271,9 @@ if (!isset($opciones['anchoCelda'])) {
         }
 
         // Mostrar imagen o texto "No tiene foto"
-        if ($ruta) {
-            $rutaReducida = redimensionarImagenTemporal($ruta);
+        if ($rutaReducida) {
             $pdf->Image($rutaReducida, $xActual + 1, $yImagen + 1, $anchoCelda - 2, $altoImagen - 2);
+            $pdf->selloGeoFoto($xActual + 1, $yImagen + 1, $anchoCelda - 2, $altoImagen - 2, $datosMap[$foto['nombre']] ?? null);
 if ($rutaReducida !== $ruta && file_exists($rutaReducida)) {
     unlink($rutaReducida);
 }

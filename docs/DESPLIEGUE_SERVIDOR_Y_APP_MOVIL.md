@@ -113,7 +113,7 @@ DB_USERNAME=ecoing_app
 DB_PASSWORD=UNA_CLAVE_LARGA_Y_UNICA
 
 JWT_SECRET=UN_SECRETO_ALEATORIO_DE_64_CARACTERES_O_MAS
-JWT_TTL=604800
+JWT_TTL=31536000
 ```
 
 Generar el secreto, por ejemplo, con `openssl rand -hex 32`. No reutilizar el secreto local y nunca agregar `.env` a Git.

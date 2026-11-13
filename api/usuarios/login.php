@@ -53,7 +53,7 @@ try {
     $conn->prepare('DELETE FROM login_intentos WHERE clave = ?')->execute([$clientKey]);
     $conn->prepare('UPDATE usuarios SET ultimo_login = NOW() WHERE id = ?')->execute([$user['id']]);
 
-    $ttl = max(300, (int) envValue('JWT_TTL', 604800));
+    $ttl = max(300, (int) envValue('JWT_TTL', 31536000));
     respond([
         'success' => true,
         'token' => generateJWT($user['id'], $user['nombre_usuario'], $user['rol']),

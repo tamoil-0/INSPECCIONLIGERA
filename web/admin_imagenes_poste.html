@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#071827">
+  <title>Configurar imágenes | ECOING</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/estilos.css?v=20260902">
+</head>
+<body class="app-body">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand-link" href="proyectos.html">
+        <span class="logo-mark">EC</span>
+        <span class="brand-copy"><strong>ECOING</strong><span>Operaciones de campo</span></span>
+      </a>
+      <nav class="topbar-center" aria-label="Navegación principal">
+        <a class="nav-link" href="proyectos.html">Proyectos</a>
+        <a class="nav-link activo" href="admin.html" aria-current="page">Administración</a>
+      </nav>
+      <div class="topbar-actions">
+        <span class="conexion" data-api-status data-state="checking"><span>Verificando API</span></span>
+        <div class="usuario-compacto">
+          <span class="usuario-avatar" data-user-initials>EC</span>
+          <span class="usuario-meta"><strong data-user-name>Usuario</strong><span data-user-role>Administrador</span></span>
+        </div>
+        <button class="button-ghost button-sm" type="button" onclick="cerrarSesion()">Salir</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main admin-shell">
+    <nav class="breadcrumbs" aria-label="Ruta de navegación">
+      <a href="admin.html">Administración</a>
+      <span class="separador" aria-hidden="true">/</span>
+      <a id="volverEstructuras" href="admin.html">Estructuras</a>
+      <span class="separador" aria-hidden="true">/</span>
+      <span id="migaEstructura">Estructura</span>
+      <span class="separador" aria-hidden="true">/</span>
+      <strong>Configurar imágenes</strong>
+    </nav>
+
+    <section class="page-heading admin-page-heading">
+      <div class="page-heading-copy">
+        <p class="eyebrow">Panel administrativo</p>
+        <h1>Configurar imágenes</h1>
+        <p id="subtituloEstructura">Selecciona qué imágenes pueden aparecer en el reporte PDF.</p>
+      </div>
+      <div class="page-actions">
+        <a id="verInspeccion" class="button button-secondary" href="#">Ver inspección</a>
+      </div>
+    </section>
+
+    <p id="mensaje" class="mensaje" aria-live="polite"></p>
+
+    <section class="surface">
+      <div class="surface-header">
+        <div>
+          <h2 id="tituloEstructura">Estructura</h2>
+          <p>Solo se guarda qué imágenes se imprimen. No se elimina, mueve ni modifica ninguna fotografía.</p>
+        </div>
+        <span id="estadoConfiguracion" class="status-badge status-neutral">Cargando</span>
+      </div>
+
+      <div class="toolbar toolbar-compact imgcfg-toolbar">
+        <div class="campo">
+          <label for="fuenteImagenes">Fuente de imágenes</label>
+          <select id="fuenteImagenes">
+            <option value="current">NAS</option>
+            <option value="backup">Backup</option>
+          </select>
+        </div>
+        <p id="ayudaFuente" class="imgcfg-help">Fotografías sincronizadas actualmente.</p>
+        <div class="imgcfg-acciones">
+          <button id="marcarTodas" class="button-secondary button-sm" type="button">Seleccionar todas</button>
+          <button id="quitarTodas" class="button-secondary button-sm" type="button">Quitar todas</button>
+        </div>
+      </div>
+
+      <p id="resumenFuente" class="imgcfg-resumen" aria-live="polite"></p>
+      <div id="galeria" class="imgcfg-grid"></div>
+      <p id="galeriaVacia" class="imgcfg-vacio" hidden></p>
+    </section>
+  </main>
+
+  <div class="imgcfg-barra">
+    <div class="imgcfg-barra-inner">
+      <span id="pendienteGuardar" class="cell-subtitle">Sin cambios pendientes.</span>
+      <div class="imgcfg-barra-acciones">
+        <button id="cancelar" class="button-secondary" type="button">Cancelar</button>
+        <button id="guardar" class="button-primary" type="button">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="app-footer"><p>ECOING · Gestión de inspecciones</p><p>Entorno local seguro · <span data-current-year></span></p></footer>
+
+  <script src="js/app.js?v=20260902"></script>
+  <script src="js/reporte_fotos.js?v=20260902"></script>
+  <script src="js/admin_imagenes_poste.js?v=20260902"></script>
+</body>
+</html>

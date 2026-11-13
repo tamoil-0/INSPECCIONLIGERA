@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#071827">
+  <title>Plantillas | ECOING</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/estilos.css">
+  <link rel="stylesheet" href="css/plantillas.css">
+</head>
+<body class="app-body">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand-link" href="proyectos.html">
+        <span class="logo-mark">EC</span>
+        <span class="brand-copy"><strong>ECOING</strong><span>Operaciones de campo</span></span>
+      </a>
+      <nav class="topbar-center" aria-label="Navegación principal">
+        <a class="nav-link" href="proyectos.html">Proyectos</a>
+        <a class="nav-link" href="admin.html">Administración</a>
+        <a class="nav-link activo" href="plantillas.html" aria-current="page">Plantillas</a>
+      </nav>
+      <div class="topbar-actions">
+        <span class="conexion" data-api-status data-state="checking"><span>Verificando API</span></span>
+        <div class="usuario-compacto">
+          <span class="usuario-avatar" data-user-initials>EC</span>
+          <span class="usuario-meta"><strong data-user-name>Usuario</strong><span data-user-role>Administrador</span></span>
+        </div>
+        <button class="button-ghost button-sm" type="button" onclick="cerrarSesion()">Salir</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main tpl-main">
+    <!-- Vista 1: lista de plantillas -->
+    <section id="vistaLista" aria-labelledby="listaTitulo">
+      <nav class="breadcrumbs" aria-label="Ruta de navegación">
+        <a href="admin.html">Administración</a>
+        <span class="separador" aria-hidden="true">/</span>
+        <strong>Plantillas</strong>
+      </nav>
+      <section class="page-heading">
+        <div class="page-heading-copy">
+          <p class="eyebrow">Proyectos desde cero</p>
+          <h1 id="listaTitulo">Plantillas de inspección</h1>
+          <p>Defina qué datos se piden en campo, qué fotografías se toman y cómo se ve el PDF. Luego asigne la plantilla a un proyecto en <a href="admin.html">Administración → Proyectos</a>.</p>
+        </div>
+        <div class="page-actions">
+          <button id="btnNueva" class="button-primary" type="button">
+            <span class="button-icon" aria-hidden="true">＋</span><span>Nueva plantilla</span>
+          </button>
+        </div>
+      </section>
+      <p id="listaMensaje" class="mensaje" aria-live="polite"></p>
+      <div id="listaPlantillas" class="tpl-cards" aria-busy="true"></div>
+    </section>
+
+    <!-- Vista 2: editor -->
+    <section id="vistaEditor" class="tpl-editor" hidden aria-label="Editor de plantilla">
+      <header class="tpl-editor-bar">
+        <button id="btnVolver" class="button-ghost button-sm" type="button" aria-label="Volver a la lista">
+          <span aria-hidden="true">‹</span><span>Plantillas</span>
+        </button>
+        <div class="tpl-editor-name">
+          <label class="sr-only" for="tplNombre">Nombre de la plantilla</label>
+          <input id="tplNombre" maxlength="150" autocomplete="off" spellcheck="false">
+          <span id="tplVersion" class="tpl-chip">v1</span>
+          <span id="tplEstadoGuardado" class="tpl-save-state" data-state="saved">Guardado</span>
+        </div>
+        <div class="tpl-editor-actions">
+          <button id="btnVistaPrevia" class="button-secondary" type="button">
+            <span aria-hidden="true">▤</span><span>Ver PDF de prueba</span>
+          </button>
+          <button id="btnGuardar" class="button-primary" type="button" disabled>
+            <span class="button-label">Guardar cambios</span>
+          </button>
+        </div>
+      </header>
+
+      <nav class="tpl-tabs" role="tablist" aria-label="Partes de la plantilla">
+        <button role="tab" data-tab="formulario" aria-selected="true" type="button">
+          <span class="tpl-tab-num">1</span><span class="tpl-tab-copy"><strong>Formulario</strong><small id="resumenFormulario">Datos que se piden</small></span>
+        </button>
+        <button role="tab" data-tab="fotos" aria-selected="false" type="button">
+          <span class="tpl-tab-num">2</span><span class="tpl-tab-copy"><strong>Fotografías</strong><small id="resumenFotos">Qué se fotografía</small></span>
+        </button>
+        <button role="tab" data-tab="pdf" aria-selected="false" type="button">
+          <span class="tpl-tab-num">3</span><span class="tpl-tab-copy"><strong>Diseño del PDF</strong><small id="resumenPdf">Logos, cuadros y colores</small></span>
+        </button>
+        <button role="tab" data-tab="ajustes" aria-selected="false" type="button">
+          <span class="tpl-tab-num">4</span><span class="tpl-tab-copy"><strong>Ajustes</strong><small>Descripción y uso</small></span>
+        </button>
+      </nav>
+
+      <p id="editorMensaje" class="mensaje" aria-live="polite"></p>
+      <div id="tplContenido" class="tpl-content"></div>
+    </section>
+  </main>
+
+  <dialog id="dlgNueva" class="admin-dialog admin-dialog-sm" aria-labelledby="dlgNuevaTitulo">
+    <form id="formNueva">
+      <header class="admin-dialog-header">
+        <div class="admin-dialog-heading">
+          <span class="admin-dialog-icon" aria-hidden="true">＋</span>
+          <div>
+            <p class="eyebrow">Plantillas</p>
+            <h2 id="dlgNuevaTitulo">Nueva plantilla</h2>
+            <p>Empiece en blanco o a partir de una plantilla existente.</p>
+          </div>
+        </div>
+        <button class="button-ghost admin-dialog-close" type="button" data-cerrar aria-label="Cerrar">×</button>
+      </header>
+      <div class="admin-dialog-body">
+        <div class="admin-form-grid tpl-form-1col">
+          <div class="campo">
+            <label for="nuevaNombre">Nombre</label>
+            <input id="nuevaNombre" name="nombre" required maxlength="150" placeholder="Ej.: Líneas 138 kV — Cliente X">
+          </div>
+          <div class="campo">
+            <label for="nuevaDescripcion">Descripción <span class="tpl-opcional">opcional</span></label>
+            <input id="nuevaDescripcion" name="descripcion" maxlength="500" placeholder="Para qué tipo de inspección es">
+          </div>
+          <fieldset class="tpl-origen">
+            <legend>Punto de partida</legend>
+            <label class="tpl-origen-opcion">
+              <input type="radio" name="origen" value="copia" checked>
+              <span><strong>Copiar una plantilla</strong><small>Recomendado: ajuste solo lo que cambia.</small></span>
+            </label>
+            <select id="nuevaOrigen" name="duplicar_de" aria-label="Plantilla a copiar"></select>
+            <label class="tpl-origen-opcion">
+              <input type="radio" name="origen" value="blanco">
+              <span><strong>En blanco</strong><small>Un paso vacío, sin fotos ni cuadros.</small></span>
+            </label>
+          </fieldset>
+        </div>
+        <p id="nuevaMensaje" class="mensaje" aria-live="polite"></p>
+      </div>
+      <footer class="admin-dialog-footer">
+        <button class="button-secondary" type="button" data-cerrar>Cancelar</button>
+        <button id="nuevaCrear" class="button-primary" type="submit"><span class="button-label">Crear y editar</span></button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="dlgTipo" class="admin-dialog" aria-labelledby="dlgTipoTitulo">
+    <div class="tpl-dlg-tipo">
+      <header class="admin-dialog-header">
+        <div class="admin-dialog-heading">
+          <span class="admin-dialog-icon" aria-hidden="true">＋</span>
+          <div>
+            <p class="eyebrow">Nuevo campo</p>
+            <h2 id="dlgTipoTitulo">¿Qué tipo de dato se pide?</h2>
+            <p>Podrá cambiar el nombre, las opciones y si es obligatorio después.</p>
+          </div>
+        </div>
+        <button class="button-ghost admin-dialog-close" type="button" data-cerrar aria-label="Cerrar">×</button>
+      </header>
+      <div class="admin-dialog-body"><div id="tiposGrid" class="tpl-tipos-grid"></div></div>
+    </div>
+  </dialog>
+
+  <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <footer class="app-footer">
+    <p>ECOING · Plantillas de inspección</p>
+    <p>Los proyectos con inspecciones conservan su plantilla · <span data-current-year></span></p>
+  </footer>
+  <script src="js/app.js"></script>
+  <script src="js/plantillas.js"></script>
+</body>
+</html>

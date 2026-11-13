@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/domain.php';
+require_once __DIR__ . '/../config/photo_status.php';
 
 requireMethod('PUT');
 requireAuth(['administrador', 'supervisor', 'tecnico']);
@@ -11,7 +12,12 @@ $postId = filter_input(INPUT_GET, 'poste_id', FILTER_VALIDATE_INT);
 if (!$postId) {
     respond(['success' => false, 'error' => 'poste_id no es válido.'], 422);
 }
-$exists = $conn->prepare('SELECT 1 FROM postes WHERE id = ?');
+$exists = $conn->prepare(
+    "SELECT 1 FROM postes p
+     INNER JOIN proyectos pr ON pr.id=p.proyecto_id AND pr.estado='activo'
+     LEFT JOIN lineas l ON l.proyecto_id=p.proyecto_id AND l.nombre=p.linea
+     WHERE p.id=? AND p.activo=1 AND COALESCE(l.activa,1)=1"
+);
 $exists->execute([$postId]);
 if (!$exists->fetchColumn()) {
     respond(['success' => false, 'error' => 'Poste no encontrado.'], 404);
@@ -39,11 +45,16 @@ foreach (inspectionRules() as $field => $allowed) {
     $values[$field] = $data[$field];
 }
 if (array_key_exists('cantidad_pat', $data)) {
-    $quantity = filter_var($data['cantidad_pat'], FILTER_VALIDATE_INT);
-    if ($quantity === false || $quantity < 0) {
-        respond(['success' => false, 'error' => 'cantidad_pat debe ser un entero no negativo.'], 422);
+    $quantityRaw = $data['cantidad_pat'];
+    if ($quantityRaw === null || (is_string($quantityRaw) && trim($quantityRaw) === '')) {
+        $values['cantidad_pat'] = null;
+    } else {
+        $quantity = filter_var($quantityRaw, FILTER_VALIDATE_INT);
+        if ($quantity === false || $quantity < 0) {
+            respond(['success' => false, 'error' => 'cantidad_pat debe ser un entero no negativo.'], 422);
+        }
+        $values['cantidad_pat'] = $quantity;
     }
-    $values['cantidad_pat'] = $quantity;
 }
 
 foreach (['distancia_poste_anterior', 'distancia_vertical', 'distancia_horizontal'] as $distanceField) {
@@ -77,7 +88,7 @@ $sql = 'INSERT INTO poste_datos (poste_id, ' . implode(', ', $columns) . ") VALU
 try {
     $conn->beginTransaction();
     $conn->prepare($sql)->execute(array_merge([$postId], array_values($values)));
-    $postSql = 'UPDATE postes SET formulario_subido = 1, sincronizado = IF(imagenes_subidas = 1, 1, 0), fecha_subida = NOW()';
+    $postSql = 'UPDATE postes SET formulario_subido = 1, inspeccion_finalizada = 1, fecha_subida = NOW()';
     $postParams = [];
     if ($inspectionDate !== null) {
         $postSql .= ', fecha_inspeccion = ?';
@@ -86,8 +97,20 @@ try {
     $postSql .= ' WHERE id = ?';
     $postParams[] = $postId;
     $conn->prepare($postSql)->execute($postParams);
+    $syncStatus = refreshPostSynchronizationStatus($conn, $postId);
     $conn->commit();
-    respond(['success' => true, 'message' => 'Formulario guardado.', 'poste_id' => $postId, 'fecha_inspeccion' => $inspectionDate, 'fecha_subida' => date('Y-m-d H:i:s')]);
+    // El formulario cambió: el PDF cacheado de este poste ya no representa la
+    // inspección. Se retira aquí para no dejar archivos huérfanos en el NAS; la
+    // huella de contenido de renderPostReport() haría lo correcto igualmente.
+    invalidatePostPdfCache($postId);
+    respond([
+        'success' => true,
+        'message' => 'Formulario guardado.',
+        'poste_id' => $postId,
+        'fecha_inspeccion' => $inspectionDate,
+        'fecha_subida' => date('Y-m-d H:i:s'),
+        'estado_fotografias' => $syncStatus,
+    ]);
 } catch (PDOException $exception) {
     if ($conn->inTransaction()) {
         $conn->rollBack();

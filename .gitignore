@@ -3,6 +3,12 @@
 /.vscode/
 /.composer-cache/
 
+# Configuración de los contenedores: contiene contraseñas de MariaDB y el
+# JWT_SECRET del NAS. La plantilla versionada es docker/.env.example.
+/docker/.env
+/docker/.env.*
+!/docker/.env.example
+
 # Dependencias instalables
 /api/vendor/
 /api/librerias/*
@@ -23,6 +29,11 @@
 !/storage/exports/.gitkeep
 /storage/logs/*
 !/storage/logs/.gitkeep
+# Creadas al vuelo por api/config/storage.php cuando no se configuran las
+# variables *_STORAGE_PATH (instalación XAMPP). En el NAS su contenido vive en
+# /share/.../InspeccionLigera y nunca pasa por el repositorio.
+/storage/pdf/
+/storage/backups/
 *.log
 error_log
 headers_log.txt
@@ -42,3 +53,25 @@ log_*.txt
 !/controllers/.htaccess
 /views/*
 !/views/.htaccess
+
+# Paquetes de despliegue al NAS (se regeneran; no son código)
+*.tgz
+*.tar.gz
+*.tar.gz.sha256
+/release_*/
+/despliegue_plantillas/*.tar.gz
+
+# Dumps con datos reales: el repositorio es público
+/database/backups/
+/migracion/
+
+# Firmas escaneadas: datos personales, no van a un repositorio público
+/api/clases/images/FIRMA.jpg
+/api/clases/images/firma.png
+
+# App móvil: vive en la rama app-movil
+/pruebaoffline/
+
+# Revisión visual y material de referencia de diseño
+/.ui-review/
+/.referencias/

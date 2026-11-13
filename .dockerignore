@@ -1,0 +1,57 @@
+# Contexto de build de `ecoing-app`.
+#
+# Solo entran `web/`, `api/` (sin vendor: se instala con Composer en la etapa
+# `vendor`) y `docker/`. Todo lo demás se queda fuera para que el contexto no
+# arrastre cientos de MB al NAS por la red.
+
+# --- Nunca dentro de una imagen -------------------------------------------
+.env
+.env.*
+!.env.example
+docker/.env
+docker/.env.*
+!docker/.env.example
+
+.git
+.gitignore
+.gitattributes
+.idea
+.vscode
+.composer-cache
+
+# --- La app móvil no forma parte del servidor -----------------------------
+pruebaoffline/
+
+# --- Datos, dumps y entregables -------------------------------------------
+data/
+database/backups/
+database/*.sql
+storage/
+docs/
+scripts/
+actualizacion_nas.tar.gz
+docker-compose.dev.yml
+release_admin_nas_20260824/
+release_admin_nas_20260824.tar.gz
+*.zip
+*.log
+*.apk
+*.xlsx
+
+# --- Documentación (se lee en el repositorio, no en el contenedor) --------
+*.md
+
+# --- Dependencias: las reinstala Composer en la etapa `vendor` ------------
+api/vendor/
+api/librerias/
+api/descargas/
+api/exportes/
+api/estado_exportaciones/
+api/tests/
+web/tests/
+
+# --- Restos del entorno de desarrollo -------------------------------------
+build/
+controllers/
+views/
+.user.ini

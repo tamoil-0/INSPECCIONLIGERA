@@ -19,7 +19,7 @@ function jwtSecret(): string
 function generateJWT(int|string $userId, string $username, string $role): string
 {
     $issuedAt = time();
-    $ttl = max(300, (int) envValue('JWT_TTL', 604800));
+    $ttl = max(300, (int) envValue('JWT_TTL', 31536000));
     $issuer = rtrim((string) envValue('APP_URL', 'ecoing-local'), '/');
 
     return JWT::encode([

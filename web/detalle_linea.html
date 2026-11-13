@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#071827">
   <title>Líneas del proyecto | ECOING</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/estilos.css">
+  <link rel="stylesheet" href="css/estilos.css?v=20260902">
 </head>
 <body class="app-body">
   <header class="topbar">
@@ -25,6 +25,7 @@
     <nav class="breadcrumbs" aria-label="Migas de pan"><a href="proyectos.html">Proyectos</a><span class="separador">/</span><a id="proyectoResumen" href="#">Resumen</a><span class="separador">/</span><strong>Líneas</strong></nav>
     <section class="page-heading">
       <div class="page-heading-copy"><p class="eyebrow">Avance por circuito</p><h1>Líneas del proyecto</h1><p id="proyectoNombre">Cargando proyecto…</p></div>
+      <div class="page-actions"><div id="fuenteAvance" class="foto-fuente-hueco"></div></div>
       <div class="page-actions"><a class="button button-secondary" href="proyectos.html">Volver a proyectos</a></div>
     </section>
 
@@ -34,14 +35,14 @@
       <article class="metric-card"><span class="metric-label">Líneas</span><strong class="metric-value" id="metricaLineas">—</strong><span class="metric-helper">Circuitos del proyecto</span></article>
       <article class="metric-card"><span class="metric-label">Estructuras</span><strong class="metric-value" id="metricaPostes">—</strong><span class="metric-helper">Total del padrón</span></article>
       <article class="metric-card" data-tone="success"><span class="metric-label">Formularios</span><strong class="metric-value" id="metricaFormularios">—</strong><span class="metric-helper">Recibidos en servidor</span></article>
-      <article class="metric-card" data-tone="warning"><span class="metric-label">Completos</span><strong class="metric-value" id="metricaCompletos">—</strong><span class="metric-helper">Formulario + 28 imágenes</span></article>
+      <article class="metric-card" data-tone="warning"><span class="metric-label">Sincronizadas</span><strong class="metric-value" id="metricaCompletos">—</strong><span class="metric-helper">Finalizadas y confirmadas</span></article>
     </section>
 
     <section class="surface">
-      <div class="surface-header"><div><h2>Seguimiento de líneas</h2><p>El progreso se calcula con estructuras que ya tienen formulario y evidencia completa.</p></div><span id="conteoLineas" class="status-badge status-neutral">Cargando</span></div>
+      <div class="surface-header"><div><h2>Seguimiento de líneas</h2><p id="notaAvance">El progreso se calcula con inspecciones finalizadas y todas sus fotos capturadas confirmadas.</p></div><span id="conteoLineas" class="status-badge status-neutral">Cargando</span></div>
       <div class="tabla-scroll tabla-responsive">
         <table>
-          <thead><tr><th>Línea</th><th>Estructuras</th><th>Inspeccionadas</th><th>Formularios</th><th>28 imágenes</th><th>Avance completo</th><th>Acción</th></tr></thead>
+          <thead><tr><th>Línea</th><th>Estructuras</th><th>Inspeccionadas</th><th>Formularios</th><th>Fotos confirmadas</th><th id="cabeceraAvance">Avance sincronizado</th><th>Acción</th></tr></thead>
           <tbody id="tablaLineas"></tbody>
         </table>
       </div>
@@ -50,62 +51,155 @@
 
   <footer class="app-footer"><p>ECOING · Gestión de inspecciones</p><p>Entorno local seguro · <span data-current-year></span></p></footer>
 
-  <script src="js/app.js"></script>
+  <script src="js/app.js?v=20260902"></script>
+  <script src="js/reporte_fotos.js?v=20260902"></script>
   <script>
     verificarSesion();
     const proyectoId = Number(new URLSearchParams(location.search).get("id"));
     if (!Number.isInteger(proyectoId) || proyectoId <= 0) location.replace("proyectos.html");
     document.getElementById("proyectoResumen").href = `detalle_proyecto.html?id=${proyectoId}`;
 
+    /* El padrón —cuántas estructuras tiene cada línea— sale SIEMPRE de la BD:
+       es el universo oficial del proyecto y no depende de lo que haya en el
+       respaldo. Lo que cambia con el selector son los contadores de avance. */
+    const selectorFuente = crearSelectorFuenteFoto("fuenteAvanceSelect", "Fuente de información");
+    document.getElementById("fuenteAvance").replaceChildren(selectorFuente);
+
+    /** Contadores del NAS: exactamente el cálculo que ya existía. */
+    function agruparNas(posts) {
+      const lines = new Map();
+      posts.data.forEach((post) => {
+        const item = lines.get(post.linea) || { total: 0, inspected: 0, forms: 0, images: 0, complete: 0 };
+        item.total++;
+        if (post.fecha_inspeccion) item.inspected++;
+        if (Number(post.formulario_subido) === 1) item.forms++;
+        if (Number(post.fotos_capturadas) > 0 && Number(post.imagenes_subidas) === 1) item.images++;
+        if (Number(post.sincronizado) === 1) item.complete++;
+        lines.set(post.linea, item);
+      });
+      return lines;
+    }
+
+    /** Contadores del respaldo, con el total del padrón por línea. */
+    function agruparBackup(posts, respaldo) {
+      const totales = new Map();
+      posts.data.forEach((post) => totales.set(post.linea, (totales.get(post.linea) || 0) + 1));
+      const lines = new Map();
+      totales.forEach((total, linea) => {
+        const fila = respaldo.lineas.find((item) => item.linea === linea);
+        lines.set(linea, {
+          total,
+          inspected: fila ? fila.inspeccionadas : 0,
+          forms: fila ? fila.formularios : 0,
+          images: fila ? fila.fotos_confirmadas : 0,
+          // El avance en modo Backup son las estructuras CON EVIDENCIA, no las
+          // que están completas: una con sus fotografías pero sin formulario
+          // está respaldada igual, y contarla sólo si está completa dejaba el
+          // porcentaje muy por debajo de lo que hay en el respaldo.
+          complete: fila ? (fila.respaldadas ?? fila.inspeccionadas ?? 0) : 0,
+          sincronizadas: fila ? fila.sincronizadas : 0,
+          enProceso: fila ? (fila.en_proceso ?? 0) : 0
+        });
+      });
+      return lines;
+    }
+
+    function pintar(lines, totalPadron, esRespaldo = false) {
+      const tbody = document.getElementById("tablaLineas");
+      const values = [...lines.values()];
+      document.getElementById("metricaLineas").textContent = lines.size;
+      document.getElementById("metricaPostes").textContent = totalPadron;
+      document.getElementById("metricaFormularios").textContent = values.reduce((sum, item) => sum + item.forms, 0);
+      document.getElementById("metricaCompletos").textContent = values.reduce((sum, item) => sum + item.complete, 0);
+      document.getElementById("conteoLineas").textContent = `${lines.size} ${lines.size === 1 ? "línea" : "líneas"}`;
+      document.getElementById("cabeceraAvance").textContent = esRespaldo
+        ? "Avance en backup"
+        : "Avance sincronizado";
+      tbody.replaceChildren();
+      if (!lines.size) return filaVacia(tbody, 7, "El proyecto todavía no tiene estructuras registradas.");
+      [...lines.entries()].sort(([a], [b]) => a.localeCompare(b, "es", { numeric: true })).forEach(([line, item]) => {
+        const row = document.createElement("tr");
+        row.append(celdaCompuesta(line, `${item.total} estructuras`, "Línea"));
+        row.append(celda(item.total, "Estructuras"), celda(item.inspected, "Inspeccionadas"), celda(item.forms, "Formularios"), celda(item.images, "Fotos confirmadas"));
+        const progressCell = celda("", esRespaldo ? "Avance en backup" : "Avance completo");
+        progressCell.appendChild(crearProgreso(item.complete, item.total));
+        if (esRespaldo) {
+          const desglose = document.createElement("span");
+          desglose.className = "cell-subtitle";
+          desglose.textContent = `${item.sincronizadas} completas · ${item.enProceso} en proceso`;
+          progressCell.appendChild(desglose);
+        }
+        row.appendChild(progressCell);
+        const action = celda("", "Acción");
+        const link = document.createElement("a");
+        link.className = "button button-primary button-sm";
+        link.href = `detalle_poste.html?proyecto_id=${proyectoId}&linea=${encodeURIComponent(line)}`;
+        link.textContent = "Ver estructuras";
+        action.appendChild(link);
+        row.appendChild(action);
+        tbody.appendChild(row);
+      });
+    }
+
+    /** Vacía los contadores: se usa cuando el respaldo no se puede calcular. */
+    function vaciarMetricas() {
+      ["metricaLineas", "metricaFormularios", "metricaCompletos"].forEach((id) => {
+        document.getElementById(id).textContent = "—";
+      });
+    }
+
+    let postesCache = null;
+
     async function cargarLineas() {
       const tbody = document.getElementById("tablaLineas");
-      filaCargando(tbody, 7, "Calculando avance por línea…");
+      const fuente = selectorFuente.control.value;
+      const esRespaldo = fuente === "backup";
+      document.getElementById("notaAvance").textContent = esRespaldo
+        ? "Backup muestra la información encontrada en el respaldo móvil. Las estructuras totales siguen siendo las del padrón."
+        : "NAS muestra la información sincronizada actualmente.";
+      filaCargando(tbody, 7, esRespaldo ? "Recorriendo el respaldo…" : "Calculando avance por línea…");
+      limpiarMensaje(document.getElementById("mensaje"));
       try {
-        const [project, posts] = await Promise.all([
-          fetchConToken(`proyectos/obtener.php?id=${proyectoId}`).then(leerRespuesta),
-          fetchConToken(`postes/listar.php?proyecto_id=${proyectoId}`).then(leerRespuesta)
-        ]);
-        document.title = `Líneas · ${project.data.nombre_proyecto} | ECOING`;
-        document.getElementById("proyectoNombre").textContent = `${project.data.nombre_proyecto} · ${project.data.ubicacion}`;
-        const lines = new Map();
-        posts.data.forEach((post) => {
-          const item = lines.get(post.linea) || { total: 0, inspected: 0, forms: 0, images: 0, complete: 0 };
-          item.total++;
-          if (post.fecha_inspeccion) item.inspected++;
-          if (Number(post.formulario_subido) === 1) item.forms++;
-          if (Number(post.imagenes_subidas) === 1) item.images++;
-          if (Number(post.formulario_subido) === 1 && Number(post.imagenes_subidas) === 1) item.complete++;
-          lines.set(post.linea, item);
-        });
-        const values = [...lines.values()];
-        document.getElementById("metricaLineas").textContent = lines.size;
-        document.getElementById("metricaPostes").textContent = posts.count;
-        document.getElementById("metricaFormularios").textContent = values.reduce((sum, item) => sum + item.forms, 0);
-        document.getElementById("metricaCompletos").textContent = values.reduce((sum, item) => sum + item.complete, 0);
-        document.getElementById("conteoLineas").textContent = `${lines.size} ${lines.size === 1 ? "línea" : "líneas"}`;
-        tbody.replaceChildren();
-        if (!lines.size) return filaVacia(tbody, 7, "El proyecto todavía no tiene estructuras registradas.");
-        [...lines.entries()].sort(([a], [b]) => a.localeCompare(b, "es", { numeric: true })).forEach(([line, item]) => {
-          const row = document.createElement("tr");
-          row.append(celdaCompuesta(line, `${item.total} estructuras`, "Línea"));
-          row.append(celda(item.total, "Estructuras"), celda(item.inspected, "Inspeccionadas"), celda(item.forms, "Formularios"), celda(item.images, "28 imágenes"));
-          const progressCell = celda("", "Avance completo");
-          progressCell.appendChild(crearProgreso(item.complete, item.total));
-          row.appendChild(progressCell);
-          const action = celda("", "Acción");
-          const link = document.createElement("a");
-          link.className = "button button-primary button-sm";
-          link.href = `detalle_poste.html?proyecto_id=${proyectoId}&linea=${encodeURIComponent(line)}`;
-          link.textContent = "Ver estructuras";
-          action.appendChild(link);
-          row.appendChild(action);
-          tbody.appendChild(row);
-        });
+        if (postesCache === null) {
+          const [project, posts] = await Promise.all([
+            fetchConToken(`proyectos/obtener.php?id=${proyectoId}`).then(leerRespuesta),
+            fetchConToken(`postes/listar.php?proyecto_id=${proyectoId}`).then(leerRespuesta)
+          ]);
+          document.title = `Líneas · ${project.data.nombre_proyecto} | ECOING`;
+          document.getElementById("proyectoNombre").textContent =
+            `${project.data.nombre_proyecto} · ${project.data.ubicacion}`;
+          postesCache = posts;
+        }
+        if (!esRespaldo) {
+          pintar(agruparNas(postesCache), postesCache.count, false);
+          return;
+        }
+        // Recorrer el respaldo cuesta segundos en un proyecto grande, así que
+        // sólo se pide cuando se elige esa fuente.
+        const respaldo = await leerRespuesta(await fetchConToken(
+          `proyectos/avance_respaldo.php?proyecto_id=${proyectoId}`,
+          { timeoutMs: 300000 }
+        ));
+        pintar(agruparBackup(postesCache, respaldo.data), postesCache.count, true);
+        if (respaldo.data.indice_truncado) {
+          mostrarMensaje(
+            document.getElementById("mensaje"),
+            "El respaldo tiene más carpetas de las que se recorren por consulta: el avance puede estar incompleto."
+          );
+        }
       } catch (error) {
-        filaVacia(tbody, 7, "No se pudieron cargar las líneas.");
-        mostrarMensaje(document.getElementById("mensaje"), error.message);
+        // Nunca se muestran los datos del NAS como si fueran del respaldo.
+        filaVacia(tbody, 7, esRespaldo
+          ? "No se pudo calcular el avance del respaldo."
+          : "No se pudieron cargar las líneas.");
+        if (esRespaldo) vaciarMetricas();
+        mostrarMensaje(document.getElementById("mensaje"), esRespaldo
+          ? `No se pudo calcular el avance del respaldo. ${error.message}`
+          : error.message);
       }
     }
+
+    selectorFuente.control.addEventListener("change", cargarLineas);
     cargarLineas();
   </script>
 </body>

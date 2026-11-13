@@ -1,6 +1,8 @@
 <?php
+// `redimensionarImagenTemporal()` y `log_pdf()` se usan más abajo.
+require_once __DIR__ . '/optimizador_imagenes.php';
 
-function agregarFormularioPoste($pdf, $datos, $rst,$rutaImagenPanoramica = null) {
+function agregarFormularioPoste($pdf, $datos, $rst,$rutaImagenPanoramica = null, $datosPanoramica = null) {
   
 
     // 👉 
@@ -130,8 +132,16 @@ $corregirOrientacionImagen = static function($ruta) {
     return $tmpPath;
 };
 
-if (!empty($rutaImagenPanoramica) && file_exists($rutaImagenPanoramica)) {
-    $imagenCorregida = $corregirOrientacionImagen($rutaImagenPanoramica);
+// Se prepara sin reducir (PHP_INT_MAX): una panorámica legible se entrega tal
+// cual, como siempre. Sólo se convierte —o se descarta con null— cuando el
+// archivo no es lo que su extensión dice o no se puede decodificar, que es lo
+// que antes hacía fallar a FPDF y se llevaba por delante el reporte entero.
+$rutaPanoramica = (!empty($rutaImagenPanoramica) && is_file($rutaImagenPanoramica))
+    ? redimensionarImagenTemporal($rutaImagenPanoramica, PHP_INT_MAX)
+    : null;
+
+if ($rutaPanoramica !== null) {
+    $imagenCorregida = $corregirOrientacionImagen($rutaPanoramica);
 
     $anchoImagen = 75;
     $altoImagen = 120;
@@ -140,8 +150,12 @@ if (!empty($rutaImagenPanoramica) && file_exists($rutaImagenPanoramica)) {
     $yImagen = $yInicial;
 
     $pdf->Image($imagenCorregida, $xImagen, $yImagen, $anchoImagen, $altoImagen);
-    if ($imagenCorregida !== $rutaImagenPanoramica && is_file($imagenCorregida)) {
+    $pdf->selloGeoFoto($xImagen, $yImagen, $anchoImagen, $altoImagen, $datosPanoramica);
+    if ($imagenCorregida !== $rutaPanoramica && is_file($imagenCorregida)) {
         unlink($imagenCorregida);
+    }
+    if ($rutaPanoramica !== $rutaImagenPanoramica && is_file($rutaPanoramica)) {
+        unlink($rutaPanoramica);
     }
 
     $yTexto = $yImagen + $altoImagen;

@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#071827">
   <title>Detalle de inspección | ECOING</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/estilos.css">
+  <link rel="stylesheet" href="css/estilos.css?v=20260902">
 </head>
 <body class="app-body">
   <header class="topbar">
@@ -25,16 +25,30 @@
     <nav class="breadcrumbs" aria-label="Migas de pan"><a href="proyectos.html">Proyectos</a><span class="separador">/</span><a id="volver" href="#">Estructuras</a><span class="separador">/</span><strong>Inspección</strong></nav>
     <section class="page-heading">
       <div class="page-heading-copy"><p class="eyebrow">Expediente técnico</p><h1 id="tituloPoste">Detalle de inspección</h1><p id="subtituloPoste">Consultando información registrada en el servidor…</p></div>
-      <div class="page-actions"><button id="abrirPdf" class="button-primary" type="button">Abrir reporte PDF</button></div>
+      <div class="page-actions">
+        <div id="fuenteFotos" class="foto-fuente-hueco"></div>
+        <button id="abrirPdf" class="button-primary" type="button">Abrir reporte PDF</button>
+        <button id="configurarImagenes" class="button-secondary" type="button" hidden>Configurar imágenes</button>
+        <button id="abrirDiagnostico" class="button-secondary" type="button" hidden>Ver origen de archivos</button>
+      </div>
     </section>
 
     <p id="mensaje" class="mensaje" aria-live="polite"></p>
 
     <section class="metric-grid" aria-label="Estado de la inspección">
       <article class="metric-card" id="cardFormulario"><span class="metric-label">Formulario</span><strong class="metric-value" id="estadoFormulario">—</strong><span class="metric-helper">Datos técnicos</span></article>
-      <article class="metric-card" id="cardImagenes"><span class="metric-label">Imágenes</span><strong class="metric-value" id="estadoImagenes">—</strong><span class="metric-helper" id="detalleImagenes">De 28 requeridas</span></article>
+      <article class="metric-card" id="cardImagenes"><span class="metric-label">Fotos</span><strong class="metric-value" id="estadoImagenes">—</strong><span class="metric-helper" id="detalleImagenes">Esperadas y omitidas</span></article>
       <article class="metric-card"><span class="metric-label">Registros RST</span><strong class="metric-value" id="totalRst">—</strong><span class="metric-helper">Sección y fase</span></article>
       <article class="metric-card" id="cardSync"><span class="metric-label">Sincronización</span><strong class="metric-value" id="estadoSync">—</strong><span class="metric-helper">Estado integral</span></article>
+    </section>
+
+    <section id='panelRespaldo' class='recovery-panel' data-tone='neutral' aria-live='polite'>
+      <span id='badgeRespaldo' class='status-badge status-neutral'>Comprobando disponibilidad</span>
+      <div class='recovery-copy'>
+        <h2 id='tituloRespaldo'>Comprobando archivos</h2>
+        <p id='detalleRespaldo'>Estamos revisando la información disponible para esta estructura.</p>
+      </div>
+      <button id='recuperarArchivos' class='button-secondary button-sm' type='button' hidden>Recuperar archivos</button>
     </section>
 
     <nav class="section-nav" aria-label="Secciones del expediente">
@@ -73,9 +87,63 @@
     </section>
   </main>
 
+  <dialog id="diagDialog" class="admin-dialog diag-dialog" aria-labelledby="diagTitulo">
+    <div>
+      <header class="admin-dialog-header">
+        <div class="admin-dialog-heading">
+          <span class="admin-dialog-icon" aria-hidden="true">⌕</span>
+          <div>
+            <p class="eyebrow">Diagnóstico de archivos</p>
+            <h2 id="diagTitulo">Estructura</h2>
+            <p id="diagSubtitulo">Consulta de solo lectura: no modifica datos ni archivos.</p>
+          </div>
+        </div>
+        <button class="button-ghost admin-dialog-close" type="button" data-diag-close aria-label="Cerrar diagnóstico">×</button>
+      </header>
+      <div class="diag-tabs" role="tablist" aria-label="Secciones del diagnóstico">
+        <button type="button" role="tab" data-diag-tab="resumen" aria-selected="true">Resumen</button>
+        <button type="button" role="tab" data-diag-tab="archivos" aria-selected="false">Archivos</button>
+        <button type="button" role="tab" data-diag-tab="json" aria-selected="false">JSON</button>
+      </div>
+      <div class="diag-body">
+        <section id="diagPanelResumen" class="diag-panel" role="tabpanel"></section>
+        <section id="diagPanelArchivos" class="diag-panel" role="tabpanel" hidden></section>
+        <section id="diagPanelJson" class="diag-panel" role="tabpanel" hidden>
+          <pre id="diagJson" class="diag-json"></pre>
+        </section>
+      </div>
+      <footer class="admin-dialog-footer">
+        <span id="diagPie" class="cell-subtitle"></span>
+        <button id="diagCopiar" class="button-secondary" type="button">Copiar JSON</button>
+        <button class="button-primary" type="button" data-diag-close>Cerrar</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <dialog id="diagVisor" class="admin-dialog admin-dialog-sm" aria-labelledby="diagVisorTitulo">
+    <div>
+      <header class="admin-dialog-header">
+        <div class="admin-dialog-heading">
+          <div>
+            <p class="eyebrow">Vista previa</p>
+            <h2 id="diagVisorTitulo">Archivo</h2>
+          </div>
+        </div>
+        <button class="button-ghost admin-dialog-close" type="button" data-visor-close aria-label="Cerrar vista previa">×</button>
+      </header>
+      <div class="admin-dialog-body">
+        <div id="diagVisorCuerpo" class="diag-viewer"></div>
+      </div>
+      <footer class="admin-dialog-footer">
+        <button class="button-secondary" type="button" data-visor-close>Cerrar</button>
+      </footer>
+    </div>
+  </dialog>
+
   <footer class="app-footer"><p>ECOING · Gestión de inspecciones</p><p>Entorno local seguro · <span data-current-year></span></p></footer>
 
-  <script src="js/app.js"></script>
+  <script src="js/app.js?v=20260902"></script>
+  <script src="js/reporte_fotos.js?v=20260902"></script>
   <script>
     verificarSesion();
     const query = new URLSearchParams(location.search);
@@ -124,6 +192,45 @@
       });
     }
 
+    function pintarEstadoRespaldo(data) {
+      const panel = document.getElementById('panelRespaldo');
+      const badge = document.getElementById('badgeRespaldo');
+      const button = document.getElementById('recuperarArchivos');
+      panel.dataset.tone = data.tono || 'neutral';
+      document.getElementById('tituloRespaldo').textContent = data.titulo;
+      document.getElementById('detalleRespaldo').textContent = data.mensaje;
+      badge.className = 'status-badge status-' + (data.tono || 'neutral');
+      badge.textContent = data.archivos_registrados > 0
+        ? data.archivos_disponibles + ' de ' + data.archivos_registrados + ' archivos disponibles'
+        : data.titulo;
+      const role = obtenerUsuario()?.rol;
+      const canRecover = role === 'administrador' || role === 'supervisor';
+      button.hidden = !data.puede_recuperar || !canRecover;
+      button.textContent = data.archivos_recuperables === 1
+        ? 'Recuperar archivo'
+        : 'Recuperar ' + data.archivos_recuperables + ' archivos';
+    }
+
+    async function cargarEstadoRespaldo() {
+      try {
+        const response = await fetchConToken(
+          'postes/respaldo_estado.php?poste_id=' + posteId + '&proyecto_id=' + proyectoId
+        );
+        const payload = await leerRespuesta(response);
+        pintarEstadoRespaldo(payload.data);
+      } catch {
+        pintarEstadoRespaldo({
+          tono: 'neutral',
+          titulo: 'Estado no disponible',
+          mensaje: 'No pudimos comprobar la copia de respaldo en este momento.',
+          archivos_registrados: 0,
+          archivos_disponibles: 0,
+          archivos_recuperables: 0,
+          puede_recuperar: false
+        });
+      }
+    }
+
     async function cargar() {
       const rstBody = document.getElementById("rst");
       const imageBody = document.getElementById("imagenes");
@@ -138,14 +245,18 @@
         renderDefinition("poste", data.poste, OMITIR_POSTE);
         renderDefinition("datos", data.datos);
 
-        const formReady = Number(data.poste.formulario_subido) === 1;
-        const imagesReady = Number(data.poste.imagenes_subidas) === 1;
-        const fullySynced = formReady && imagesReady;
+        const formReady = Number(data.poste.inspeccion_finalizada) === 1;
+        const captured = Number(data.poste.fotos_capturadas) || 0;
+        const synced = Number(data.poste.fotos_sincronizadas) || 0;
+        const expected = captured;
+        const omitted = 0;
+        const imagesReady = captured === synced;
+        const fullySynced = Number(data.poste.sincronizado) === 1;
         document.getElementById("estadoFormulario").textContent = formReady ? "Listo" : "Pendiente";
-        document.getElementById("estadoImagenes").textContent = `${data.imagenes.length}/28`;
-        document.getElementById("detalleImagenes").textContent = imagesReady ? "Evidencia completa" : "Evidencias registradas";
+        document.getElementById("estadoImagenes").textContent = captured;
+        document.getElementById("detalleImagenes").textContent = `Omitidas: ${omitted} · Sincronizadas: ${synced}`;
         document.getElementById("totalRst").textContent = data.rst.length;
-        document.getElementById("estadoSync").textContent = fullySynced ? "Completo" : "Parcial";
+        document.getElementById("estadoSync").textContent = fullySynced ? "Sincronizada" : "Pendiente";
         document.getElementById("cardFormulario").dataset.tone = formReady ? "success" : "warning";
         document.getElementById("cardImagenes").dataset.tone = imagesReady ? "success" : "warning";
         document.getElementById("cardSync").dataset.tone = fullySynced ? "success" : "warning";
@@ -162,12 +273,12 @@
         });
 
         imageBody.replaceChildren();
-        document.getElementById("conteoImagenes").textContent = `${data.imagenes.length} de 28`;
+        document.getElementById("conteoImagenes").textContent = `${captured} de ${expected} · ${omitted} omitidas`;
         if (!data.imagenes.length) filaVacia(imageBody, 5, "No existen imágenes registradas para esta estructura.");
         else data.imagenes.forEach((item) => {
           const row = document.createElement("tr");
           row.append(
-            celdaCompuesta(humanizarValor(item.nombre_foto), "Evidencia confirmada", "Tipo de evidencia"),
+            celdaCompuesta(humanizarValor(item.nombre_foto), Number(item.sincronizada) === 1 ? "Confirmada" : "Pendiente", "Tipo de evidencia"),
             celda(formatearFecha(item.fecha_captura), "Fecha de captura"),
             celda(formatearCoordenada(item.utm_este), "UTM Este"),
             celda(formatearCoordenada(item.utm_norte), "UTM Norte"),
@@ -175,6 +286,7 @@
           );
           imageBody.appendChild(row);
         });
+        await cargarEstadoRespaldo();
       } catch (error) {
         filaVacia(rstBody, 3, "No se pudo cargar la información RST.");
         filaVacia(imageBody, 5, "No se pudieron cargar las evidencias.");
@@ -182,13 +294,534 @@
       }
     }
 
+    /* Aquí sólo se elige la FUENTE de las fotografías. Qué fotografías se
+       imprimen se configura en el panel admin y el PDF lo aplica solo, así que
+       esta pantalla no necesita galería ni selección. */
+    const selectorFuente = crearSelectorFuenteFoto("fuenteFotosPdf");
+    document.getElementById("fuenteFotos").replaceChildren(selectorFuente);
+
     document.getElementById("abrirPdf").addEventListener("click", async (event) => {
       const button = event.currentTarget;
+      const fuente = selectorFuente.control.value;
       establecerCargando(button, true, "Generando…");
-      try { await abrirPdfConToken(`ver_pdf_poste.php?poste_id=${posteId}&proyecto_id=${proyectoId}`); }
+      try {
+        const result = await abrirPdfConToken(
+          `ver_pdf_poste.php?poste_id=${posteId}&proyecto_id=${proyectoId}`
+            + fuenteFotoComoQuery(fuente)
+        );
+        const excluidas = Number(result.excludedPhotos || 0);
+        const avisoForm = avisoFormularioRespaldo(result);
+        if (avisoForm) {
+          mostrarMensaje(document.getElementById('mensaje'), avisoForm);
+        } else if (result.includedPhotos === 0) {
+          mostrarMensaje(
+            document.getElementById('mensaje'),
+            fuente === 'backup'
+              ? 'No existen fotografías de respaldo para esta estructura: el reporte salió sin imágenes.'
+              : 'El reporte salió sin imágenes: esta estructura no tiene fotografías en el NAS.'
+          );
+        } else if (excluidas > 0) {
+          mostrarMensaje(
+            document.getElementById('mensaje'),
+            'Reporte generado con ' + result.includedPhotos + ' fotografías de '
+              + etiquetaFuenteFoto(fuente) + '; ' + excluidas
+              + ' están excluidas en la configuración de imágenes.',
+            'info'
+          );
+        } else if (result.missingFiles > 0) {
+          mostrarMensaje(
+            document.getElementById('mensaje'),
+            'El reporte se generó con los archivos disponibles; todavía faltan '
+              + result.missingFiles + '.'
+          );
+        } else {
+          limpiarMensaje(document.getElementById('mensaje'));
+        }
+      }
       catch (error) { mostrarMensaje(document.getElementById("mensaje"), error.message); }
       finally { establecerCargando(button, false); }
     });
+    document.getElementById('recuperarArchivos').addEventListener('click', async (event) => {
+      if (!window.confirm(
+        'Se copiarán únicamente los archivos que faltan. No se reemplazará información existente. ¿Continuar?'
+      )) return;
+      const button = event.currentTarget;
+      establecerCargando(button, true, 'Recuperando…');
+      try {
+        const response = await fetchConToken('postes/recuperar-archivos.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ poste_id: posteId, proyecto_id: proyectoId })
+        });
+        const payload = await leerRespuesta(response);
+        pintarEstadoRespaldo(payload.data);
+        mostrarMensaje(document.getElementById('mensaje'), payload.message, 'ok');
+        await cargar();
+      } catch (error) {
+        mostrarMensaje(document.getElementById('mensaje'), error.message);
+      } finally {
+        establecerCargando(button, false);
+      }
+    });
+    /* ── Diagnóstico de archivos (solo administradores, solo lectura) ────────
+       Sólo pinta lo que el backend devuelve; no deduce nada por su cuenta ni
+       envía ninguna petición que escriba. */
+
+    const ETIQUETAS_ORIGEN = {
+      official: "NAS oficial",
+      backup_qfile: "Respaldo Qfile",
+      mixed: "Mixto",
+      fila_activa: "Fila activa en BD",
+      fila_archivada: "Fila archivada en BD",
+      respaldo_qfile: "Respaldo Qfile",
+      archivo_suelto: "Archivo suelto en carpeta"
+    };
+    const ETIQUETAS_RAIZ = {
+      almacen_imagenes: "Almacén de imágenes",
+      respaldo_movil: "Respaldo móvil (Qfile)",
+      archivo_admin: "Archivo administrativo",
+      cache_pdf: "Caché de PDF",
+      respaldo_bd: "Respaldo de base de datos",
+      arbol_proyecto: "Árbol del proyecto (instalación antigua)",
+      fuera_del_almacen: "Fuera del almacén conocido",
+      sin_archivo: "Sin archivo"
+    };
+    const ETIQUETAS_MOTIVO = {
+      sin_archivo_resuelto: "no hay archivo que resolver",
+      archivo_inexistente: "el archivo no existe en disco",
+      no_es_una_imagen_legible: "no es una imagen legible",
+      no_se_puede_decodificar: "no se puede decodificar",
+      sin_referencia_en_bd: "sin referencia en la base de datos",
+      solo_referencia_archivada: "sólo lo referencia una fila archivada",
+      la_ruta_no_resuelve_a_ningun_archivo: "la ruta registrada no resuelve a ningún archivo",
+      el_archivo_no_existe: "el archivo no existe",
+      el_archivo_no_es_una_imagen_legible: "el archivo no es una imagen legible"
+    };
+    const ETIQUETAS_LIMPIEZA = {
+      anterior_a_limpieza: "Anterior a la limpieza",
+      posterior_a_limpieza: "Posterior a la limpieza",
+      no_determinable: "No determinable"
+    };
+
+    const diagDialog = document.getElementById("diagDialog");
+    const diagVisor = document.getElementById("diagVisor");
+    let diagnosticoActual = null;
+    let visorUrl = null;
+
+    const traducir = (mapa, valor, porDefecto = "—") => mapa[valor] || (valor ? String(valor) : porDefecto);
+
+    function diagTexto(tag, texto, clase = "") {
+      const nodo = document.createElement(tag);
+      nodo.textContent = texto;
+      if (clase) nodo.className = clase;
+      return nodo;
+    }
+
+    function diagBadge(tipo, texto) {
+      const badge = diagTexto("span", texto, "diag-badge");
+      badge.dataset.tipo = tipo;
+      return badge;
+    }
+
+    function diagMetrica(valor, etiqueta, tono) {
+      const caja = document.createElement("div");
+      caja.className = "diag-metric";
+      if (tono) caja.dataset.tone = tono;
+      caja.append(diagTexto("strong", String(valor)), diagTexto("span", etiqueta));
+      return caja;
+    }
+
+    function diagDato(termino, valor) {
+      const caja = document.createElement("div");
+      caja.append(diagTexto("dt", termino), diagTexto("dd", valor ?? "—"));
+      return caja;
+    }
+
+    function diagTabla(cabeceras) {
+      const shell = document.createElement("div");
+      shell.className = "diag-table-shell";
+      const tabla = document.createElement("table");
+      tabla.className = "diag-table";
+      const thead = document.createElement("thead");
+      const fila = document.createElement("tr");
+      cabeceras.forEach((titulo) => fila.appendChild(diagTexto("th", titulo)));
+      thead.appendChild(fila);
+      const tbody = document.createElement("tbody");
+      tabla.append(thead, tbody);
+      shell.appendChild(tabla);
+      return { shell, tbody };
+    }
+
+    function diagCelda(...nodos) {
+      const td = document.createElement("td");
+      nodos.filter(Boolean).forEach((nodo) => td.appendChild(typeof nodo === "string" ? document.createTextNode(nodo) : nodo));
+      return td;
+    }
+
+    function diagBotonFoto(archivo) {
+      const boton = document.createElement("button");
+      boton.type = "button";
+      boton.className = "diag-thumb";
+      if (!archivo || !archivo.existe || !archivo.legible_como_imagen || !archivo.nombre) {
+        boton.disabled = true;
+        boton.title = "Sin vista previa disponible";
+        return boton;
+      }
+      boton.title = "Ver " + archivo.nombre;
+      boton.dataset.archivo = archivo.nombre;
+      const img = document.createElement("img");
+      img.alt = "";
+      img.loading = "lazy";
+      boton.appendChild(img);
+      objectUrlConToken(
+        `admin/ver_archivo_poste.php?poste_id=${posteId}&proyecto_id=${proyectoId}&miniatura=1&archivo=${encodeURIComponent(archivo.nombre)}`
+      ).then((url) => {
+        img.src = url;
+        img.addEventListener("load", () => URL.revokeObjectURL(url), { once: true });
+      }).catch(() => { boton.disabled = true; boton.title = "No se pudo cargar la miniatura"; });
+      return boton;
+    }
+
+    function pintarResumenDiagnostico(data) {
+      const panel = document.getElementById("diagPanelResumen");
+      panel.replaceChildren();
+      const r = data.resumen;
+
+      const metricas = document.createElement("div");
+      metricas.className = "diag-metrics";
+      metricas.append(
+        diagMetrica(r.referenciadas_en_bd, "Fotos referenciadas en BD"),
+        diagMetrica(r.archivos_encontrados, "Archivos encontrados", r.archivos_encontrados === r.referenciadas_en_bd ? "success" : "warning"),
+        diagMetrica(r.usadas_por_pdf, "Usadas por el PDF", r.usadas_por_pdf > 0 ? "success" : "warning"),
+        diagMetrica(r.referencias_rotas, "Referencias rotas", r.referencias_rotas > 0 ? "danger" : "success"),
+        diagMetrica(r.huerfanos, "Archivos huérfanos", r.huerfanos > 0 ? "warning" : "success"),
+        diagMetrica(r.conflictos, "Conflictos por slot", r.conflictos > 0 ? "warning" : "success")
+      );
+      panel.appendChild(metricas);
+
+      if (r.conflictos > 0 || r.huerfanos > 0) {
+        const aviso = diagTexto("p", "", "diag-note");
+        aviso.dataset.tone = "warning";
+        aviso.textContent = "En la carpeta de esta estructura hay más archivos que referencias activas. "
+          + "Eso ocurre cuando una limpieza administrativa archiva las filas pero deja los archivos en disco. "
+          + "Revise la pestaña Archivos: la columna «Usado por el PDF» indica cuál se incrusta realmente en el reporte.";
+        panel.appendChild(aviso);
+      }
+
+      panel.appendChild(diagTexto("h3", "Datos generales", "diag-subtitle"));
+      const generales = document.createElement("dl");
+      generales.className = "diag-facts";
+      generales.append(
+        diagDato("Proyecto", data.poste.proyecto),
+        diagDato("Línea", data.poste.linea),
+        diagDato("Estructura", data.poste.estructura),
+        diagDato("Código", data.poste.codigo),
+        diagDato("poste_id", String(data.poste.id)),
+        diagDato("Formulario", data.estado.formulario_subido ? "Recibido" : "Pendiente"),
+        diagDato("Inspección finalizada", data.estado.inspeccion_finalizada ? "Sí" : "No"),
+        diagDato("Sincronizado", data.estado.sincronizado ? "Sí" : "No"),
+        diagDato("Imágenes subidas", data.estado.imagenes_subidas ? "Sí" : "No"),
+        diagDato("Origen predominante", traducir(ETIQUETAS_ORIGEN, data.estado.origen_predominante)),
+        diagDato("Última limpieza administrativa", data.limpieza.ultima_limpieza_admin ? formatearFecha(data.limpieza.ultima_limpieza_admin) : "Sin registro")
+      );
+      panel.appendChild(generales);
+
+      if (data.limpieza.auditoria.length || data.limpieza.instantaneas_archivadas.length) {
+        panel.appendChild(diagTexto("h3", "Limpieza administrativa", "diag-subtitle"));
+        const { shell, tbody } = diagTabla(["Fecha", "Acción", "Administrador", "Resultado"]);
+        data.limpieza.auditoria.forEach((fila) => {
+          const tr = document.createElement("tr");
+          tr.append(
+            diagCelda(formatearFecha(fila.creado_en)),
+            diagCelda(fila.accion === "structure_cleared" ? "Limpieza de estructura" : "Limpieza de línea"),
+            diagCelda(fila.usuario_nombre || "—"),
+            diagCelda(fila.resultado || "—")
+          );
+          tbody.appendChild(tr);
+        });
+        data.limpieza.instantaneas_archivadas.forEach((snap) => {
+          const tr = document.createElement("tr");
+          tr.append(
+            diagCelda(snap.creado_en ? formatearFecha(snap.creado_en) : "—"),
+            diagCelda("Copia conservada (" + snap.marca + ")"),
+            diagCelda("—"),
+            diagCelda(snap.archivos_conservados + " archivos")
+          );
+          tbody.appendChild(tr);
+        });
+        if (!tbody.children.length) tbody.appendChild(diagCelda("Sin registros"));
+        panel.appendChild(shell);
+      }
+
+      panel.appendChild(diagTexto("h3", "Respaldo móvil y caché del reporte", "diag-subtitle"));
+      const extra = document.createElement("dl");
+      extra.className = "diag-facts";
+      extra.append(
+        diagDato("Estado del respaldo Qfile", data.respaldo_movil.estado || "—"),
+        diagDato("Fotos utilizables en el respaldo", String(data.respaldo_movil.fotos_utilizables)),
+        diagDato("Respaldo actualizado", data.respaldo_movil.actualizado_en ? formatearFecha(data.respaldo_movil.actualizado_en) : "—"),
+        diagDato("Archivos recuperados del respaldo", String(data.resumen.recuperadas_de_respaldo)),
+        diagDato("Caché de PDF", data.cache_pdf.habilitada ? "Activa" : "Desactivada"),
+        diagDato("PDF en caché", String((data.cache_pdf.archivos || []).length))
+      );
+      panel.appendChild(extra);
+      (data.cache_pdf.archivos || []).forEach((archivo) => {
+        const linea = diagTexto("p", "", "diag-note");
+        linea.textContent = archivo.nombre + " · " + archivo.tamano + " · " + formatearFecha(archivo.modificado_en)
+          + (archivo.corresponde_al_contenido_actual
+            ? " · corresponde al contenido actual"
+            : " · NO corresponde al contenido actual (se regenerará)");
+        panel.appendChild(linea);
+      });
+    }
+
+    function pintarArchivosDiagnostico(data) {
+      const panel = document.getElementById("diagPanelArchivos");
+      panel.replaceChildren();
+
+      panel.appendChild(diagTexto("h3", "Slots de inspección y archivo que usará el PDF", "diag-subtitle"));
+      const slots = diagTabla(["#", "Slot / panel", "Registro en BD", "Archivo resuelto", "Origen", "Existe", "Usado por el PDF", "Ver"]);
+      data.slots_detalle.forEach((slot, indice) => {
+        const tr = document.createElement("tr");
+        if (slot.conflicto || !slot.usada_por_pdf) tr.dataset.alerta = "true";
+
+        const titulo = diagTexto("span", slot.etiqueta, "diag-cell-title");
+        const sub = diagTexto("span", slot.panel + " · " + slot.slot, "diag-cell-sub");
+
+        const bd = document.createElement("div");
+        if (slot.db) {
+          bd.append(
+            diagTexto("span", "imagenes_poste.id = " + slot.db.id, "diag-cell-title"),
+            diagTexto("code", slot.db.ruta_registrada),
+            diagTexto("span", "Captura: " + formatearFecha(slot.db.fecha_captura)
+              + (slot.db.sincronizada ? " · sincronizada" : " · pendiente"), "diag-cell-sub")
+          );
+        } else {
+          bd.appendChild(diagTexto("span", "Sin fila activa", "diag-cell-sub"));
+        }
+        if (slot.db_archivadas.length) {
+          bd.appendChild(diagTexto("span", slot.db_archivadas.length + " fila(s) archivada(s) de una campaña anterior", "diag-cell-sub"));
+        }
+
+        const archivo = document.createElement("div");
+        if (slot.archivo.existe) {
+          archivo.append(
+            diagTexto("span", slot.archivo.nombre, "diag-cell-title"),
+            diagTexto("code", slot.archivo.ruta_logica || "—"),
+            diagTexto("span", [slot.archivo.tamano, slot.archivo.mime, slot.archivo.ancho ? slot.archivo.ancho + "×" + slot.archivo.alto : null,
+              formatearFecha(slot.archivo.modificado_en), slot.archivo.sha256_corto ? "sha " + slot.archivo.sha256_corto : null]
+              .filter(Boolean).join(" · "), "diag-cell-sub")
+          );
+        } else {
+          archivo.appendChild(diagTexto("span", "—", "diag-cell-sub"));
+        }
+
+        const insignias = document.createElement("div");
+        insignias.className = "diag-badges";
+        if (slot.usada_por_pdf) insignias.appendChild(diagBadge("pdf", "PDF"));
+        else insignias.appendChild(diagBadge("falta", "NO USADO"));
+        if (slot.origen === "backup_qfile") insignias.appendChild(diagBadge("recuperado", "RECUPERADO"));
+        if (slot.conflicto) insignias.appendChild(diagBadge("conflicto", "⚠ " + slot.candidatos.length + " CANDIDATOS"));
+        if (slot.respecto_a_limpieza === "anterior_a_limpieza") insignias.appendChild(diagBadge("previo", "PREVIO A LIMPIEZA"));
+        if (!slot.usada_por_pdf && slot.motivo_no_usada) {
+          insignias.appendChild(diagTexto("span", traducir(ETIQUETAS_MOTIVO, slot.motivo_no_usada), "diag-cell-sub"));
+        }
+
+        tr.append(
+          diagCelda(String(indice + 1)),
+          diagCelda(titulo, sub),
+          diagCelda(bd),
+          diagCelda(archivo),
+          diagCelda(traducir(ETIQUETAS_ORIGEN, slot.origen, "—"),
+            diagTexto("span", traducir(ETIQUETAS_RAIZ, slot.archivo.raiz), "diag-cell-sub")),
+          diagCelda(slot.archivo.existe ? "SÍ" : "NO"),
+          diagCelda(insignias),
+          diagCelda(diagBotonFoto(slot.archivo))
+        );
+        slots.tbody.appendChild(tr);
+
+        if (slot.conflicto) {
+          slot.candidatos.forEach((candidato) => {
+            const extra = document.createElement("tr");
+            extra.dataset.alerta = "true";
+            const detalle = document.createElement("div");
+            detalle.append(
+              diagTexto("span", "↳ " + candidato.nombre, "diag-cell-title"),
+              diagTexto("code", candidato.ruta_logica || "—"),
+              diagTexto("span", [candidato.tamano, candidato.mime, formatearFecha(candidato.modificado_en),
+                traducir(ETIQUETAS_LIMPIEZA, candidato.respecto_a_limpieza)].filter(Boolean).join(" · "), "diag-cell-sub")
+            );
+            extra.append(
+              diagCelda(""),
+              diagCelda(diagTexto("span", "Candidato del slot", "diag-cell-sub")),
+              diagCelda(candidato.db_id ? "imagenes_poste.id = " + candidato.db_id : "sin fila"),
+              diagCelda(detalle),
+              diagCelda(traducir(ETIQUETAS_ORIGEN, candidato.origen)),
+              diagCelda("SÍ"),
+              diagCelda(diagBadge("huerfano", "NO SERÁ USADO POR EL PDF")),
+              diagCelda(diagBotonFoto(candidato))
+            );
+            slots.tbody.appendChild(extra);
+          });
+        }
+      });
+      panel.appendChild(slots.shell);
+
+      panel.appendChild(diagTexto("h3", "Referencias en BD sin archivo (" + data.referencias_rotas.length + ")", "diag-subtitle"));
+      if (!data.referencias_rotas.length) {
+        panel.appendChild(diagTexto("p", "Todas las filas activas resuelven a un archivo legible.", "diag-note"));
+      } else {
+        const rotas = diagTabla(["imagenes_poste.id", "Slot", "Ruta registrada", "Motivo", "Sustituida por respaldo"]);
+        data.referencias_rotas.forEach((fila) => {
+          const tr = document.createElement("tr");
+          tr.dataset.alerta = "true";
+          tr.append(
+            diagCelda(String(fila.db_id)),
+            diagCelda(fila.slot),
+            diagCelda(diagTexto("code", fila.ruta_registrada)),
+            diagCelda(traducir(ETIQUETAS_MOTIVO, fila.motivo)),
+            diagCelda(fila.sustituida_por_respaldo ? diagBadge("recuperado", "SÍ, DESDE QFILE") : "No")
+          );
+          rotas.tbody.appendChild(tr);
+        });
+        panel.appendChild(rotas.shell);
+      }
+
+      panel.appendChild(diagTexto("h3", "Archivos físicos no referenciados (" + data.huerfanos.length + ")", "diag-subtitle"));
+      if (!data.huerfanos.length) {
+        panel.appendChild(diagTexto("p", "No hay archivos sueltos en las carpetas de esta estructura.", "diag-note"));
+      } else {
+        const nota = diagTexto("p", "Sólo se detectan. Esta herramienta no borra, mueve ni renombra ningún archivo.", "diag-note");
+        panel.appendChild(nota);
+        const huerfanos = diagTabla(["Archivo", "Slot deducido", "Tamaño", "Modificado", "Respecto a la limpieza", "Motivo", "Ver"]);
+        data.huerfanos.forEach((fila) => {
+          const tr = document.createElement("tr");
+          tr.append(
+            diagCelda(diagTexto("span", fila.nombre, "diag-cell-title"),
+              diagTexto("code", fila.ruta_logica || "—")),
+            diagCelda(fila.slot_deducido || "—"),
+            diagCelda(fila.tamano || "—"),
+            diagCelda(formatearFecha(fila.modificado_en)),
+            diagCelda(fila.respecto_a_limpieza === "anterior_a_limpieza"
+              ? diagBadge("previo", "ANTERIOR A LA LIMPIEZA")
+              : traducir(ETIQUETAS_LIMPIEZA, fila.respecto_a_limpieza)),
+            diagCelda(diagBadge("huerfano", "HUÉRFANO"), diagTexto("span", traducir(ETIQUETAS_MOTIVO, fila.motivo), "diag-cell-sub")),
+            diagCelda(diagBotonFoto(fila))
+          );
+          huerfanos.tbody.appendChild(tr);
+        });
+        panel.appendChild(huerfanos.shell);
+      }
+
+      if (data.resumen.inventario_truncado) {
+        const aviso = diagTexto("p", "El inventario se truncó: la carpeta tiene más archivos de los que se inspeccionan por consulta.", "diag-note");
+        aviso.dataset.tone = "warning";
+        panel.appendChild(aviso);
+      }
+    }
+
+    function activarPestanaDiagnostico(nombre) {
+      document.querySelectorAll("[data-diag-tab]").forEach((boton) => {
+        boton.setAttribute("aria-selected", String(boton.dataset.diagTab === nombre));
+      });
+      document.getElementById("diagPanelResumen").hidden = nombre !== "resumen";
+      document.getElementById("diagPanelArchivos").hidden = nombre !== "archivos";
+      document.getElementById("diagPanelJson").hidden = nombre !== "json";
+    }
+
+    document.querySelectorAll("[data-diag-tab]").forEach((boton) => {
+      boton.addEventListener("click", () => activarPestanaDiagnostico(boton.dataset.diagTab));
+    });
+    document.querySelectorAll("[data-diag-close]").forEach((boton) => {
+      boton.addEventListener("click", () => diagDialog.close());
+    });
+    document.querySelectorAll("[data-visor-close]").forEach((boton) => {
+      boton.addEventListener("click", () => diagVisor.close());
+    });
+    diagVisor.addEventListener("close", () => {
+      if (visorUrl) { URL.revokeObjectURL(visorUrl); visorUrl = null; }
+      document.getElementById("diagVisorCuerpo").replaceChildren();
+    });
+
+    document.getElementById("diagPanelArchivos").addEventListener("click", async (event) => {
+      const boton = event.target.closest(".diag-thumb");
+      if (!boton || boton.disabled || !boton.dataset.archivo) return;
+      const nombre = boton.dataset.archivo;
+      const cuerpo = document.getElementById("diagVisorCuerpo");
+      document.getElementById("diagVisorTitulo").textContent = nombre;
+      cuerpo.replaceChildren(diagTexto("p", "Cargando imagen…"));
+      diagVisor.showModal();
+      try {
+        const url = await objectUrlConToken(
+          `admin/ver_archivo_poste.php?poste_id=${posteId}&proyecto_id=${proyectoId}&archivo=${encodeURIComponent(nombre)}`
+        );
+        visorUrl = url;
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = nombre;
+        cuerpo.replaceChildren(img, diagTexto("p", "Vista de solo lectura. El archivo original no se modifica."));
+      } catch (error) {
+        cuerpo.replaceChildren(diagTexto("p", error.message));
+      }
+    });
+
+    document.getElementById("diagCopiar").addEventListener("click", async (event) => {
+      if (!diagnosticoActual) return;
+      const texto = JSON.stringify(diagnosticoActual, null, 2);
+      const boton = event.currentTarget;
+      const original = boton.textContent;
+      try {
+        await navigator.clipboard.writeText(texto);
+        boton.textContent = "JSON copiado";
+      } catch {
+        const area = document.getElementById("diagJson");
+        const rango = document.createRange();
+        rango.selectNodeContents(area);
+        const seleccion = window.getSelection();
+        seleccion.removeAllRanges();
+        seleccion.addRange(rango);
+        boton.textContent = "Seleccionado: pulse Ctrl+C";
+      }
+      window.setTimeout(() => { boton.textContent = original; }, 2200);
+    });
+
+    document.getElementById("abrirDiagnostico").addEventListener("click", async (event) => {
+      const boton = event.currentTarget;
+      establecerCargando(boton, true, "Analizando…");
+      try {
+        const payload = await leerRespuesta(await fetchConToken(
+          `admin/diagnostico_archivos_poste.php?poste_id=${posteId}&proyecto_id=${proyectoId}`,
+          { timeoutMs: 120000 }
+        ));
+        diagnosticoActual = payload.data;
+        document.getElementById("diagTitulo").textContent = payload.data.poste.codigo || ("Estructura " + posteId);
+        document.getElementById("diagSubtitulo").textContent =
+          `Línea ${payload.data.poste.linea || "—"} · Estructura ${payload.data.poste.estructura || "—"} · consulta de solo lectura`;
+        document.getElementById("diagPie").textContent =
+          `Generado el ${formatearFecha(payload.data.generado_en)} · ${payload.data.ms} ms · no se modificó ningún dato`;
+        pintarResumenDiagnostico(payload.data);
+        pintarArchivosDiagnostico(payload.data);
+        document.getElementById("diagJson").textContent = JSON.stringify(payload.data, null, 2);
+        activarPestanaDiagnostico("resumen");
+        diagDialog.showModal();
+      } catch (error) {
+        mostrarMensaje(document.getElementById("mensaje"), error.message);
+      } finally {
+        establecerCargando(boton, false);
+      }
+    });
+
+    /* La configuración de qué fotografías se imprimen vive en el panel admin.
+       Desde aquí sólo se ofrece el atajo para ir a ella. */
+    if (obtenerUsuario()?.rol === "administrador") {
+      const configurar = document.getElementById("configurarImagenes");
+      document.getElementById("abrirDiagnostico").hidden = false;
+      configurar.hidden = false;
+      configurar.addEventListener("click", () => {
+        window.location.href = `admin_imagenes_poste.html?poste_id=${posteId}&proyecto_id=${proyectoId}`;
+      });
+    }
+
     cargar();
   </script>
 </body>

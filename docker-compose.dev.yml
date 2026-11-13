@@ -1,0 +1,77 @@
+# ECOING - Inspección Ligera · sobrecarga para DESARROLLO
+# ========================================================
+#
+# Sirve para probar la pila completa en el PC antes de tocar el NAS, y para
+# desarrollar sin reconstruir la imagen en cada cambio de PHP.
+#
+# Diferencias respecto a producción:
+#   · el código se monta desde el repositorio (bind mount) en vez de copiarse;
+#   · opcache revalida los archivos, si no los cambios no se verían;
+#   · los datos van a volúmenes Docker con nombre, no a rutas del NAS, así que
+#     no hay que inventarse /share/CACHEDEV1_DATA en Windows;
+#   · MariaDB sí publica un puerto, para poder mirar la base con HeidiSQL o
+#     phpMyAdmin durante las pruebas.
+#
+# Uso (PowerShell). El puerto se elige con ECOING_HTTP_PORT para no duplicar la
+# publicación: Compose concatena las listas `ports`, así que este archivo no
+# vuelve a declararla.
+#
+#   $env:ECOING_HTTP_PORT = "8080"
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+#
+# XAMPP sigue intacto: esta pila no toca `C:\xampp82` ni su MySQL.
+
+version: "3.8"
+
+services:
+  ecoing-app:
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "false"
+      IMAGE_STORAGE_PATH: /data/imagenes
+      PDF_STORAGE_PATH: /data/pdf
+      BACKUP_STORAGE_PATH: /data/backups
+      LOG_STORAGE_PATH: /data/logs
+      EXPORT_STORAGE_PATH: /data/exports
+      PUID: ""
+      PGID: ""
+
+    volumes:
+      # Código vivo. `api/vendor` se deja fuera del bind mount para que siga
+      # valiendo el que instaló Composer dentro de la imagen: si se montara el
+      # vendor de Windows, el autoload apuntaría a rutas inexistentes.
+      - ./api:/var/www/html/api
+      - ./web:/var/www/html/web
+      - vendor-dev:/var/www/html/api/vendor
+      # Datos en volúmenes con nombre: persisten entre reinicios sin necesitar
+      # rutas del NAS.
+      - imagenes-dev:/data/imagenes
+      - pdf-dev:/data/pdf
+      - backups-dev:/data/backups
+      - logs-dev:/data/logs
+      - exports-dev:/data/exports
+
+    # Con el código montado hay que revalidar timestamps o los cambios en PHP
+    # quedarían congelados en opcache.
+    command: >
+      bash -c "echo 'opcache.validate_timestamps=1' > /usr/local/etc/php/conf.d/zzz-dev.ini
+      && echo 'opcache.revalidate_freq=0' >> /usr/local/etc/php/conf.d/zzz-dev.ini
+      && exec apache2-foreground"
+
+  ecoing-db:
+    # Accesible desde el PC para inspeccionar la base durante las pruebas.
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - mariadb-dev:/var/lib/mysql
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+      - backups-dev:/data/backups
+
+volumes:
+  vendor-dev:
+  imagenes-dev:
+  pdf-dev:
+  backups-dev:
+  logs-dev:
+  exports-dev:
+  mariadb-dev:

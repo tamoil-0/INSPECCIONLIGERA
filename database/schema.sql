@@ -4,8 +4,9 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
-DROP DATABASE IF EXISTS `ecoing_inspeccion`;
-CREATE DATABASE `ecoing_inspeccion`
+-- Salvaguarda: nunca eliminar una base existente desde este archivo.
+-- Para actualizar instalaciones use exclusivamente database/migrations/.
+CREATE DATABASE IF NOT EXISTS `ecoing_inspeccion`
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 USE `ecoing_inspeccion`;
@@ -65,14 +66,34 @@ CREATE TABLE `postes` (
   `sincronizado` TINYINT(1) NOT NULL DEFAULT 0,
   `creado_en` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `formulario_subido` TINYINT(1) NOT NULL DEFAULT 0,
+  `inspeccion_finalizada` TINYINT(1) NOT NULL DEFAULT 0,
   `imagenes_subidas` TINYINT(1) NOT NULL DEFAULT 0,
   `ubicaciones` VARCHAR(255) DEFAULT NULL,
+  `activo` TINYINT(1) NOT NULL DEFAULT 1,
+  `desactivado_en` DATETIME DEFAULT NULL,
+  `ultima_limpieza_admin` DATETIME DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_postes_proyecto_codigo` (`proyecto_id`, `codigo`),
   KEY `idx_postes_proyecto_linea_codigo` (`proyecto_id`, `linea`, `codigo`),
   KEY `idx_postes_busqueda` (`linea`, `estructura`, `proyecto_id`),
   KEY `idx_postes_sincronizacion` (`proyecto_id`, `sincronizado`, `fecha_subida`),
+  KEY `idx_postes_admin_estado` (`proyecto_id`, `linea`, `activo`, `id`),
   CONSTRAINT `fk_postes_proyecto` FOREIGN KEY (`proyecto_id`) REFERENCES `proyectos` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `lineas` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `proyecto_id` INT UNSIGNED NOT NULL,
+  `nombre` VARCHAR(100) NOT NULL,
+  `ubicacion` VARCHAR(255) DEFAULT NULL,
+  `activa` TINYINT(1) NOT NULL DEFAULT 1,
+  `creada_en` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `actualizada_en` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `desactivada_en` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_lineas_proyecto_nombre` (`proyecto_id`, `nombre`),
+  KEY `idx_lineas_proyecto_activa` (`proyecto_id`, `activa`, `nombre`),
+  CONSTRAINT `fk_lineas_proyecto` FOREIGN KEY (`proyecto_id`) REFERENCES `proyectos` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `poste_datos` (
@@ -120,6 +141,8 @@ CREATE TABLE `poste_secciones_rst` (
   `seccion` ENUM('conductores_fase','conductores_cuellos','conductores_guarda','estado_aisladores') NOT NULL,
   `atributo` ENUM('hebras_rotas','encanastillado','empalme_deformado','objetos_extranos','buen_estado','rotos_suspension','rotos_anclaje_adelante','rotos_anclaje_atras','mal_estado') NOT NULL,
   `fase` ENUM('R','S','T') NOT NULL,
+  `activo` TINYINT(1) NOT NULL DEFAULT 1,
+  `archivado_en` DATETIME DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_rst_poste_seccion_fase` (`poste_id`, `seccion`, `fase`),
   KEY `idx_rst_poste_seccion` (`poste_id`, `seccion`),
@@ -146,10 +169,128 @@ CREATE TABLE `imagenes_poste` (
   `sincronizada` TINYINT(1) NOT NULL DEFAULT 0,
   `fecha_inspeccion` DATETIME DEFAULT NULL,
   `fecha_subida` DATETIME DEFAULT NULL,
+  `activo` TINYINT(1) NOT NULL DEFAULT 1,
+  `archivado_en` DATETIME DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_imagenes_poste_tipo` (`poste_id`, `nombre_foto`),
   KEY `idx_imagenes_sincronizada` (`sincronizada`, `fecha_subida`),
   CONSTRAINT `fk_imagenes_poste` FOREIGN KEY (`poste_id`) REFERENCES `postes` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `imagenes_poste_estado` (
+  `poste_id` INT UNSIGNED NOT NULL,
+  `nombre_foto` VARCHAR(64) NOT NULL,
+  `sincronizada` TINYINT(1) NOT NULL DEFAULT 0,
+  `activo` TINYINT(1) NOT NULL DEFAULT 1,
+  `archivado_en` DATETIME DEFAULT NULL,
+  `actualizado_en` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`poste_id`, `nombre_foto`),
+  KEY `idx_imagenes_poste_estado_sync` (`poste_id`, `sincronizada`),
+  CONSTRAINT `fk_imagenes_poste_estado_poste`
+    FOREIGN KEY (`poste_id`) REFERENCES `postes` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `admin_auditoria` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `usuario_id` INT UNSIGNED DEFAULT NULL,
+  `usuario_nombre` VARCHAR(100) NOT NULL,
+  `accion` VARCHAR(64) NOT NULL,
+  `entidad_tipo` VARCHAR(32) NOT NULL,
+  `proyecto_id` INT UNSIGNED DEFAULT NULL,
+  `linea` VARCHAR(100) DEFAULT NULL,
+  `poste_id` INT UNSIGNED DEFAULT NULL,
+  `antes_json` LONGTEXT DEFAULT NULL,
+  `despues_json` LONGTEXT DEFAULT NULL,
+  `resultado` ENUM('ok','error') NOT NULL,
+  `detalle` VARCHAR(500) DEFAULT NULL,
+  `creado_en` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_admin_auditoria_fecha` (`creado_en`),
+  KEY `idx_admin_auditoria_entidad` (`entidad_tipo`, `proyecto_id`, `linea`, `poste_id`),
+  KEY `idx_admin_auditoria_usuario` (`usuario_id`, `creado_en`),
+  CONSTRAINT `fk_admin_auditoria_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- Plantillas de inspección configurables por proyecto (2026-10-15).
+-- Aditiva y reejecutable (MariaDB 10.4+). No toca poste_datos, imagenes_poste
+-- ni el RST: los proyectos sin plantilla (plantilla_id NULL) siguen igual.
+-- El API también la aplica sola la primera vez (plantillasAsegurarEsquema) y
+-- siembra la plantilla base «Electro Puno 60 kV (base)» con sus logos.
+
+CREATE TABLE IF NOT EXISTS `plantillas` (
+          `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          `nombre` VARCHAR(150) NOT NULL,
+          `descripcion` VARCHAR(500) DEFAULT NULL,
+          `version` INT UNSIGNED NOT NULL DEFAULT 1,
+          `config` LONGTEXT NOT NULL,
+          `activa` TINYINT(1) NOT NULL DEFAULT 1,
+          `creado_por` INT UNSIGNED DEFAULT NULL,
+          `creado_en` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          `actualizado_en` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `uq_plantillas_nombre` (`nombre`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `plantilla_versiones` (
+          `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          `plantilla_id` INT UNSIGNED NOT NULL,
+          `version` INT UNSIGNED NOT NULL,
+          `config` LONGTEXT NOT NULL,
+          `creado_por` INT UNSIGNED DEFAULT NULL,
+          `creado_en` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `uq_plantilla_version` (`plantilla_id`, `version`),
+          CONSTRAINT `fk_plantilla_versiones_plantilla`
+            FOREIGN KEY (`plantilla_id`) REFERENCES `plantillas` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `poste_respuestas` (
+          `poste_id` INT UNSIGNED NOT NULL,
+          `plantilla_id` INT UNSIGNED NOT NULL,
+          `plantilla_version` INT UNSIGNED NOT NULL,
+          `respuestas` LONGTEXT NOT NULL,
+          `actualizado_por` INT UNSIGNED DEFAULT NULL,
+          `actualizado_en` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (`poste_id`),
+          KEY `idx_poste_respuestas_plantilla` (`plantilla_id`),
+          CONSTRAINT `fk_poste_respuestas_poste`
+            FOREIGN KEY (`poste_id`) REFERENCES `postes` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `imagenes_plantilla` (
+          `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          `poste_id` INT UNSIGNED NOT NULL,
+          `foto_clave` VARCHAR(48) NOT NULL,
+          `indice` SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+          `ruta_archivo` VARCHAR(255) NOT NULL,
+          `fecha_captura` DATETIME NOT NULL,
+          `utm_este` DECIMAL(15,5) DEFAULT NULL,
+          `utm_norte` DECIMAL(15,5) DEFAULT NULL,
+          `zona` VARCHAR(10) DEFAULT NULL,
+          `uuid` VARCHAR(64) DEFAULT NULL,
+          `checksum` VARCHAR(64) DEFAULT NULL,
+          `fecha_subida` DATETIME DEFAULT NULL,
+          `activo` TINYINT(1) NOT NULL DEFAULT 1,
+          `archivado_en` DATETIME DEFAULT NULL,
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `uq_imagenes_plantilla` (`poste_id`, `foto_clave`, `indice`),
+          CONSTRAINT `fk_imagenes_plantilla_poste`
+            FOREIGN KEY (`poste_id`) REFERENCES `postes` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE `proyectos` ADD COLUMN IF NOT EXISTS `plantilla_id` INT UNSIGNED DEFAULT NULL;
+
+-- Índice para listar los proyectos de una plantilla.
+CREATE INDEX IF NOT EXISTS `idx_proyectos_plantilla` ON `proyectos` (`plantilla_id`);
+
+-- Copia en la base de los logos y firmas de las plantillas (PNG).
+-- El API también la crea sola si falta. Solo AGREGA una tabla.
+CREATE TABLE IF NOT EXISTS `plantilla_archivos` (
+  `plantilla_id` INT NOT NULL,
+  `archivo` VARCHAR(64) NOT NULL,
+  `contenido` MEDIUMBLOB NOT NULL,
+  `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`plantilla_id`, `archivo`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

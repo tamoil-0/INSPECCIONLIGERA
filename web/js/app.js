@@ -12,7 +12,7 @@ const ETIQUETAS = {
   utm_este: "UTM Este", utm_norte: "UTM Norte", zona: "Zona UTM",
   fecha_inspeccion: "Fecha de inspección", fecha_subida: "Última actualización",
   fecha_creacion: "Fecha de creación", creado_en: "Registrado en",
-  formulario_subido: "Formulario", imagenes_subidas: "Imágenes completas",
+  formulario_subido: "Formulario", imagenes_subidas: "Fotos capturadas sincronizadas",
   sincronizado: "Sincronización", obstaculos_faja: "Obstáculos en la faja",
   estado_cuencas: "Estado de cuencas", marcado_arboles: "Árboles marcados",
   criticidad_tala: "Criticidad de tala", criticidad_contacto: "Criticidad de contacto",
@@ -132,8 +132,8 @@ function nombreDescarga(response, fallback) {
   return match ? match[1] : fallback;
 }
 
-async function descargarConToken(endpoint, fallback) {
-  const response = await fetchConToken(endpoint, { timeoutMs: 1500000 });
+async function descargarConToken(endpoint, fallback, opciones = {}) {
+  const response = await fetchConToken(endpoint, { timeoutMs: 1500000, ...opciones });
   if (!response.ok) await leerRespuesta(response);
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
@@ -151,14 +151,51 @@ async function abrirPdfConToken(endpoint) {
   try {
     const response = await fetchConToken(endpoint, { timeoutMs: 180000 });
     if (!response.ok) await leerRespuesta(response);
+    // Una respuesta correcta que no sea PDF sólo puede ser un aviso del
+    // servidor: se lee y se muestra como mensaje, nunca se abre en la pestaña
+    // como si fuera el reporte.
+    if (!(response.headers.get("content-type") || "").toLowerCase().includes("application/pdf")) {
+      await leerRespuesta(response);
+      throw new Error("El servidor no devolvió un reporte PDF.");
+    }
+    const result = {
+      source: response.headers.get('X-Ecoing-File-Source') || 'official',
+      recoveredFiles: Number(response.headers.get('X-Ecoing-Recovered-Files') || 0),
+      missingFiles: Number(response.headers.get('X-Ecoing-Missing-Files') || 0),
+      photoSource: response.headers.get('X-Ecoing-Photo-Source') || 'auto',
+      includedPhotos: Number(response.headers.get('X-Ecoing-Photos-Included') || 0),
+      excludedPhotos: Number(response.headers.get('X-Ecoing-Photos-Excluded') || 0),
+      // Estado del formulario del respaldo. En `backup` el informe entero sale
+      // de formulario.json, así que si no estaba hay que decirlo.
+      backupForm: response.headers.get('X-Ecoing-Backup-Form') || 'n/a'
+    };
     const url = URL.createObjectURL(await response.blob());
     if (target) target.location.href = url;
     else window.location.href = url;
     window.setTimeout(() => URL.revokeObjectURL(url), 120000);
+    return result;
   } catch (error) {
     target?.close();
     throw error;
   }
+}
+
+/**
+ * Descarga un recurso protegido y devuelve un object URL para <img>/<embed>.
+ *
+ * Un `src` normal no lleva la cabecera Authorization, así que el recurso se
+ * trae con fetch y se publica como blob. Quien lo use debe llamar después a
+ * URL.revokeObjectURL() para no acumular memoria.
+ */
+async function objectUrlConToken(endpoint, timeoutMs = 60000) {
+  const response = await fetchConToken(endpoint, { timeoutMs, headers: { Accept: "image/*" } });
+  if (!response.ok) await leerRespuesta(response);
+  const tipo = (response.headers.get("content-type") || "").toLowerCase();
+  if (!tipo.startsWith("image/")) {
+    await leerRespuesta(response);
+    throw new Error("El servidor no devolvió una imagen.");
+  }
+  return URL.createObjectURL(await response.blob());
 }
 
 function celda(texto, etiqueta = "") {
@@ -384,6 +421,17 @@ function inicializarPasswordToggles() {
 
 function inicializarInterfaz() {
   pintarUsuario();
+  const usuario = obtenerUsuario();
+  if (usuario?.rol === "administrador") {
+    const nav = document.querySelector(".topbar-center");
+    if (nav && !nav.querySelector('a[href="admin.html"]')) {
+      const enlace = document.createElement("a");
+      enlace.className = "nav-link";
+      enlace.href = "admin.html";
+      enlace.textContent = "Administracion";
+      nav.appendChild(enlace);
+    }
+  }
   inicializarPasswordToggles();
   document.querySelectorAll("[data-current-year]").forEach((node) => {
     node.textContent = String(new Date().getFullYear());

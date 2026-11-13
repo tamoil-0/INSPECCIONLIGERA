@@ -1,0 +1,22 @@
+# El repositorio se desarrolla en Windows (core.autocrlf=true) pero la imagen
+# Docker corre en Linux ARM64. Un CRLF en un script de shell hace que el kernel
+# busque el intérprete "/usr/bin/env bash\r" y falle con "no such file or
+# directory", que es un error muy difícil de leer. Estos archivos se fuerzan a
+# LF en el árbol de trabajo, en cualquier sistema.
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+*.conf          text eol=lf
+*.ini           text eol=lf
+docker-compose*.yml text eol=lf
+.env.example    text eol=lf
+*.sql           text eol=lf
+
+# Binarios: que Git no intente normalizarlos nunca.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.svg   text
+*.apk   binary
+*.xlsx  binary
+*.zip   binary
+*.ovpn  text
