@@ -288,8 +288,8 @@
         });
         await cargarEstadoRespaldo();
       } catch (error) {
-        filaVacia(rstBody, 3, "No se pudo cargar la información RST.");
-        filaVacia(imageBody, 5, "No se pudieron cargar las evidencias.");
+        filaVacia(rstBody, 3, "No se pudo cargar la información RST.", { texto: "Reintentar", alHacerClic: cargar, tono: "error" });
+        filaVacia(imageBody, 5, "No se pudieron cargar las evidencias.", { texto: "Reintentar", alHacerClic: cargar, tono: "error" });
         mostrarMensaje(document.getElementById("mensaje"), error.message);
       }
     }

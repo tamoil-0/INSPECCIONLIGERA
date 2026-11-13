@@ -191,7 +191,7 @@
         // Nunca se muestran los datos del NAS como si fueran del respaldo.
         filaVacia(tbody, 7, esRespaldo
           ? "No se pudo calcular el avance del respaldo."
-          : "No se pudieron cargar las líneas.");
+          : "No se pudieron cargar las líneas.", { texto: "Reintentar", alHacerClic: cargarLineas, tono: "error" });
         if (esRespaldo) vaciarMetricas();
         mostrarMensaje(document.getElementById("mensaje"), esRespaldo
           ? `No se pudo calcular el avance del respaldo. ${error.message}`

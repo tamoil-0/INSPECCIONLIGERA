@@ -220,7 +220,9 @@ function celdaCompuesta(titulo, subtitulo, etiqueta = "") {
   return td;
 }
 
-function filaVacia(tbody, columnas, mensaje) {
+// `accion` (opcional): { texto, alHacerClic, tono: "error" } agrega un botón para
+// salir del estado vacío (limpiar filtros) o de un error (reintentar).
+function filaVacia(tbody, columnas, mensaje, accion = null) {
   tbody.replaceChildren();
   const row = document.createElement("tr");
   const td = celda("");
@@ -234,6 +236,19 @@ function filaVacia(tbody, columnas, mensaje) {
   const text = document.createElement("span");
   text.textContent = mensaje;
   content.append(icon, text);
+  if (accion?.tono === "error") {
+    icon.textContent = "!";
+    icon.classList.add("empty-icon-error");
+    content.setAttribute("role", "alert");
+  }
+  if (accion?.texto && typeof accion.alHacerClic === "function") {
+    const boton = document.createElement("button");
+    boton.type = "button";
+    boton.className = "button-secondary button-sm";
+    boton.textContent = accion.texto;
+    boton.addEventListener("click", accion.alHacerClic);
+    content.appendChild(boton);
+  }
   td.appendChild(content);
   row.appendChild(td);
   tbody.appendChild(row);

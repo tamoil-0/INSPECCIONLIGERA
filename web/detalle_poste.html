@@ -126,7 +126,7 @@
       });
       document.getElementById("conteoPostes").textContent = `${filtered.length} de ${postes.length}`;
       tbody.replaceChildren();
-      if (!filtered.length) return filaVacia(tbody, 9, "No hay estructuras que coincidan con los filtros.");
+      if (!filtered.length) return filaVacia(tbody, 9, "No hay estructuras que coincidan con los filtros.", { texto: "Limpiar filtros", alHacerClic: () => { document.getElementById("buscarPoste").value = ""; document.getElementById("filtroAvance").value = ""; renderPostes(); } });
       filtered.forEach((post) => {
         const state = estadoPoste(post);
         const respaldo = backup ? respaldoDe(post) : null;
@@ -257,7 +257,7 @@
           });
           document.getElementById("conteoUtm").textContent = "Backup no disponible";
           document.getElementById("conteoPostes").textContent = "Sin datos";
-          filaVacia(tbody, 9, "No se pudo leer el Backup. No se muestran datos NAS en su lugar.");
+          filaVacia(tbody, 9, "No se pudo leer el Backup. No se muestran datos NAS en su lugar.", { texto: "Reintentar", alHacerClic: aplicarFuenteSeleccionada, tono: "error" });
           mostrarMensaje(document.getElementById("mensaje"), error.message);
           return;
         }
@@ -275,7 +275,7 @@
         postes = data.data;
         await aplicarFuenteSeleccionada();
       } catch (error) {
-        filaVacia(tbody, 9, "No se pudieron cargar las estructuras.");
+        filaVacia(tbody, 9, "No se pudieron cargar las estructuras.", { texto: "Reintentar", alHacerClic: cargarPostes, tono: "error" });
         mostrarMensaje(document.getElementById("mensaje"), error.message);
       }
     }

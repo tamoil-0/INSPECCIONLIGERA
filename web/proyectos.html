@@ -135,7 +135,7 @@
         const data = await leerRespuesta(await fetchConToken(`proyectos/listar.php?${params}`));
         tbody.replaceChildren();
         count.textContent = `${data.count} ${data.count === 1 ? "resultado" : "resultados"}`;
-        if (!data.data.length) return filaVacia(tbody, 6, "No se encontraron proyectos con esos filtros.");
+        if (!data.data.length) return filaVacia(tbody, 6, "No se encontraron proyectos con esos filtros.", { texto: "Limpiar filtros", alHacerClic: () => { document.getElementById("busqueda").value = ""; document.getElementById("estadoFiltro").value = ""; cargarProyectos(); } });
         data.data.forEach((project) => {
           const row = document.createElement("tr");
           row.append(celdaCompuesta(project.nombre_proyecto, `Proyecto #${project.id}`, "Proyecto"));
@@ -161,7 +161,7 @@
         });
       } catch (error) {
         count.textContent = "Sin datos";
-        filaVacia(tbody, 6, "No se pudo cargar la información.");
+        filaVacia(tbody, 6, "No se pudo cargar la lista de proyectos.", { texto: "Reintentar", alHacerClic: cargarProyectos, tono: "error" });
         mostrarMensaje(message, error.message);
       }
     }
