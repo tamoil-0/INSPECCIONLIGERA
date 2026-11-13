@@ -23,6 +23,7 @@ Todos los colores viven como variables en `:root` de `estilos.css`. **No usar he
 | `--blue-100` / `--blue-50` | `#dceefa` / `#eff8fd` | Fondos informativos, hover de fila |
 | `--green-700` / `--green-600` | `#176b55` / `#238166` | Éxito, marca (logo), progreso |
 | `--green-100` | `#d9f2e9` | Fondo de éxito |
+| `--green-200` | `#8de9c7` | Antetítulos y conductores sobre el panel oscuro del acceso |
 | `--amber-700` / `--amber-100` | `#9a5d08` / `#fff0ce` | Advertencia |
 | `--amber-500` | `#d99413` | Borde de advertencia en métricas |
 | `--amber-900` | `#78350f` | Texto sobre aviso ámbar |
@@ -111,13 +112,17 @@ Mobile-first en lo nuevo; el CSS heredado usa `max-width`:
 | Toast | `.toast-region` > `.admin-toast` | Confirmaciones de acciones en admin. |
 | Diálogo | `dialog.admin-dialog` (header/body/footer) | Formularios y confirmaciones. |
 | Estados | `.estado-vacio` / `.empty-content`, `.admin-skeleton-line`, `.spinner` | Vacío con acción, carga, error con reintentar. |
+| Fila de estado | `filaVacia(tbody, cols, mensaje, { texto, alHacerClic, tono })` / `filaCargando()` (`app.js`) | Vacío con "Limpiar filtros", error con "Reintentar" (`tono: "error"`). |
+| Validación | `activarValidacion(form)` + `validarFormulario(form)` (`app.js`) → `.campo-error`, `aria-invalid` | Todo formulario: error en español junto al campo, al salir del campo y foco en el primer error. Nunca `reportValidity()`. |
+| Navegación | `NAV_PRINCIPAL` en `app.js` | Se arma según el rol; en ≤ 980 px baja a una segunda fila desplazable. No escribir enlaces de la topbar a mano. |
+| Firma del acceso | `svg.acceso-linea` (login y setup) | Único elemento decorativo de las páginas públicas. |
 
 Estados obligatorios en vistas con datos: **carga** (skeleton o spinner), **vacío** (con acción sugerida),
 **error** (mensaje claro + "Reintentar") y **éxito**.
 
 ## 8. Accesibilidad mínima
 
-- Foco visible (`:focus-visible` con `--focus`), nunca `outline: none` sin reemplazo.
+- Foco visible: contorno sólido de 3 px con `--focus` (≥ 3:1); sobre fondos oscuros, blanco al 85 %. Los inputs usan borde + halo.
 - Objetivos táctiles ≥ 44×44 px en móvil (`--touch: 44px`).
 - Botones con solo ícono: `aria-label`. Íconos decorativos: `aria-hidden="true"`.
 - Un `h1` por página y headings en orden. `lang="es"`.
@@ -133,4 +138,7 @@ Estados obligatorios en vistas con datos: **carga** (skeleton o spinner), **vac�
 | 4 | Radios en px fuera de escala: `7px`, `9px`, `10px`, `11px`, `14px`, `16px`, `20px` | Esquinas distintas en componentes equivalentes | ✅ Resuelta (excepto logo, punto de color y marco de celular del editor, que son intencionales) |
 | 5 | Sombras sueltas en menú contextual, toast y diálogo | Profundidad inconsistente | ✅ Resuelta (`--shadow-md` en menús y toasts, `--shadow-lg` en diálogos) |
 | 6 | Alturas de controles: botones 42 px, `.button-sm` 36 px, paginación 34 px, acciones 38 px | Objetivos táctiles < 44 px en móvil | ✅ Resuelta (`--touch: 44px` en ≤ 760 px) |
-| 7 | 48 tamaños de fuente distintos | Jerarquía difusa | Pendiente (se documenta la escala; se unifica al tocar cada pantalla) |
+| 7 | 48 tamaños de fuente distintos | Jerarquía difusa | Pendiente: la escala está documentada en §2; unificar al rediseñar cada pantalla (tocarlos todos a la vez arriesga regresiones visuales) |
+| 8 | `--slate-500` (#7a8a96) usado en texto pequeño con 3.6:1 | Incumple AA | ✅ Resuelta (`#637382`) |
+| 9 | Anillo de foco al 30 % de opacidad (≈ 1.4:1) | Foco casi invisible | ✅ Resuelta |
+| 10 | Estilos inline con hex (login, setup, proyectos) | Fuera del sistema | ✅ Resuelta |
