@@ -10,7 +10,7 @@
 # ARM64
 # -----
 # Las dos imágenes base son multiarquitectura con `linux/arm64/v8`:
-#   · php:8.2-apache-bookworm  (base de la imagen local, ver Dockerfile)
+#   · php:8.2.35-apache-bookworm  (base de la imagen local, ver Dockerfile)
 #   · mariadb:10.11            (LTS; el mismo linaje que el MariaDB de XAMPP,
 #                               así que los dumps existentes importan sin
 #                               sorpresas de sintaxis)

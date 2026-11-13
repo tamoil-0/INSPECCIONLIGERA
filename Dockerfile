@@ -12,7 +12,14 @@
 # `linux/arm64/v8`; ninguna es exclusiva de amd64:
 #
 #   · composer:2.8       -> linux/amd64, linux/arm64/v8, linux/arm/v7, ...
-#   · php:8.2-apache     -> linux/amd64, linux/arm64/v8, linux/arm/v7, ...
+#   · php:8.2.35-apache  -> linux/amd64, linux/arm64/v8, linux/arm/v7, ...
+#
+# VERSIÓN DE PHP
+# --------------
+# Fijada en 8.2.35 (21-oct-2026): corrige PHP2Shell, CVE-2026-109618 y
+# CVE-2026-109619 (RCE sin autenticación, CVSS 9.2). Con la etiqueta flotante
+# `8.2-apache` el NAS seguía usando la imagen que tenía en caché, sin el parche.
+# Al subir de versión, reconstruir con `--pull`.
 #
 # Para construir explícitamente para el NAS desde un PC x86:
 #   docker buildx build --platform linux/arm64 -t ecoing-app:1.0 .
@@ -57,7 +64,7 @@ RUN composer install \
 # ---------------------------------------------------------------------------
 # Etapa 2 · runtime
 # ---------------------------------------------------------------------------
-FROM php:8.2-apache-bookworm AS runtime
+FROM php:8.2.35-apache-bookworm AS runtime
 
 LABEL org.opencontainers.image.title="ECOING Inspección Ligera" \
       org.opencontainers.image.description="API REST + web administrativa (Apache 2.4 / PHP 8.2)" \
@@ -106,6 +113,7 @@ RUN set -eux; \
     # Fallar aquí, en la construcción, y no en el primer arranque: sin estas
     # extensiones el sistema no funciona, y sin curl el HEALTHCHECK miente.
     php -m; \
+    php -r 'if (version_compare(PHP_VERSION, "8.2.35", "<")) { fwrite(STDERR, "PHP ".PHP_VERSION." no tiene el parche PHP2Shell\n"); exit(1); } echo "PHP ".PHP_VERSION." con parche PHP2Shell\n";'; \
     php -r 'foreach (["gd","zip","exif","pdo_mysql","mbstring","fileinfo","iconv","dom","simplexml","xmlreader","xmlwriter","ctype","filter","zlib","json","Zend OPcache"] as $e) { if (!extension_loaded($e)) { fwrite(STDERR, "FALTA la extension $e\n"); exit(1); } } echo "extensiones PHP verificadas\n";'; \
     command -v curl > /dev/null || { echo 'FALTA curl (lo necesita el HEALTHCHECK)' >&2; exit 1; }
 

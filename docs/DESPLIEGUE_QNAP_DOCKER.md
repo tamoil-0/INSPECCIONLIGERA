@@ -50,7 +50,7 @@ multiarquitectura y publican ese target:
 
 | Componente | Imagen | Versión fijada | `linux/arm64/v8` |
 |---|---|---|---|
-| Apache + PHP | `php:8.2-apache-bookworm` | 8.2 sobre Debian 12 | sí |
+| Apache + PHP | `php:8.2.35-apache-bookworm` | 8.2.35 sobre Debian 12 (parche PHP2Shell) | sí |
 | Dependencias PHP | `composer:2.8` | 2.8 | sí |
 | Base de datos | `mariadb:10.11` | 10.11 LTS | sí |
 
