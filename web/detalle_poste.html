@@ -24,7 +24,7 @@
   <main class="app-main">
     <nav class="breadcrumbs" aria-label="Migas de pan"><a href="proyectos.html">Proyectos</a><span class="separador">/</span><a id="volverLineas" href="#">Líneas</a><span class="separador">/</span><strong id="lineaMiga">Línea</strong></nav>
     <section class="page-heading">
-      <div class="page-heading-copy"><p class="eyebrow">Control de campo</p><h1>Estructuras de la línea <span id="lineaTexto"></span></h1><p>Revise el estado de cada estructura y genere los entregables de la línea.</p></div>
+      <div class="page-heading-copy"><p class="eyebrow">Control de campo</p><h1>Estructuras de la línea <span id="lineaTexto" class="text-nowrap"></span></h1><p>Revise el estado de cada estructura y genere los entregables de la línea.</p></div>
       <div class="page-actions">
         <button id="exportarExcel" class="button-secondary" type="button">Descargar Excel</button>
         <button id="exportarPdf" class="button-primary" type="button">Descargar ZIP</button>
@@ -45,12 +45,12 @@
         <div><h2>Padrón de estructuras</h2><p>Busque por código, número de estructura, tramo o coordenada UTM.</p></div>
         <div class="acciones-inline"><span id="conteoUtm" class="status-badge status-success">Calculando UTM</span><span id="conteoPostes" class="status-badge status-neutral">Cargando</span></div>
       </div>
-      <div class="toolbar toolbar-compact">
+      <div class="toolbar toolbar-compact toolbar-3">
         <div class="campo"><label for="buscarPoste">Buscar estructura</label><input id="buscarPoste" type="search" placeholder="Ej. L-6311-01, 01 o Juliaca"></div>
         <div class="campo"><label for="filtroAvance">Estado de avance</label><select id="filtroAvance"><option value="">Todos</option><option value="completo">Completos</option><option value="proceso">En proceso</option><option value="pendiente">Pendientes</option></select></div>
         <div class="campo"><label for="fuenteFotosLista">Fuente de información</label><select id="fuenteFotosLista"><option value="current">NAS</option><option value="backup">Backup</option></select></div>
       </div>
-      <p id="ayudaFuenteFotos" class="imgcfg-help">NAS muestra la información sincronizada actualmente. Backup muestra la información encontrada en el respaldo móvil.</p>
+      <p id="ayudaFuenteFotos" class="imgcfg-help toolbar-nota">NAS muestra la información sincronizada actualmente. Backup muestra la información encontrada en el respaldo móvil.</p>
       <div class="tabla-scroll tabla-responsive">
         <table>
           <thead><tr><th>Estructura</th><th>Tramo</th><th>UTM Este (X)</th><th>UTM Norte (Y)</th><th>Zona</th><th>Formulario</th><th>Fotos</th><th>Estado</th><th>Acciones</th></tr></thead>
