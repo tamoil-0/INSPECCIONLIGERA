@@ -220,7 +220,9 @@ function celdaCompuesta(titulo, subtitulo, etiqueta = "") {
   return td;
 }
 
-function filaVacia(tbody, columnas, mensaje) {
+// `accion` (opcional): { texto, alHacerClic, tono: "error" } agrega un botón para
+// salir del estado vacío (limpiar filtros) o de un error (reintentar).
+function filaVacia(tbody, columnas, mensaje, accion = null) {
   tbody.replaceChildren();
   const row = document.createElement("tr");
   const td = celda("");
@@ -230,10 +232,24 @@ function filaVacia(tbody, columnas, mensaje) {
   content.className = "empty-content";
   const icon = document.createElement("span");
   icon.className = "empty-icon";
+  icon.setAttribute("aria-hidden", "true");
   icon.textContent = "—";
   const text = document.createElement("span");
   text.textContent = mensaje;
   content.append(icon, text);
+  if (accion?.tono === "error") {
+    icon.textContent = "!";
+    icon.classList.add("empty-icon-error");
+    content.setAttribute("role", "alert");
+  }
+  if (accion?.texto && typeof accion.alHacerClic === "function") {
+    const boton = document.createElement("button");
+    boton.type = "button";
+    boton.className = "button-secondary button-sm";
+    boton.textContent = accion.texto;
+    boton.addEventListener("click", accion.alHacerClic);
+    content.appendChild(boton);
+  }
   td.appendChild(content);
   row.appendChild(td);
   tbody.appendChild(row);
@@ -245,6 +261,7 @@ function filaCargando(tbody, columnas, mensaje = "Cargando información…") {
   const td = celda("");
   td.colSpan = columnas;
   td.className = "estado-vacio loading-row";
+  td.setAttribute("aria-busy", "true");
   const content = document.createElement("div");
   content.className = "empty-content";
   const spinner = document.createElement("span");
@@ -267,6 +284,71 @@ function limpiarMensaje(elemento) {
   if (!elemento) return;
   elemento.textContent = "";
   elemento.className = "mensaje";
+}
+
+// --- Validación de formularios ------------------------------------------------
+// Usa las mismas reglas HTML (required, type, minlength, pattern…) que antes
+// validaba reportValidity(), pero muestra el error en español junto al campo,
+// valida al salir del campo y enfoca el primer error al enviar.
+function mensajeValidacion(campo) {
+  const v = campo.validity;
+  if (v.valueMissing) return campo.tagName === "SELECT" ? "Seleccione una opción." : "Complete este campo.";
+  if (v.typeMismatch && campo.type === "email") return "Ingrese un correo válido, por ejemplo nombre@empresa.com.";
+  if (v.typeMismatch) return "El formato no es válido.";
+  if (v.tooShort) return `Use al menos ${campo.minLength} caracteres (lleva ${campo.value.length}).`;
+  if (v.tooLong) return `Use como máximo ${campo.maxLength} caracteres.`;
+  if (v.rangeUnderflow) return `El valor mínimo es ${campo.min}.`;
+  if (v.rangeOverflow) return `El valor máximo es ${campo.max}.`;
+  if (v.stepMismatch || v.badInput) return "Ingrese un número válido.";
+  if (v.patternMismatch) return campo.title || "El formato no es válido.";
+  return campo.validationMessage || "Revise este campo.";
+}
+
+function marcarCampo(campo) {
+  if (!campo.willValidate) return true;
+  const contenedor = campo.closest(".campo") || campo.parentElement;
+  const errorId = `${campo.id || campo.name}-error`;
+  let error = contenedor.querySelector(`[data-campo-error="${errorId}"]`);
+  const valido = campo.checkValidity();
+  if (valido) {
+    campo.removeAttribute("aria-invalid");
+    if (error) error.remove();
+  } else {
+    if (!error) {
+      error = document.createElement("small");
+      error.className = "campo-error";
+      error.id = errorId;
+      error.dataset.campoError = errorId;
+      contenedor.appendChild(error);
+    }
+    error.textContent = mensajeValidacion(campo);
+    campo.setAttribute("aria-invalid", "true");
+  }
+  const descritos = (campo.getAttribute("aria-describedby") || "").split(/\s+/).filter((id) => id && id !== errorId);
+  if (!valido) descritos.push(errorId);
+  if (descritos.length) campo.setAttribute("aria-describedby", descritos.join(" "));
+  else campo.removeAttribute("aria-describedby");
+  return valido;
+}
+
+function validarFormulario(form) {
+  const campos = [...form.elements].filter((el) => el.willValidate && !el.disabled && !el.closest("[hidden]"));
+  const invalidos = campos.filter((campo) => !marcarCampo(campo));
+  if (invalidos.length) invalidos[0].focus();
+  return invalidos.length === 0;
+}
+
+function activarValidacion(form) {
+  if (!form || form.dataset.validacion === "activa") return;
+  form.dataset.validacion = "activa";
+  form.noValidate = true;
+  form.addEventListener("focusout", (event) => {
+    const campo = event.target;
+    if (campo.willValidate && (campo.value !== "" || campo.getAttribute("aria-invalid") === "true")) marcarCampo(campo);
+  });
+  form.addEventListener("input", (event) => {
+    if (event.target.getAttribute("aria-invalid") === "true") marcarCampo(event.target);
+  });
 }
 
 function establecerCargando(button, cargando, texto = "Procesando…") {
@@ -419,19 +501,35 @@ function inicializarPasswordToggles() {
   });
 }
 
+// Navegación principal: la misma en todas las páginas privadas. Cada sección
+// declara qué páginas le pertenecen para marcarla como activa.
+const NAV_PRINCIPAL = [
+  { href: "proyectos.html", texto: "Proyectos", paginas: ["proyectos", "detalle_proyecto", "detalle_linea", "detalle_poste", "formulario_poste"] },
+  { href: "admin.html", texto: "Administración", soloAdmin: true, paginas: ["admin", "admin_imagenes_poste"] },
+  { href: "plantillas.html", texto: "Plantillas", soloAdmin: true, paginas: ["plantillas"] },
+];
+
+function pintarNavegacion(usuario) {
+  const nav = document.querySelector(".topbar-center");
+  if (!nav) return;
+  const actual = (window.location.pathname.split("/").pop() || "").replace(/\.html$/i, "");
+  const esAdmin = usuario?.rol === "administrador";
+  nav.replaceChildren(...NAV_PRINCIPAL.filter((item) => !item.soloAdmin || esAdmin).map((item) => {
+    const enlace = document.createElement("a");
+    enlace.className = "nav-link";
+    enlace.href = item.href;
+    enlace.textContent = item.texto;
+    if (item.paginas.includes(actual)) {
+      enlace.classList.add("activo");
+      enlace.setAttribute("aria-current", "page");
+    }
+    return enlace;
+  }));
+}
+
 function inicializarInterfaz() {
   pintarUsuario();
-  const usuario = obtenerUsuario();
-  if (usuario?.rol === "administrador") {
-    const nav = document.querySelector(".topbar-center");
-    if (nav && !nav.querySelector('a[href="admin.html"]')) {
-      const enlace = document.createElement("a");
-      enlace.className = "nav-link";
-      enlace.href = "admin.html";
-      enlace.textContent = "Administracion";
-      nav.appendChild(enlace);
-    }
-  }
+  pintarNavegacion(obtenerUsuario());
   inicializarPasswordToggles();
   document.querySelectorAll("[data-current-year]").forEach((node) => {
     node.textContent = String(new Date().getFullYear());

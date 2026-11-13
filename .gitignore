@@ -75,3 +75,6 @@ log_*.txt
 # Revisión visual y material de referencia de diseño
 /.ui-review/
 /.referencias/
+
+# Configuración de reportes que genera la API en local (en el NAS es un volumen)
+/storage/report_config/

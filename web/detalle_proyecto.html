@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#071827">
   <title>Resumen del proyecto | ECOING</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/estilos.css">
+  <link rel="stylesheet" href="css/estilos.css?v=20261113">
 </head>
 <body class="app-body">
   <header class="topbar">
@@ -25,7 +25,7 @@
     <nav class="breadcrumbs" aria-label="Migas de pan"><a href="proyectos.html">Proyectos</a><span class="separador">/</span><strong>Resumen</strong></nav>
     <section class="page-heading">
       <div class="page-heading-copy"><p class="eyebrow">Vista ejecutiva</p><h1 id="tituloProyecto">Resumen del proyecto</h1><p id="descripcionProyecto">Cargando información operativa…</p></div>
-      <div class="page-actions"><a id="lineas" class="button button-primary" href="#">Explorar líneas y postes</a></div>
+      <div class="page-actions"><a id="lineas" class="button button-primary" href="#">Ver líneas y estructuras</a></div>
     </section>
 
     <p id="mensaje" class="mensaje" aria-live="polite"></p>
@@ -45,7 +45,7 @@
 
   <footer class="app-footer"><p>ECOING · Gestión de inspecciones</p><p>Entorno local seguro · <span data-current-year></span></p></footer>
 
-  <script src="js/app.js"></script>
+  <script src="js/app.js?v=20261113"></script>
   <script>
     verificarSesion();
     const id = Number(new URLSearchParams(location.search).get("id"));

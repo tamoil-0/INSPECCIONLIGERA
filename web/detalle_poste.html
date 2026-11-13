@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#071827">
   <title>Estructuras de la línea | ECOING</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/estilos.css?v=20260902">
+  <link rel="stylesheet" href="css/estilos.css?v=20261113">
 </head>
 <body class="app-body">
   <header class="topbar">
@@ -24,7 +24,7 @@
   <main class="app-main">
     <nav class="breadcrumbs" aria-label="Migas de pan"><a href="proyectos.html">Proyectos</a><span class="separador">/</span><a id="volverLineas" href="#">Líneas</a><span class="separador">/</span><strong id="lineaMiga">Línea</strong></nav>
     <section class="page-heading">
-      <div class="page-heading-copy"><p class="eyebrow">Control de campo</p><h1>Estructuras de la línea <span id="lineaTexto"></span></h1><p>Revise el estado de cada estructura y genere los entregables de la línea.</p></div>
+      <div class="page-heading-copy"><p class="eyebrow">Control de campo</p><h1>Estructuras de la línea <span id="lineaTexto" class="text-nowrap"></span></h1><p>Revise el estado de cada estructura y genere los entregables de la línea.</p></div>
       <div class="page-actions">
         <button id="exportarExcel" class="button-secondary" type="button">Descargar Excel</button>
         <button id="exportarPdf" class="button-primary" type="button">Descargar ZIP</button>
@@ -45,12 +45,12 @@
         <div><h2>Padrón de estructuras</h2><p>Busque por código, número de estructura, tramo o coordenada UTM.</p></div>
         <div class="acciones-inline"><span id="conteoUtm" class="status-badge status-success">Calculando UTM</span><span id="conteoPostes" class="status-badge status-neutral">Cargando</span></div>
       </div>
-      <div class="toolbar toolbar-compact">
+      <div class="toolbar toolbar-compact toolbar-3">
         <div class="campo"><label for="buscarPoste">Buscar estructura</label><input id="buscarPoste" type="search" placeholder="Ej. L-6311-01, 01 o Juliaca"></div>
         <div class="campo"><label for="filtroAvance">Estado de avance</label><select id="filtroAvance"><option value="">Todos</option><option value="completo">Completos</option><option value="proceso">En proceso</option><option value="pendiente">Pendientes</option></select></div>
         <div class="campo"><label for="fuenteFotosLista">Fuente de información</label><select id="fuenteFotosLista"><option value="current">NAS</option><option value="backup">Backup</option></select></div>
       </div>
-      <p id="ayudaFuenteFotos" class="imgcfg-help">NAS muestra la información sincronizada actualmente. Backup muestra la información encontrada en el respaldo móvil.</p>
+      <p id="ayudaFuenteFotos" class="imgcfg-help toolbar-nota">NAS muestra la información sincronizada actualmente. Backup muestra la información encontrada en el respaldo móvil.</p>
       <div class="tabla-scroll tabla-responsive">
         <table>
           <thead><tr><th>Estructura</th><th>Tramo</th><th>UTM Este (X)</th><th>UTM Norte (Y)</th><th>Zona</th><th>Formulario</th><th>Fotos</th><th>Estado</th><th>Acciones</th></tr></thead>
@@ -62,8 +62,8 @@
 
   <footer class="app-footer"><p>ECOING · Gestión de inspecciones</p><p>Entorno local seguro · <span data-current-year></span></p></footer>
 
-  <script src="js/app.js?v=20260902"></script>
-  <script src="js/reporte_fotos.js?v=20260902"></script>
+  <script src="js/app.js?v=20261113"></script>
+  <script src="js/reporte_fotos.js?v=20261113"></script>
   <script>
     verificarSesion();
     const params = new URLSearchParams(location.search);
@@ -126,7 +126,7 @@
       });
       document.getElementById("conteoPostes").textContent = `${filtered.length} de ${postes.length}`;
       tbody.replaceChildren();
-      if (!filtered.length) return filaVacia(tbody, 9, "No hay estructuras que coincidan con los filtros.");
+      if (!filtered.length) return filaVacia(tbody, 9, "No hay estructuras que coincidan con los filtros.", { texto: "Limpiar filtros", alHacerClic: () => { document.getElementById("buscarPoste").value = ""; document.getElementById("filtroAvance").value = ""; renderPostes(); } });
       filtered.forEach((post) => {
         const state = estadoPoste(post);
         const respaldo = backup ? respaldoDe(post) : null;
@@ -257,7 +257,7 @@
           });
           document.getElementById("conteoUtm").textContent = "Backup no disponible";
           document.getElementById("conteoPostes").textContent = "Sin datos";
-          filaVacia(tbody, 9, "No se pudo leer el Backup. No se muestran datos NAS en su lugar.");
+          filaVacia(tbody, 9, "No se pudo leer el Backup. No se muestran datos NAS en su lugar.", { texto: "Reintentar", alHacerClic: aplicarFuenteSeleccionada, tono: "error" });
           mostrarMensaje(document.getElementById("mensaje"), error.message);
           return;
         }
@@ -275,7 +275,7 @@
         postes = data.data;
         await aplicarFuenteSeleccionada();
       } catch (error) {
-        filaVacia(tbody, 9, "No se pudieron cargar las estructuras.");
+        filaVacia(tbody, 9, "No se pudieron cargar las estructuras.", { texto: "Reintentar", alHacerClic: cargarPostes, tono: "error" });
         mostrarMensaje(document.getElementById("mensaje"), error.message);
       }
     }

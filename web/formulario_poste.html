@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#071827">
   <title>Detalle de inspección | ECOING</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/estilos.css?v=20260902">
+  <link rel="stylesheet" href="css/estilos.css?v=20261113">
 </head>
 <body class="app-body">
   <header class="topbar">
@@ -142,8 +142,8 @@
 
   <footer class="app-footer"><p>ECOING · Gestión de inspecciones</p><p>Entorno local seguro · <span data-current-year></span></p></footer>
 
-  <script src="js/app.js?v=20260902"></script>
-  <script src="js/reporte_fotos.js?v=20260902"></script>
+  <script src="js/app.js?v=20261113"></script>
+  <script src="js/reporte_fotos.js?v=20261113"></script>
   <script>
     verificarSesion();
     const query = new URLSearchParams(location.search);
@@ -288,8 +288,8 @@
         });
         await cargarEstadoRespaldo();
       } catch (error) {
-        filaVacia(rstBody, 3, "No se pudo cargar la información RST.");
-        filaVacia(imageBody, 5, "No se pudieron cargar las evidencias.");
+        filaVacia(rstBody, 3, "No se pudo cargar la información RST.", { texto: "Reintentar", alHacerClic: cargar, tono: "error" });
+        filaVacia(imageBody, 5, "No se pudieron cargar las evidencias.", { texto: "Reintentar", alHacerClic: cargar, tono: "error" });
         mostrarMensaje(document.getElementById("mensaje"), error.message);
       }
     }

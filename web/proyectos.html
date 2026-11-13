@@ -7,7 +7,7 @@
   <meta name="description" content="Panel de proyectos e inspecciones ECOING.">
   <title>Proyectos | ECOING</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/estilos.css">
+  <link rel="stylesheet" href="css/estilos.css?v=20261113">
 </head>
 <body class="app-body">
   <header class="topbar">
@@ -40,7 +40,7 @@
         <p>Consulte el avance de campo, filtre operaciones y acceda al padrón de estructuras.</p>
       </div>
       <div class="page-actions" id="accionNuevoProyecto">
-        <button class="button-primary" type="button" id="mostrarNuevoProyecto"><span class="button-icon">＋</span>Nuevo proyecto</button>
+        <button class="button-primary" type="button" id="mostrarNuevoProyecto"><span class="button-icon" aria-hidden="true">＋</span>Nuevo proyecto</button>
       </div>
     </section>
 
@@ -77,7 +77,7 @@
       </div>
     </section>
 
-    <section class="tabla-shell" style="margin-top:16px" aria-label="Listado de proyectos">
+    <section class="tabla-shell tabla-separada" aria-label="Listado de proyectos">
       <div class="tabla-scroll tabla-responsive">
         <table>
           <thead><tr><th>Proyecto</th><th>Contratista</th><th>Ubicación</th><th>Estado</th><th>Creado</th><th>Acciones</th></tr></thead>
@@ -89,7 +89,7 @@
 
   <footer class="app-footer"><p>ECOING · Gestión de inspecciones</p><p>Entorno local seguro · <span data-current-year></span></p></footer>
 
-  <script src="js/app.js"></script>
+  <script src="js/app.js?v=20261113"></script>
   <script>
     verificarSesion();
     const usuarioActual = obtenerUsuario();
@@ -135,7 +135,7 @@
         const data = await leerRespuesta(await fetchConToken(`proyectos/listar.php?${params}`));
         tbody.replaceChildren();
         count.textContent = `${data.count} ${data.count === 1 ? "resultado" : "resultados"}`;
-        if (!data.data.length) return filaVacia(tbody, 6, "No se encontraron proyectos con esos filtros.");
+        if (!data.data.length) return filaVacia(tbody, 6, "No se encontraron proyectos con esos filtros.", { texto: "Limpiar filtros", alHacerClic: () => { document.getElementById("busqueda").value = ""; document.getElementById("estadoFiltro").value = ""; cargarProyectos(); } });
         data.data.forEach((project) => {
           const row = document.createElement("tr");
           row.append(celdaCompuesta(project.nombre_proyecto, `Proyecto #${project.id}`, "Proyecto"));
@@ -149,7 +149,7 @@
           const summary = document.createElement("a");
           summary.className = "button button-secondary button-sm";
           summary.href = `detalle_proyecto.html?id=${encodeURIComponent(project.id)}`;
-          summary.textContent = "Resumen";
+          summary.textContent = "Ver resumen";
           const lines = document.createElement("a");
           lines.className = "button button-primary button-sm";
           lines.href = `detalle_linea.html?id=${encodeURIComponent(project.id)}`;
@@ -161,7 +161,7 @@
         });
       } catch (error) {
         count.textContent = "Sin datos";
-        filaVacia(tbody, 6, "No se pudo cargar la información.");
+        filaVacia(tbody, 6, "No se pudo cargar la lista de proyectos.", { texto: "Reintentar", alHacerClic: cargarProyectos, tono: "error" });
         mostrarMensaje(message, error.message);
       }
     }
@@ -169,10 +169,11 @@
     document.getElementById("buscar").addEventListener("click", cargarProyectos);
     document.getElementById("estadoFiltro").addEventListener("change", cargarProyectos);
     document.getElementById("busqueda").addEventListener("keydown", (event) => { if (event.key === "Enter") cargarProyectos(); });
+    activarValidacion(document.getElementById("proyectoForm"));
     document.getElementById("proyectoForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
-      if (!form.reportValidity()) return;
+      if (!validarFormulario(form)) return;
       const button = form.querySelector("button[type='submit']");
       establecerCargando(button, true, "Guardando…");
       try {
