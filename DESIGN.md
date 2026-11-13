@@ -29,7 +29,7 @@ Todos los colores viven como variables en `:root` de `estilos.css`. **No usar he
 | `--red-700` / `--red-100` | `#a43a3a` / `#fde4e4` | Error, peligro |
 | `--red-800` | `#842e2e` | Hover de peligro |
 | `--violet-700` / `--violet-100` | `#6b3fa0` / `#ece4f8` | Insignia "recuperado" (diagnóstico) |
-| `--slate-950 … --slate-50` | `#101b25 … #f6f8fa` | Texto, bordes y fondos neutros |
+| `--slate-950 … --slate-50` | `#101b25 … #f6f8fa` (`--slate-500` = `#637382`) | Texto, bordes y fondos neutros |
 | `--slate-400` | `#9aabb7` | Texto deshabilitado, separadores, bordes en hover |
 | `--surface-muted` | `#fbfcfd` | Fondo de bloques internos (dl, secciones de formulario) |
 | `--white` | `#ffffff` | Superficies |
@@ -37,7 +37,7 @@ Todos los colores viven como variables en `:root` de `estilos.css`. **No usar he
 
 Contraste verificado (AA, texto normal ≥ 4.5:1): `--slate-600` sobre blanco 5.0:1, `--blue-700` sobre blanco 6.4:1,
 `--green-700` sobre `--green-100` 5.3:1, `--amber-700` sobre `--amber-100` 4.6:1, `--red-700` sobre `--red-100` 5.2:1.
-`--slate-500` (3.6:1) **solo** para texto ≥ 18 px o información secundaria no esencial.
+`--slate-500` pasó de `#7a8a96` (3.6:1, no cumplía) a `#637382`: 4.9:1 sobre blanco y 4.6:1 sobre `--slate-50`.
 
 Excepción: `web/css/plantillas.css` usa negro/grises literales en la vista previa del PDF (lienzo del editor),
 porque representan la impresión real, no la interfaz.

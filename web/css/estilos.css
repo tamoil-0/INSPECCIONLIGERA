@@ -24,7 +24,7 @@
   --slate-800: #263746;
   --slate-700: #405464;
   --slate-600: #60717f;
-  --slate-500: #7a8a96;
+  --slate-500: #637382; /* antes #7a8a96 (3.6:1): ahora AA sobre blanco y slate-50 */
   --slate-400: #9aabb7;
   --slate-300: #c9d3da;
   --slate-200: #dde4e9;

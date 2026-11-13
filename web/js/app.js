@@ -232,6 +232,7 @@ function filaVacia(tbody, columnas, mensaje, accion = null) {
   content.className = "empty-content";
   const icon = document.createElement("span");
   icon.className = "empty-icon";
+  icon.setAttribute("aria-hidden", "true");
   icon.textContent = "—";
   const text = document.createElement("span");
   text.textContent = mensaje;
@@ -260,6 +261,7 @@ function filaCargando(tbody, columnas, mensaje = "Cargando información…") {
   const td = celda("");
   td.colSpan = columnas;
   td.className = "estado-vacio loading-row";
+  td.setAttribute("aria-busy", "true");
   const content = document.createElement("div");
   content.className = "empty-content";
   const spinner = document.createElement("span");
