@@ -29,6 +29,7 @@
   --shadow-xs: 0 1px 2px rgba(7, 24, 39, .05);
   --shadow-sm: 0 8px 24px rgba(7, 24, 39, .07);
   --shadow-lg: 0 24px 70px rgba(7, 24, 39, .14);
+  --radius-xs: 6px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 18px;
@@ -1428,17 +1429,17 @@ tbody tr:hover { background: var(--blue-50); }
   margin: 0;
   margin-right: auto;
   font-size: .85rem;
-  color: var(--slate-600, #64748b);
+  color: var(--slate-600);
 }
-.admin-form-counter.is-dirty { color: #b45309; font-weight: 600; }
+.admin-form-counter.is-dirty { color: var(--amber-700); font-weight: 600; }
 
 .admin-checkbox-group {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 6px 14px;
   padding: 10px 12px;
-  border: 1px solid var(--slate-200, #e2e8f0);
-  border-radius: 8px;
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-sm);
   background: #fbfcfd;
 }
 .admin-checkbox {
@@ -1459,35 +1460,35 @@ tbody tr:hover { background: var(--blue-50); }
   grid-column: 1 / -1;
 }
 .admin-rst-table {
-  border: 1px solid var(--slate-200, #e2e8f0);
-  border-radius: 8px;
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-sm);
   overflow: hidden;
-  background: #fff;
+  background: var(--white);
 }
 .admin-rst-table h4 {
   margin: 0;
   padding: 9px 12px;
   font-size: .85rem;
-  color: #fff;
-  background: #305496;
+  color: var(--white);
+  background: var(--navy-800);
 }
 .admin-rst-table table { width: 100%; border-collapse: collapse; }
 .admin-rst-table th,
 .admin-rst-table td {
   padding: 6px 10px;
-  border-top: 1px solid var(--slate-200, #e2e8f0);
+  border-top: 1px solid var(--slate-200);
   font-size: .84rem;
   font-weight: 400;
 }
 .admin-rst-table thead th {
   border-top: 0;
-  background: #f1f5f9;
+  background: var(--slate-100);
   font-weight: 600;
 }
 .admin-rst-table tbody th { text-align: left; }
 .admin-rst-table td { width: 42px; text-align: center; }
-.admin-rst-table tbody tr:hover { background: #f8fafc; }
-.admin-rst-clear th { color: var(--slate-600, #64748b); font-style: italic; }
+.admin-rst-table tbody tr:hover { background: var(--slate-50); }
+.admin-rst-clear th { color: var(--slate-600); font-style: italic; }
 
 /* Lista de cambios del modal de confirmación. */
 .admin-confirm-changes {
@@ -1503,8 +1504,8 @@ tbody tr:hover { background: var(--blue-50); }
   display: grid;
   gap: 2px;
   padding: 8px 10px;
-  border: 1px solid var(--slate-200, #e2e8f0);
-  border-radius: 6px;
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-xs);
   background: #fbfcfd;
   font-size: .85rem;
 }
@@ -1513,10 +1514,10 @@ tbody tr:hover { background: var(--blue-50); }
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  color: var(--slate-600, #64748b);
+  color: var(--slate-600);
 }
 .admin-confirm-before { text-decoration: line-through; opacity: .75; }
-.admin-confirm-after { color: #166534; font-weight: 600; }
+.admin-confirm-after { color: var(--green-700); font-weight: 600; }
 
 @media (max-width: 720px) {
   .admin-rst-grid { grid-template-columns: 1fr; }
@@ -1527,11 +1528,11 @@ tbody tr:hover { background: var(--blue-50); }
   grid-column: 1 / -1;
   margin: 0 0 4px;
   padding: 10px 12px;
-  border: 1px solid #fcd34d;
-  border-left-width: 4px;
-  border-radius: 6px;
-  background: #fffbeb;
-  color: #78350f;
+  border: 1px solid rgba(154, 93, 8, .18);
+  border-left: 4px solid var(--amber-700);
+  border-radius: var(--radius-xs);
+  background: var(--amber-100);
+  color: var(--amber-700);
   font-size: .86rem;
   line-height: 1.5;
 }

@@ -125,7 +125,7 @@ Estados obligatorios en vistas con datos: **carga** (skeleton o spinner), **vac�
 | # | Inconsistencia | Riesgo | Estado |
 |---|---|---|---|
 | 1 | `--slate-400` se usa (`.admin-page-ellipsis`) pero no está definido | Bug: el color cae al heredado | ✅ Resuelta |
-| 2 | Bloque "Editor del formulario" usa fallbacks de Tailwind (`#64748b`, `#e2e8f0`, `#f1f5f9`, `#f8fafc`, `#166534`, `#b45309`, `#305496`) | Segunda paleta mezclada | Pendiente |
+| 2 | Bloque "Editor del formulario" usa fallbacks de Tailwind (`#64748b`, `#e2e8f0`, `#f1f5f9`, `#f8fafc`, `#166534`, `#b45309`, `#305496`) | Segunda paleta mezclada | ✅ Resuelta |
 | 3 | Hex sueltos repetidos: `#fbfcfd` (×7), `#0e507f`, `#842e2e`, `#9aabb7`, `#91a0aa`, `#d99413`, `#fffaf0`, `#fdf1d8`, `#6b3fa0` | Difícil de mantener | Pendiente |
 | 4 | Radios en px fuera de escala: `7px`, `9px`, `10px`, `11px`, `14px`, `16px`, `20px` | Esquinas distintas en componentes equivalentes | Pendiente |
 | 5 | Sombras sueltas en menú contextual, toast y diálogo | Profundidad inconsistente | Pendiente |
