@@ -19,6 +19,7 @@
   --slate-700: #405464;
   --slate-600: #60717f;
   --slate-500: #7a8a96;
+  --slate-400: #9aabb7;
   --slate-300: #c9d3da;
   --slate-200: #dde4e9;
   --slate-100: #edf1f4;
@@ -221,7 +222,7 @@ input, select, textarea {
 }
 
 input::placeholder, textarea::placeholder { color: #91a0aa; }
-input:hover, select:hover, textarea:hover { border-color: #9aabb7; }
+input:hover, select:hover, textarea:hover { border-color: var(--slate-400); }
 input:focus, select:focus, textarea:focus { outline: 0; border-color: var(--focus); box-shadow: 0 0 0 3px rgba(46, 142, 208, .14); }
 .input-con-accion { position: relative; }
 .input-con-accion input { padding-right: 74px; }
