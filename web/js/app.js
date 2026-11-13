@@ -419,19 +419,35 @@ function inicializarPasswordToggles() {
   });
 }
 
+// Navegación principal: la misma en todas las páginas privadas. Cada sección
+// declara qué páginas le pertenecen para marcarla como activa.
+const NAV_PRINCIPAL = [
+  { href: "proyectos.html", texto: "Proyectos", paginas: ["proyectos", "detalle_proyecto", "detalle_linea", "detalle_poste", "formulario_poste"] },
+  { href: "admin.html", texto: "Administración", soloAdmin: true, paginas: ["admin", "admin_imagenes_poste"] },
+  { href: "plantillas.html", texto: "Plantillas", soloAdmin: true, paginas: ["plantillas"] },
+];
+
+function pintarNavegacion(usuario) {
+  const nav = document.querySelector(".topbar-center");
+  if (!nav) return;
+  const actual = (window.location.pathname.split("/").pop() || "").replace(/\.html$/i, "");
+  const esAdmin = usuario?.rol === "administrador";
+  nav.replaceChildren(...NAV_PRINCIPAL.filter((item) => !item.soloAdmin || esAdmin).map((item) => {
+    const enlace = document.createElement("a");
+    enlace.className = "nav-link";
+    enlace.href = item.href;
+    enlace.textContent = item.texto;
+    if (item.paginas.includes(actual)) {
+      enlace.classList.add("activo");
+      enlace.setAttribute("aria-current", "page");
+    }
+    return enlace;
+  }));
+}
+
 function inicializarInterfaz() {
   pintarUsuario();
-  const usuario = obtenerUsuario();
-  if (usuario?.rol === "administrador") {
-    const nav = document.querySelector(".topbar-center");
-    if (nav && !nav.querySelector('a[href="admin.html"]')) {
-      const enlace = document.createElement("a");
-      enlace.className = "nav-link";
-      enlace.href = "admin.html";
-      enlace.textContent = "Administracion";
-      nav.appendChild(enlace);
-    }
-  }
+  pintarNavegacion(obtenerUsuario());
   inicializarPasswordToggles();
   document.querySelectorAll("[data-current-year]").forEach((node) => {
     node.textContent = String(new Date().getFullYear());

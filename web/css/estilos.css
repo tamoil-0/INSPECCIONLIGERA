@@ -312,6 +312,7 @@ input:focus, select:focus, textarea:focus { outline: 0; border-color: var(--focu
 .topbar-center { display: flex; flex: 1; align-items: center; gap: 6px; }
 .nav-link { padding: 8px 11px; color: rgba(255, 255, 255, .66); border-radius: 8px; font-size: .85rem; font-weight: 680; text-decoration: none; }
 .nav-link:hover, .nav-link.activo { color: var(--white); background: rgba(255, 255, 255, .09); }
+.nav-link.activo { box-shadow: inset 0 -2px 0 var(--green-600); }
 .topbar-actions { display: flex; align-items: center; gap: 12px; }
 
 .conexion {
@@ -492,7 +493,13 @@ tbody tr:hover { background: var(--blue-50); }
   .acceso-formulario { padding: 48px; }
   .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .topbar-center, .usuario-meta { display: none; }
+  .usuario-meta { display: none; }
+  /* La navegación no desaparece: baja a una segunda fila desplazable. */
+  .topbar-inner { flex-wrap: wrap; row-gap: 0; }
+  .topbar-center { order: 3; flex: 1 0 100%; gap: 4px; margin: 0 -8px; padding: 0 0 8px; overflow-x: auto; scrollbar-width: none; }
+  .topbar-center::-webkit-scrollbar { display: none; }
+  .topbar-center:has(> .nav-link:only-child) { display: none; }
+  .nav-link { white-space: nowrap; }
 }
 
 @media (max-width: 760px) {
@@ -505,7 +512,9 @@ tbody tr:hover { background: var(--blue-50); }
   .acceso-formulario { align-content: start; padding: 34px 24px 48px; }
   .topbar-inner, .app-main, .app-footer { width: min(100% - 28px, var(--content)); }
   .topbar-inner { min-height: 62px; gap: 10px; }
-  .topbar .brand-copy span, .conexion span, .usuario-compacto { display: none; }
+  .topbar .brand-copy span, .usuario-compacto { display: none; }
+  /* El texto del estado de la API se oculta a la vista, no a los lectores de pantalla. */
+  .conexion span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
   .conexion { width: 30px; justify-content: center; padding: 0; }
   .topbar .button-ghost { min-height: 34px; padding: 6px 8px; }
   .app-main { padding-top: 22px; }
