@@ -398,7 +398,7 @@ input:focus, select:focus, textarea:focus { outline: 0; border-color: var(--focu
 .section-heading h2, .section-heading p { margin-bottom: 0; }
 .section-heading p { margin-top: 4px; color: var(--slate-600); font-size: .86rem; }
 .section-nav { display: flex; gap: 8px; margin: 0 0 20px; padding: 8px; overflow-x: auto; background: rgba(255, 255, 255, .82); border: 1px solid var(--slate-200); border-radius: var(--radius-md); }
-.section-nav a { padding: 7px 11px; color: var(--slate-700); border-radius: 7px; font-size: .8rem; font-weight: 680; text-decoration: none; white-space: nowrap; }
+.section-nav a { padding: 7px 11px; color: var(--slate-700); border-radius: var(--radius-xs); font-size: .8rem; font-weight: 680; text-decoration: none; white-space: nowrap; }
 .section-nav a:hover { color: var(--navy-900); background: var(--slate-100); }
 
 /* Tablas */
@@ -570,7 +570,7 @@ tbody tr:hover { background: var(--blue-50); }
   color: var(--slate-600);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   box-shadow: none;
   font-size: .84rem;
   cursor: pointer;
@@ -646,7 +646,7 @@ tbody tr:hover { background: var(--blue-50); }
   color: var(--slate-700);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   box-shadow: none;
   font-size: 1.45rem;
   letter-spacing: .04em;
@@ -705,7 +705,7 @@ tbody tr:hover { background: var(--blue-50); }
   place-items: center;
   color: currentColor;
   background: var(--slate-100);
-  border-radius: 7px;
+  border-radius: var(--radius-xs);
   font-size: .85rem;
   font-weight: 800;
 }
@@ -804,7 +804,7 @@ tbody tr:hover { background: var(--blue-50); }
   overflow: hidden;
   background: var(--white);
   border: 1px solid rgba(255, 255, 255, .55);
-  border-radius: 20px;
+  border-radius: var(--radius-lg);
   box-shadow: 0 30px 90px rgba(7, 24, 39, .3);
 }
 .admin-dialog[open] { animation: admin-dialog-in .18s ease-out; }
@@ -999,7 +999,7 @@ tbody tr:hover { background: var(--blue-50); }
 .admin-import-change-content { display: grid; gap: 8px; }
 .admin-import-change-content > small { color: var(--slate-600); line-height: 1.4; }
 .admin-import-inline-notice { color: var(--amber-700) !important; font-weight: 700; }
-.admin-import-diff-table { width: 100%; min-width: 0 !important; table-layout: fixed; border: 1px solid var(--slate-200); border-radius: 7px; font-size: .7rem; }
+.admin-import-diff-table { width: 100%; min-width: 0 !important; table-layout: fixed; border: 1px solid var(--slate-200); border-radius: var(--radius-xs); font-size: .7rem; }
 .admin-import-diff-table th,
 .admin-import-diff-table td {
   position: static !important;
@@ -1017,7 +1017,7 @@ tbody tr:hover { background: var(--blue-50); }
   color: var(--amber-700);
   background: var(--amber-100);
   border: 1px solid rgba(154, 93, 8, .15);
-  border-radius: 7px;
+  border-radius: var(--radius-xs);
   font-size: .72rem;
   font-weight: 750;
 }
@@ -1087,7 +1087,7 @@ tbody tr:hover { background: var(--blue-50); }
   background: var(--white);
   border: 1px solid var(--slate-200);
   border-left: 4px solid var(--green-700);
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   box-shadow: 0 16px 44px rgba(7, 24, 39, .18);
   font-size: .83rem;
   animation: admin-toast-in .2s ease-out;
@@ -1160,7 +1160,7 @@ tbody tr:hover { background: var(--blue-50); }
   .admin-dialog {
     width: calc(100% - 16px);
     max-height: calc(100dvh - 16px);
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
   }
   .admin-dialog form { max-height: calc(100dvh - 16px); }
   .admin-dialog-header { align-items: flex-start; padding: 17px; }
@@ -1556,7 +1556,7 @@ tbody tr:hover { background: var(--blue-50); }
   color: var(--blue-700);
   background: var(--blue-50);
   border: 1px solid var(--blue-100);
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   font-size: .84rem;
   font-weight: 730;
   text-decoration: none;
