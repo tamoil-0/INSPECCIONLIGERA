@@ -510,6 +510,9 @@ tbody tr:hover { background: var(--blue-50); }
   .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .usuario-meta { display: none; }
+  /* Encabezado apilado: con 3-4 acciones no caben junto al título en tablet. */
+  .page-heading { align-items: flex-start; flex-direction: column; }
+  .page-actions { flex-wrap: wrap; }
   /* La navegación no desaparece: baja a una segunda fila desplazable. */
   .topbar-inner { flex-wrap: wrap; row-gap: 0; }
   .topbar-center { order: 3; flex: 1 0 100%; gap: 4px; margin: 0 -8px; padding: 0 0 8px; overflow-x: auto; scrollbar-width: none; }
@@ -1605,4 +1608,6 @@ tbody tr:hover { background: var(--blue-50); }
   .admin-action-trigger, .admin-dialog-close { min-width: var(--touch); }
   .admin-dialog-close { min-height: var(--touch); }
   .nav-link, .section-nav a { display: inline-flex; align-items: center; }
+  .brand-link, .breadcrumbs a, .acceso-ayuda a { display: inline-flex; min-height: var(--touch); align-items: center; }
+  .breadcrumbs { margin-bottom: 12px; }
 }
