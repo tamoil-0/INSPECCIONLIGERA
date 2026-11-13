@@ -39,6 +39,9 @@ Contraste verificado (AA, texto normal ≥ 4.5:1): `--slate-600` sobre blanco 5.
 `--green-700` sobre `--green-100` 5.3:1, `--amber-700` sobre `--amber-100` 4.6:1, `--red-700` sobre `--red-100` 5.2:1.
 `--slate-500` (3.6:1) **solo** para texto ≥ 18 px o información secundaria no esencial.
 
+Excepción: `web/css/plantillas.css` usa negro/grises literales en la vista previa del PDF (lienzo del editor),
+porque representan la impresión real, no la interfaz.
+
 ## 2. Tipografía
 
 - Familia: `Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif` (sin webfont: usa la del sistema, sin saltos de layout).
@@ -126,7 +129,7 @@ Estados obligatorios en vistas con datos: **carga** (skeleton o spinner), **vac�
 |---|---|---|---|
 | 1 | `--slate-400` se usa (`.admin-page-ellipsis`) pero no está definido | Bug: el color cae al heredado | ✅ Resuelta |
 | 2 | Bloque "Editor del formulario" usa fallbacks de Tailwind (`#64748b`, `#e2e8f0`, `#f1f5f9`, `#f8fafc`, `#166534`, `#b45309`, `#305496`) | Segunda paleta mezclada | ✅ Resuelta |
-| 3 | Hex sueltos repetidos: `#fbfcfd` (×7), `#0e507f`, `#842e2e`, `#9aabb7`, `#91a0aa`, `#d99413`, `#fffaf0`, `#fdf1d8`, `#6b3fa0` | Difícil de mantener | Pendiente |
+| 3 | Hex sueltos repetidos: `#fbfcfd` (×7), `#0e507f`, `#842e2e`, `#9aabb7`, `#91a0aa`, `#d99413`, `#fffaf0`, `#fdf1d8`, `#6b3fa0` | Difícil de mantener | ✅ Resuelta (quedan solo colores decorativos de un solo uso: degradados del login, puntos de estado sobre la topbar oscura y brillo del skeleton) |
 | 4 | Radios en px fuera de escala: `7px`, `9px`, `10px`, `11px`, `14px`, `16px`, `20px` | Esquinas distintas en componentes equivalentes | Pendiente |
 | 5 | Sombras sueltas en menú contextual, toast y diálogo | Profundidad inconsistente | Pendiente |
 | 6 | Alturas de controles: botones 42 px, `.button-sm` 36 px, paginación 34 px, acciones 38 px | Objetivos táctiles < 44 px en móvil | Pendiente |
